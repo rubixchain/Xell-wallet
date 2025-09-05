@@ -1,0 +1,57 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* .blue {
+    --primary-bg: #1e40af;
+    --secondary-bg: #1d4ed8;
+    --text-color: #eff6ff;
+} */
+
+
+/* Default theme variables */
+body {
+    font-family: 'Mona sans';
+    overflow-y: scroll;
+    scrollbar-width: none;
+    /* for Firefox */
+    -ms-overflow-style: none;
+    /* for IE and older Edge */
+}
+
+::-webkit-scrollbar {
+    display: none;
+    /* Hide scrollbar in Chrome, Safari, newer Edge */
+}
+
+:root {
+
+    --color-primary: #033500;
+    --color-secondary: #006600;
+    --color-tertiary: #ECFFE4;
+    --color-quaternary: #FFFFFF;
+    --color-quinary: #4B5563;
+    --color-blue-600: #4040D9;
+    --color-gray-500: #9CA3AF;
+    --color-senary: #111827;
+    --color-yellow-300: #FFF243;
+    --color-yellow-500: #EFC903;
+    --color-yellow-100: #FFFFC2;
+    --color-yellow-900: #734710;
+    --color-disabled: #D1D5DB;
+    --color-surface-low: rgba(229, 229, 229, 0.25);
+}
+
+/* Custom blue theme */
+.dark {
+    --color-primary: #004d00;
+    --color-secondary: #111827;
+    --color-text: #f9fafb;
+}
+
+/* Custom red theme */
+.custom-red {
+    --color-primary: #004d10;
+    --color-secondary: #111857;
+    --color-text: #f9fadb;
+}
