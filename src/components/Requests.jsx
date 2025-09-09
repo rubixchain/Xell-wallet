@@ -237,7 +237,11 @@ const Requests = () => {
                                         // Remove common prefixes for cleaner display
                                         let displayKey = key
                                             .replace(/^publish_asset\./, '')
-                                            .replace(/^asset_metadata\./, '');
+                                            .replace(/^asset_metadata\./, '')
+                                            .replace(/^use_asset\./, '')
+                                            // Convert underscores to spaces and capitalize first letter of each word
+                                            .replace(/_/g, ' ')
+                                            .replace(/\b\w/g, l => l.toUpperCase());
                                         
                                         return (
                                             <div
