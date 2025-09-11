@@ -171,6 +171,11 @@ const Requests = () => {
                                 const flattened = {};
                                 
                                 Object.keys(obj).forEach(key => {
+                                    // Skip smartContractData - keep it as-is
+                                    if (key === 'smartContractData') {
+                                        return;
+                                    }
+                                    
                                     const value = obj[key];
                                     const newKey = prefix ? `${prefix}.${key}` : key;
                                     
@@ -201,16 +206,8 @@ const Requests = () => {
                             // Process the data
                             let processedData = { ...(raw || {}) };
                             
-                            // Parse and flatten smartContractData if present
-                            if (typeof raw.smartContractData === 'string') {
-                                try {
-                                    const parsed = JSON.parse(raw.smartContractData);
-                                    // Flatten any nested objects in the parsed data
-                                    const flattened = flattenObject(parsed);
-                                    Object.assign(processedData, flattened);
-                                } catch { }
-                                delete processedData.smartContractData;
-                            }
+                            // Keep smartContractData as-is without parsing or flattening
+                            // The smartContractData will be displayed as a single field in the UI
                             
                             // Fix for missing receiver field in NFT execution
                             if (websiteInitiated?.initiated?.type === WALLET_TYPES.EXECUTE_NFT && processedData.nft_data && !processedData.receiver) {
@@ -222,8 +219,13 @@ const Requests = () => {
                                 }
                             }
                             
-                            // Flatten any remaining nested objects
+                            // Flatten any remaining nested objects, but keep smartContractData as-is
                             const flatData = flattenObject(processedData);
+                            
+                            // If smartContractData exists, add it back as a single field
+                            if (raw.smartContractData) {
+                                flatData.smartContractData = raw.smartContractData;
+                            }
 
                             return (
                                 <div
