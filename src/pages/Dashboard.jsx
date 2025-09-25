@@ -124,12 +124,12 @@ export default function Dashboard() {
 
  
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col items-center"
+    <div className="bg-gray-50 dark:bg-gray-900 flex flex-col w-full h-full"
       style={{
         scrollbarWidth: 'none',
         msOverflowStyle: 'none',
-        width: 390,
-        height: 600
+        minWidth: '390px',
+        minHeight: '600px'
       }}
     >
       <Header />

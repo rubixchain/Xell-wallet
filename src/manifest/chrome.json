@@ -7,6 +7,9 @@
         "default_popup": "index.html",
         "default_title": "Xell"
     },
+    "side_panel": {
+        "default_path": "index.html"
+    },
     "icons": {
         "16": "images/favicon-16x16.png",
         "32": "images/favicon-32x32.png",
@@ -16,7 +19,9 @@
         "storage",
         "activeTab",
         "scripting",
-        "alarms"
+        "alarms",
+        "windows",
+        "sidePanel"
     ],
     "host_permissions": [
         "<all_urls>"

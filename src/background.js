@@ -37,6 +37,29 @@ async function injectResultIntoWebpage(tabId, result) {
 }
 
 // ============================================================================
+// SPLIT MODE HANDLER
+// ============================================================================
+async function handleSplitModeToggle(message) {
+    try {
+        const { splitMode } = message;
+
+        if (splitMode) {
+            // Enable side panel mode - set behavior to open panel on action click
+            await chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true });
+        } else {
+            // Disable side panel mode - revert to popup
+            await chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: false });
+        }
+
+        // Store split mode preference
+        await chrome.storage.local.set({ 'splitMode': splitMode });
+
+    } catch (error) {
+        console.error('Split mode error:', error);
+    }
+}
+
+// ============================================================================
 // MESSAGE HANDLERS
 // ============================================================================
 async function handleWalletRequest(message, sender) {
@@ -272,6 +295,9 @@ const messageListener = async (message, sender, sendResponse) => {
                 sendResponse({ success: true });
                 return true;
             case 'CONTENT_SCRIPT_LOADED':
+                break;
+            case 'TOGGLE_SPLIT_MODE':
+                await handleSplitModeToggle(message);
                 break;
             default:
                 // Unknown message type - silent handling
