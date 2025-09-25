@@ -163,66 +163,50 @@ export default function EditNetworkModal({ networks, network, onClickNetworkModa
             };
             await indexDBUtil.storeNetworkSetting(networkSetting);
 
-            const allDids = await END_POINTS.get_network_details();
-            const findDid = allDids?.account_info?.find(item => item?.did === userDetails.did);
+            // Create wallet and register DID for the network
+            const walletResult = await END_POINTS.create_wallet({
+                public_key: userDetails?.publickey,
+                network: network?.id
+            });
 
-            const handleDidRegistration = async (did) => {
-                const registerDid = await END_POINTS.register_did({ did });
-                if (!registerDid?.status) {
-                    toast.dismiss();
-                    let msg = registerDid?.message || 'Failed to register DID';
-                    msg = msg.replace(/(code\s*\d{3})/gi, '').replace(/\d{3}/g, '').replace(/\s+/g, ' ').trim();
-                    toast.error(msg);
-                    return false;
-                }
+            if (!walletResult) {
+                toast.dismiss();
+                let msg = walletResult?.message || 'failed to create wallet';
+                msg = msg.replace(/(code\s*\d{3})/gi, '').replace(/\d{3}/g, '').replace(/\s+/g, ' ').trim();
+                toast.error(msg);
+                return;
+            }
 
-                const userData = await indexDBUtil.getData("UserDetails", userDetails.username, userDetails.pin);
-                if (!userData?.privatekey) {
-                    toast.dismiss();
-                    toast.error('Private key not found');
-                    return false;
-                }
+            // Register DID for the network
+            const registerDid = await END_POINTS.register_did({ did: walletResult.did });
+            if (!registerDid?.status) {
+                toast.dismiss();
+                let msg = registerDid?.message || 'Failed to register DID';
+                msg = msg.replace(/(code\s*\d{3})/gi, '').replace(/\d{3}/g, '').replace(/\s+/g, ' ').trim();
+                toast.error(msg);
+                return;
+            }
 
-                const signature = await generateSignature(userData.privatekey, registerDid.result.hash);
-                const signatureResponse = await END_POINTS.signature_response({
-                    id: registerDid.result.id,
-                    Signature: { Signature: signature },
-                    mode: 4
-                });
+            const userData = await indexDBUtil.getData("UserDetails", userDetails.username, userDetails.pin);
+            if (!userData?.privatekey) {
+                toast.dismiss();
+                toast.error('Private key not found');
+                return;
+            }
 
-                if (!signatureResponse?.status) {
-                    toast.dismiss();
-                    let msg = signatureResponse?.message || "Failed to register DID";
-                    msg = msg.replace(/(code\s*\d{3})/gi, '').replace(/\d{3}/g, '').replace(/\s+/g, ' ').trim();
-                    toast.error(msg);
-                    return false;
-                }
-                return true;
-            };
+            const signature = await generateSignature(userData.privatekey, registerDid.result.hash);
+            const signatureResponse = await END_POINTS.signature_response({
+                id: registerDid.result.id,
+                Signature: { Signature: signature },
+                mode: 4
+            });
 
-            if (!findDid) {
-                const res = await END_POINTS.create_wallet({
-                    public_key: userDetails?.publickey,
-                    network: network?.id
-                });
-
-                if (!res) {
-                    toast.dismiss();
-                    let msg = res?.message || 'failed to create wallet';
-                    msg = msg.replace(/(code\s*\d{3})/gi, '').replace(/\d{3}/g, '').replace(/\s+/g, ' ').trim();
-                    toast.error(msg);
-                    return;
-                }
-
-                const didRegistrationResult = await handleDidRegistration(res.did);
-                if (!didRegistrationResult) {
-                    throw new Error('DID registration failed');
-                }
-            } else {
-                const didRegistrationResult = await handleDidRegistration(userDetails.did);
-                if (!didRegistrationResult) {
-                    throw new Error('DID registration failed');
-                }
+            if (!signatureResponse?.status) {
+                toast.dismiss();
+                let msg = signatureResponse?.message || "Failed to register DID";
+                msg = msg.replace(/(code\s*\d{3})/gi, '').replace(/\d{3}/g, '').replace(/\s+/g, ' ').trim();
+                toast.error(msg);
+                return;
             }
 
             if (selectedNetworkIndex != null) {

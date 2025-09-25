@@ -70,6 +70,7 @@ export default function Header() {
     navigate('/login', { replace: true });
   };
 
+
   return (
     <header className="border-b sticky top-0 left-0 right-0 z-50 border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-800">
       <ContentContainer>
@@ -92,8 +93,9 @@ export default function Header() {
               </button>
             </div>
           </div>
-          <div className="relative" ref={dropdownRef}>
-            <BsThreeDotsVertical className="w-4 h-4 cursor-pointer" onClick={toggleDropdown} />
+          <div className="flex items-center space-x-2">
+            <div className="relative" ref={dropdownRef}>
+              <BsThreeDotsVertical className="w-4 h-4 cursor-pointer" onClick={toggleDropdown} />
             {dropdownOpen && (
               <div className="absolute p-3 right-0 top-8 z-50 bg-white text-gray-900 border rounded shadow-lg">
                 <div className="">
@@ -114,11 +116,12 @@ export default function Header() {
                     className="px-2 w-full flex items-center  gap-2 text-sm font-medium rounded-sm cursor-pointer hover:bg-gray-200 py-2"
                   >
                     <FiLock className="w-4 h-4" />
-                    Lock Wallet
+                    Lock Xell
                   </button>
                 </div>
               </div>
             )}
+            </div>
           </div>
         </div>
       </ContentContainer>

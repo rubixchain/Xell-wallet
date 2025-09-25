@@ -4,9 +4,15 @@
   "version": "2.0.3",
   "type": "module",
   "description": "A self-custodial cryptocurrency wallet built as a browser extension for Rubix and Trie networks",
-  "keywords": ["wallet", "cryptocurrency", "browser-extension", "rubix", "trie", "self-custodial"],
+  "keywords": [
+    "wallet",
+    "cryptocurrency",
+    "browser-extension",
+    "rubix",
+    "trie",
+    "self-custodial"
+  ],
   "author": "Xell Wallet Team",
-
   "homepage": "https://github.com/your-username/xell-wallet#readme",
   "repository": {
     "type": "git",
@@ -57,6 +63,7 @@
     "@vitejs/plugin-react": "^4.3.4",
     "autoprefixer": "^10.4.20",
     "eslint": "^9.16.0",
+    "eslint-plugin-no-secrets": "^2.2.1",
     "eslint-plugin-react": "^7.37.2",
     "eslint-plugin-react-hooks": "^5.0.0",
     "eslint-plugin-react-refresh": "^0.4.16",

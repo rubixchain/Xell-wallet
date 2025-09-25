@@ -43,29 +43,7 @@ async function handleWalletRequest(message, sender) {
     try {
         // Get website information
         const tab = await chrome.tabs.get(sender.tab.id)
-        let allowedOrigins = config.ALLOWED_ORIGINS
-        // Check if origin is allowed (supports wildcard matching for trie.network)
-        const isOriginAllowed = (hostname, allowedOrigins) => {
-            if (!allowedOrigins || allowedOrigins.length === 0) return true;
-
-            return allowedOrigins.some(origin => {
-                // Exact match
-                if (origin === hostname) return true;
-
-                // Wildcard match for trie.network domains
-                if (hostname.includes('trie.network')) return true;
-
-                // Check if hostname ends with trie.network (for subdomains)
-                if (hostname.endsWith('.trie.network')) return true;
-
-                return false;
-            });
-        };
-
-        if (!isOriginAllowed(new URL(tab.url).hostname, allowedOrigins)) {
-            return;
-        }
-        // Store website information for popup in the expected format
+      
         await chrome.storage.local.set({
             websiteInitiated: {
                 data: message.data,
@@ -223,6 +201,8 @@ async function handleApiExecution(message, sender) {
         return { success: false, error: error.message };
     }
 }
+
+
 
 // ============================================================================
 // MAIN MESSAGE LISTENER

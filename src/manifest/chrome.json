@@ -16,7 +16,8 @@
         "storage",
         "activeTab",
         "scripting",
-        "alarms"
+        "alarms",
+        "tabs"
     ],
     "host_permissions": [
         "<all_urls>"
@@ -24,6 +25,7 @@
     "web_accessible_resources": [
         {
             "resources": [
+                "index.html",
                 "assets/*",
                 "images/*",
                 "injection.js",

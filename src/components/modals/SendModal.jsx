@@ -8,6 +8,7 @@ import { UserContext } from '../../context/userContext';
 import { generateSignature, isSignatureRoundRequired } from '../../utils';
 import indexDBUtil from '../../indexDB';
 import { NETWORK_TYPES } from '../../../config';
+import TransactionConfirmationModal from './TransactionConfirmationModal';
 
 const typesArray = ["Type 1", "Type 2"]
 
@@ -27,6 +28,9 @@ export default function SendModal({ isOpen, onClose, accountInfo, setIsTransacti
   const [showTokenDropdown, setShowTokenDropdown] = useState(false)
   const [tokenSearchQuery, setTokenSearchQuery] = useState('')
   const dropdownRef = useRef(null)
+  const [showConfirmation, setShowConfirmation] = useState(false)
+  const [transactionData, setTransactionData] = useState(null)
+  const [amountError, setAmountError] = useState('')
 
   useEffect(() => {
     let fav = localStorage.getItem(userDetails?.username)
@@ -217,6 +221,20 @@ export default function SendModal({ isOpen, onClose, accountInfo, setIsTransacti
       return toast.error('Please enter recipient address')
     }
 
+    // Prepare transaction data for confirmation
+    const txData = {
+      amount,
+      recipientAddress,
+      recipientName,
+      comments,
+      selectedToken
+    };
+    
+    setTransactionData(txData);
+    setShowConfirmation(true);
+  }
+
+  const executeTransaction = async () => {
     setLoader(true)
 
     try {
@@ -279,6 +297,17 @@ export default function SendModal({ isOpen, onClose, accountInfo, setIsTransacti
       setLoader(false)
     }
   }
+
+  const handleConfirmTransaction = () => {
+    setShowConfirmation(false);
+    executeTransaction();
+  };
+
+  const handleRejectTransaction = () => {
+    setShowConfirmation(false);
+    setTransactionData(null);
+    onClose();
+  };
 
   return (
     <div
@@ -356,22 +385,17 @@ export default function SendModal({ isOpen, onClose, accountInfo, setIsTransacti
             </div>
           )}
 
-          {/* Available Balance */}
-          <div className="space-y-2 bg-[#E5E5E540] p-3 rounded-lg">
-            <div className='flex justify-between dark:bg-gray-900'>
+          {/* Transaction Amount */}
+          <div className="space-y-2">
+            <div className="flex justify-between items-center">
               <label className="block text-sm font-semibold text-gray-900 dark:text-white">
-                Available Balance
+                Transaction Amount
               </label>
-              <div className="rounded-lg">
-
-
-                <span className="text-lg font-semibold text-gray-900 dark:text-white">
-                  {currentTokenInfo.balance} {currentTokenInfo.symbol}
-                </span >
-
-              </div >
-            </div >
-            <div className="relative bg-[#E5E5E540]">
+              <span className="text-sm font-semibold text-gray-600 dark:text-gray-400">
+                Balance: {currentTokenInfo.balance} {currentTokenInfo.symbol}
+              </span>
+            </div>
+            <div className="relative">
               <input
                 disabled={loader}
                 onWheel={(e) => e.target.blur()}
@@ -379,39 +403,56 @@ export default function SendModal({ isOpen, onClose, accountInfo, setIsTransacti
                 value={amount}
                 onChange={(e) => {
                   let value = e.target.value
+                  setAmountError('') // Clear previous errors
 
                   // Match number pattern with up to 3 decimal places
                   const regex = /^\d*\.?\d{0,3}$/;
 
-                  // If value matches regex and is within limits, update amount
-                  if (value && regex.test(value) && (parseFloat(value) >= 0 && parseFloat(value) <= parseFloat(currentTokenInfo.balance))) {
+                  if (!value) {
                     setAmount(value);
                     return
                   }
-                  if (!value) {
+
+                  // Check if value matches regex pattern
+                  if (!regex.test(value)) {
+                    setAmountError('Invalid amount format');
+                    return
+                  }
+
+                  const numValue = parseFloat(value);
+                  
+                  // Check if amount exceeds balance
+                  if (numValue > parseFloat(currentTokenInfo.balance)) {
+                    setAmountError(`Amount exceeds available balance of ${currentTokenInfo.balance} ${currentTokenInfo.symbol}`);
+                    return
+                  }
+
+                  // If all validations pass, update amount
+                  if (numValue >= 0) {
                     setAmount(value);
                   }
                 }}
                 placeholder="0.00"
-                className="text-sm [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none w-full p-4 border rounded-lg outline-none focus:ring-2 focus:ring-primary"
+                className="text-sm [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none w-full p-4 bg-gray-50 dark:bg-gray-900 rounded-lg outline-none focus:ring-2 focus:ring-primary"
               />
-              <button
-                type="button"
-                disabled={loader}
-                onClick={() => setAmount(currentTokenInfo.balance)}
-                className="absolute font-semibold text-base right-4 top-1/2 -translate-y-1/2 text-[#135B0C] hover:text-primary-light"
-              >
-                MAX
-              </button>
+              {amountError && (
+                <motion.p
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="mt-2 text-sm text-red-600 dark:text-red-400"
+                >
+                  {amountError}
+                </motion.p>
+              )}
             </div>
-          </div >
+          </div>
 
           {/* Recipient Address */}
-          < div className="space-y-2" >
+          <div className="space-y-2">
             <label className="block text-sm font-semibold text-gray-900 dark:text-white">
               Recipient Address
             </label>
-            <div className="space-y-2">
+            <div className="relative">
               <input
                 disabled={loader}
                 type="text"
@@ -426,23 +467,23 @@ export default function SendModal({ isOpen, onClose, accountInfo, setIsTransacti
                 placeholder="Enter recipient's address"
                 className="w-full p-4 bg-gray-50 text-sm dark:bg-gray-900 rounded-lg outline-none focus:ring-2 focus:ring-primary"
               />
-              {recipientAddress && !recipientName && !showSaveToFavorites && (
-                <motion.button
-                  disabled={loader}
-                  type="button"
-                  onClick={() => setShowSaveToFavorites(true)}
-                  className="flex items-center space-x-2 text-primary hover:text-primary-light text-sm"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                >
-                  <div className='flex items-center text-lg text-[#118902]'>
-                    <FiStar className="w-5 h-5 mr-1" />
-                    <span className='font-semibold text-sm'>Save to Favorites</span>
-                  </div>
-                </motion.button>
-              )}
             </div>
-          </div >
+            {recipientAddress && !recipientName && !showSaveToFavorites && (
+              <motion.button
+                disabled={loader}
+                type="button"
+                onClick={() => setShowSaveToFavorites(true)}
+                className="flex items-center space-x-2 text-primary hover:text-primary-light text-sm"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+              >
+                <div className='flex items-center text-lg text-[#118902]'>
+                  <FiStar className="w-5 h-5 mr-1" />
+                  <span className='font-semibold text-sm'>Save to Favorites</span>
+                </div>
+              </motion.button>
+            )}
+          </div>
 
           {/* Save to Favorites Form */}
           < AnimatePresence >
@@ -481,25 +522,28 @@ export default function SendModal({ isOpen, onClose, accountInfo, setIsTransacti
             }
           </AnimatePresence >
 
-          <label className="block text-sm font-semibold text-gray-900 dark:text-white">
-            Comments (optional)
-          </label>
-          <div className="relative bg-[#E5E5E540]">
-            <input
-              disabled={loader}
-              type="text"
-              value={comments}
-              onChange={(e) => {
-                setComments(e?.target.value);
-              }}
-              placeholder="Add your comments"
-              className="text-sm w-full p-4 border rounded-lg outline-none focus:ring-2 focus:ring-primary"
-            />
+          {/* Comment / Memo */}
+          <div className="space-y-2">
+            <label className="block text-sm font-semibold text-gray-900 dark:text-white">
+              Comment / Memo
+            </label>
+            <div className="relative">
+              <input
+                disabled={loader}
+                type="text"
+                value={comments}
+                onChange={(e) => {
+                  setComments(e?.target.value);
+                }}
+                placeholder="Add your comments"
+                className="text-sm w-full p-4 bg-gray-50 dark:bg-gray-900 rounded-lg outline-none focus:ring-2 focus:ring-primary"
+              />
+            </div>
           </div>
 
           {/* Submit Button */}
           <button
-            disabled={loader || !recipientAddress || !amount || (!userDetails?.tokenSymbol && !selectedToken)}
+            disabled={loader || !recipientAddress || !amount || amountError || (!userDetails?.tokenSymbol && !selectedToken)}
             onClick={(e) => onClickSendToken(e)}
             type="submit"
             className="w-full bg-secondary hover:bg-secondary text-white font-semibold py-4 px-6 rounded-lg flex items-center justify-center space-x-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
@@ -519,6 +563,16 @@ export default function SendModal({ isOpen, onClose, accountInfo, setIsTransacti
           </button >
         </form >
       </motion.div >
+
+      {/* Transaction Confirmation Modal */}
+      <TransactionConfirmationModal
+        isOpen={showConfirmation}
+        onClose={() => setShowConfirmation(false)}
+        onConfirm={handleConfirmTransaction}
+        onReject={handleRejectTransaction}
+        transactionData={transactionData}
+        isLoading={loader}
+      />
     </div >
   );
 }

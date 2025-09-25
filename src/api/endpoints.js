@@ -60,9 +60,6 @@ export const END_POINTS = {
     create_ft: (data) => {
         return api.post('create-ft', data)
     },
-    get_network_details: () => {
-        return api.get('getalldid')
-    },
     get_ft_txn_by_did: (params) => {
         return api.get('get-ft-txn-by-did', { params })
     }

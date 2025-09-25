@@ -48,122 +48,100 @@
     // ============================================================================
     // SCRIPT INJECTION
     // ============================================================================
-    function injectWalletScript() {
+    function injectScript() {
+        // Check if script is already injected
+        const existingScript = document.querySelector(CONFIG.SCRIPT_SELECTOR);
+        if (existingScript) {
+            return;
+        }
+
+        try {
+            const script = document.createElement('script');
+            script.src = runtime.runtime.getURL('injection.js');
+            script.onload = function () {
+                this.remove();
+            };
+            (document.head || document.documentElement).appendChild(script);
+        } catch (error) {
+            console.error('Failed to inject script:', error);
+        }
+    }
+
+    // ============================================================================
+    // MESSAGE HANDLING
+    // ============================================================================
+    function handleWindowMessage(event) {
+        if (!event.data || !event.data.target || event.data.target !== CONFIG.TARGET_NAME) {
+            return;
+        }
+
+        if (!isExtensionValid()) {
+            window.postMessage(
+                createMessagePayload(event.data.type, event.data.requestId, {
+                    isError: true,
+                    error: 'Extension context invalidated. Please refresh the page.'
+                }),
+                '*'
+            );
+            return;
+        }
+
+        try {
+            runtime.runtime.sendMessage(event.data.data, function (response) {
+                // Handle response if needed
+            });
+        } catch (error) {
+            window.postMessage(
+                createMessagePayload(event.data.type, event.data.requestId, {
+                    isError: true,
+                    error: 'Failed to communicate with extension.'
+                }),
+                '*'
+            );
+        }
+    }
+
+    function handleRuntimeMessage(message, sender, sendResponse) {
+        try {
+            // Handle messages from the background script
+            switch (message?.type) {
+                case CONFIG.MESSAGE_TYPES.WALLET_SIGN_RESPONSE:
+                case CONFIG.MESSAGE_TYPES.WALLET_ARBITRARY_RESPONSE:
+                case CONFIG.MESSAGE_TYPES.EXECUTE_CONTRACT:
+                case CONFIG.MESSAGE_TYPES.INITIATE_DEPLOY_NFT:
+                case CONFIG.MESSAGE_TYPES.INITIATE_EXECUTE_NFT:
+                case CONFIG.MESSAGE_TYPES.INITIATE_TRANSFER_FT:
+                case CONFIG.MESSAGE_TYPES.INITIATE_CREATE_FT:
+                    // Forward to the webpage
+                    window.postMessage(
+                        createMessagePayload(message.type, message.requestId, message),
+                        '*'
+                    );
+                    break;
+                case 'CONTENT_SCRIPT_CHECK':
+                    // Respond to content script check
+                    sendResponse({ loaded: true });
+                    return true;
+                default:
+                    // Unknown message type - silent handling
+                    break;
+            }
+        } catch (error) {
+            console.error('Error handling runtime message:', error);
+        }
+    }
+
+    // ============================================================================
+    // EVENT HANDLING
+    // ============================================================================
+    function handleCustomEvent(event) {
         try {
             if (!isExtensionValid()) {
                 return;
             }
-
-            // Check if script is already injected
-            if (!document.querySelector(CONFIG.SCRIPT_SELECTOR)) {
-                const script = document.createElement('script');
-                script.src = runtime.runtime.getURL('injection.js');
-                script.onload = function () {
-                    window.dispatchEvent(new CustomEvent('extensionReady'));
-                };
-                (document.head || document.documentElement).appendChild(script);
-            }
-        } catch (err) {
-            // Silent error handling
-        }
-    }
-
-    // ============================================================================
-    // EVENT HANDLERS
-    // ============================================================================
-    function handleWalletTrigger(event) {
-        try {
-            if (!isExtensionValid()) {
-                return;
-            }
-
-            const data = event.detail;
-            runtime.runtime.sendMessage({ ...data })
-                .then(response => {
-                })
-                .catch(err => {
-                    handleBackgroundScriptError(err, data);
-                });
-        } catch (err) {
-           
-            // Silent error handling
-        }
-    }
-
-    function handleBackgroundScriptError(err, originalData) {
-        // Handle background script unavailability
-        if (err.message.includes('No SW') || err.message.includes('Could not establish connection')) {
-            try {
-                chrome.scripting.executeScript({
-                    target: { tabId: sender.tab.id },
-                    func: (requestId, errorMsg) => {
-                        if (window.xell && window.xell.resolvePromise) {
-                            window.xell.resolvePromise(requestId, { error: errorMsg });
-                        }
-                    },
-                    args: [originalData.requestId, 'Background script not available']
-                });
-            } catch (e) {
-                // Silent error handling
-            }
-        } else {
-            window.postMessage({
-                type: 'EXTENSION_ERROR',
-                error: err.message,
-                requestId: originalData.requestId
-            }, '*');
-        }
-    }
-
-    function handleBackgroundMessage(message, sender, sendResponse) {
-        try {
-            // Handle all response messages from background script
-            const responseTypes = [
-                CONFIG.MESSAGE_TYPES.WALLET_SIGN_RESPONSE,
-                CONFIG.MESSAGE_TYPES.WALLET_ARBITRARY_RESPONSE,
-                CONFIG.MESSAGE_TYPES.EXECUTE_CONTRACT,
-                CONFIG.MESSAGE_TYPES.INITIATE_DEPLOY_NFT,
-                CONFIG.MESSAGE_TYPES.INITIATE_TRANSFER_FT,
-                CONFIG.MESSAGE_TYPES.INITIATE_CREATE_FT,
-                CONFIG.MESSAGE_TYPES.INITIATE_EXECUTE_NFT,
-            ];
-
-            if (responseTypes.includes(message.type)) {
-                
-                let payload = {
-                    status: message.status,
-                    data: message.data
-                }
-               
-                window.postMessage(createMessagePayload(message.type, message.requestId, payload), "*");
-            }
-            return false; // No async response needed
-        } catch (err) {
-            // Silent error handling
-        }
-    }
-
-    // ============================================================================
-    // EVENT LISTENER SETUP
-    // ============================================================================
-    function setupEventListeners() {
-        try {
-            // Remove existing listener to prevent duplicates
-            window.removeEventListener(CONFIG.EVENT_NAME, handleWalletTrigger);
-            // Add the listener
-            window.addEventListener(CONFIG.EVENT_NAME, handleWalletTrigger);
-        } catch (err) {
-            // Silent error handling
-        }
-    }
-
-    function setupMessageListener() {
-        try {
-            if (isExtensionValid()) {
-                runtime.runtime.onMessage.addListener(handleBackgroundMessage);
-            }
-        } catch (err) {
-            // Silent error handling
+            runtime.runtime.sendMessage(event.detail);
+        } catch (error) {
+            console.error('Failed to handle custom event:', error);
         }
     }
 
@@ -171,23 +149,43 @@
     // INITIALIZATION
     // ============================================================================
     function initialize() {
-        injectWalletScript();
-        setupEventListeners();
-        setupMessageListener();
+        // Inject script
+        injectScript();
 
-        // Notify background script that content script is loaded
+        // Setup message listeners
+        window.addEventListener('message', handleWindowMessage);
+        runtime.runtime.onMessage.addListener(handleRuntimeMessage);
+        window.addEventListener(CONFIG.EVENT_NAME, handleCustomEvent);
+
+        // Notify background that content script is loaded
         try {
-            if (isExtensionValid()) {
-                runtime.runtime.sendMessage({
-                    type: 'CONTENT_SCRIPT_LOADED',
-                    url: window.location.href
-                });
-            }
-        } catch (err) {
-            // Silent error handling
+            runtime.runtime.sendMessage({ type: 'CONTENT_SCRIPT_LOADED' });
+        } catch (error) {
+            // Silent fail - background might not be ready
         }
     }
 
-    // Start initialization
+    // ============================================================================
+    // CLEANUP
+    // ============================================================================
+    function cleanup() {
+        window.removeEventListener('message', handleWindowMessage);
+        window.removeEventListener(CONFIG.EVENT_NAME, handleCustomEvent);
+    }
+
+    // ============================================================================
+    // START
+    // ============================================================================
     initialize();
+
+    // Handle unload
+    window.addEventListener('beforeunload', cleanup);
+
+    // Export for testing (optional)
+    window.__xellContentScript = {
+        isExtensionValid,
+        injectScript,
+        cleanup
+    };
+
 })();

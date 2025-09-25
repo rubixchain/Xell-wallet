@@ -20,9 +20,13 @@
         "<all_urls>"
     ],
     "web_accessible_resources": [
+        "index.html",
         "assets/*",
         "icons/*",
-        "injected.js"
+        "images/*",
+        "injection.js",
+        "process.js",
+        "dummy/*"
     ],
     "background": {
         "scripts": [

@@ -1,4 +1,4 @@
-# Xell Wallet
+ Xell Wallet
 
 A self-custodial cryptocurrency wallet built as a browser extension for Rubix and Trie networks.
 

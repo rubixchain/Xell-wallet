@@ -125,10 +125,23 @@ const Requests = () => {
         >
             {/* Main Content */}
             <main className="flex flex-1 flex-col items-center w-full">
-                {/* Top bar with site icon + title */}
-                <div className="flex items-center justify-between p-4 w-full">
+                {/* Xell Wallet Header */}
+                <div className="flex items-center justify-center w-full p-4 border-b border-gray-200 dark:border-gray-700">
+                    <img 
+                        src="/images/xell-wallet.svg" 
+                        alt="Xell Wallet" 
+                        className="w-16 h-16 bg-transparent" 
+                        onError={(e) => {
+                            e.target.src = "/images/android-chrome-192x192.png";
+                        }}
+                    />
+                </div>
+
+                {/* Website Request Info */}
+                <div className="flex items-center justify-center p-3 w-full bg-gray-50 dark:bg-gray-800/50">
                     <div className="flex items-center gap-2">
-                        <img src={websiteInitiated?.icon} alt="website icon" className="w-6 h-6 rounded" />
+                        <img src={websiteInitiated?.icon} alt="website icon" className="w-5 h-5 rounded" />
+                        <span className="text-sm text-gray-600 dark:text-gray-400">Requested by:</span>
                         <span className="text-sm font-medium text-gray-900 dark:text-white">{websiteInitiated?.title}</span>
                     </div>
                 </div>
@@ -138,12 +151,12 @@ const Requests = () => {
                     <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-1">
                         {websiteInitiated?.initiated?.type === WALLET_TYPES.WALLET_SIGN_REQUEST
                             ? 'Connect to Site'
-                            : 'Request'}
+                            : 'Transaction Request'}
                     </h2>
                     <p className="text-sm text-gray-600 dark:text-gray-400">
                         {websiteInitiated?.initiated?.type === WALLET_TYPES.WALLET_SIGN_REQUEST
-                            ? 'This site is requesting to connect to your wallet'
-                            : 'Review the request details below'}
+                            ? 'This site wants to connect to your Xell wallet'
+                            : 'Review and approve this transaction request'}
                     </p>
                 </div>
 
@@ -298,13 +311,16 @@ const Requests = () => {
             <div className="flex w-full justify-between pb-6">
                 <button
                     onClick={handleConnect}
-                    className="text-white bg-secondary w-[45%] text-base font-bold py-2.5 px-4 rounded-lg transition-colors"
+                    className="text-white bg-primary w-[45%] text-base font-bold py-2.5 px-4 rounded-lg transition-colors hover:bg-primary-light flex items-center justify-center gap-2"
                 >
+                    <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clipRule="evenodd" />
+                    </svg>
                     {websiteInitiated?.initiated?.type === WALLET_TYPES.WALLET_SIGN_REQUEST ? 'Connect' : 'Confirm'}
                 </button>
                 <button
                     onClick={onClickClose}
-                    className="text-gray-900 border w-[45%] text-base border-secondary font-bold py-2.5 px-4 rounded-lg transition-colors"
+                    className="text-gray-900 border w-[45%] text-base border-primary font-bold py-2.5 px-4 rounded-lg transition-colors hover:bg-gray-50 dark:hover:bg-gray-800 dark:text-white dark:border-gray-600"
                 >
                     Cancel
                 </button>
