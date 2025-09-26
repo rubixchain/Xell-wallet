@@ -13,7 +13,6 @@ export const config = {
     TRIE_TESTNET_FAUCET_LINK: null,
     TESTNETS: [2, 3],
     MAINNETS: [1, 4],
-    ALLOWED_ORIGINS: []
 };
 
 // Create a promise that resolves when config is loaded
@@ -26,10 +25,7 @@ async function loadConfig() {
         if (data.URLS) {
             Object.assign(config, data.URLS);
         }
-        if (data.ALLOWED_ORIGINS) {
-            config.ALLOWED_ORIGINS = data.ALLOWED_ORIGINS;
-        }
-
+       
     } catch (error) {
       
     }

@@ -86,65 +86,49 @@ export default function NetworkSwitcher() {
 
       await indexDBUtil.storeNetworkSetting(networkSetting);
 
-      // Get network details and check DID registration
-      const allDids = await END_POINTS.get_network_details();
-      const findDid = allDids?.account_info?.find(item => item?.did === userDetails.did);
+      // Create wallet and register DID for the network
+      const res = await END_POINTS.create_wallet({
+        public_key: userDetails?.publickey,
+        network: network?.id
+      });
 
-      const handleDidRegistration = async (did) => {
-        const registerDid = await END_POINTS.register_did({ did });
-        if (!registerDid?.status) {
-          toast.error(registerDid?.message || 'Failed to register DID');
-          return false;
-        }
+      if (!res) {
+        toast.error(res?.message || 'failed to create wallet');
+        return;
+      }
 
-        const userData = await indexDBUtil.getData("UserDetails", userDetails.username, userDetails.pin);
-        if (!userData?.privatekey) {
-          toast.error('Private key not found');
-          return false;
-        }
+      // Register DID for the network
+      const registerDid = await END_POINTS.register_did({ did: res.did });
+      if (!registerDid?.status) {
+        toast.error(registerDid?.message || 'Failed to register DID');
+        return;
+      }
 
-        const signature = await generateSignature(userData.privatekey, registerDid.result.hash);
-        const signatureResponse = await END_POINTS.signature_response({
-          id: registerDid.result.id,
-          Signature: { Signature: signature },
-          mode: 4
-        });
+      const userData = await indexDBUtil.getData("UserDetails", userDetails.username, userDetails.pin);
+      if (!userData?.privatekey) {
+        toast.error('Private key not found');
+        return;
+      }
 
-        if (!signatureResponse?.status) {
-          toast.error(signatureResponse?.message || "Failed to register DID");
-          return false;
-        }
-        return true;
-      };
-      if (!findDid) {
-        const res = await END_POINTS.create_wallet({
-          public_key: userDetails?.publickey,
-          network: network?.id
-        });
+      const signature = await generateSignature(userData.privatekey, registerDid.result.hash);
+      const signatureResponse = await END_POINTS.signature_response({
+        id: registerDid.result.id,
+        Signature: { Signature: signature },
+        mode: 4
+      });
 
-        if (!res) {
-          toast.error(res?.message || 'failed to create wallet');
-          return;
-        }
-
-        const didRegistrationResult = await handleDidRegistration(res.did);
-        if (!didRegistrationResult) {
-          throw new Error('DID registration failed');
-        }
-      } else {
-        const didRegistrationResult = await handleDidRegistration(userDetails.did);
-        if (!didRegistrationResult) {
-          throw new Error('DID registration failed');
-        }
+      if (!signatureResponse?.status) {
+        toast.error(signatureResponse?.message || "Failed to register DID");
+        return;
       }
       // Change selected network
-      const res = await indexDBUtil.changeSelectedNetwork(userDetails.did, network.id);
-      if (!res?.status) {
+      const networkChangeResult = await indexDBUtil.changeSelectedNetwork(userDetails.did, network.id);
+      if (!networkChangeResult?.status) {
         toast.error('Failed to change network');
       }
 
       // Update state and close modal
-      setNetworks(res.data.networks);
+      setNetworks(networkChangeResult.data.networks);
       await indexDBUtil.updateUserDetailsNetwork(userDetails.did, network.id);
       setSelectedNetwork(network.id);
       setUserDetails({

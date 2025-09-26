@@ -28,9 +28,9 @@ export default function HistoryFilters({ selectedType, setSelectedType, inputVal
 
   return (
 
-    <div className="flex flex-grow items-center border border-gray-200 rounded-lg relative">
+    <div className="flex flex-grow items-center border border-gray-200 dark:border-gray-700 rounded-lg relative bg-white dark:bg-gray-800">
       {/* 🔍 Search icon */}
-      <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+      <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 z-10 pointer-events-none" />
 
       {/* Input */}
       <input
@@ -38,18 +38,18 @@ export default function HistoryFilters({ selectedType, setSelectedType, inputVal
         value={inputValue}
         onChange={(e) => setInputValue(e.target.value)}
         placeholder="Search by address..."
-        className="w-full pl-10 pr-4 py-2 focus:outline-none"
+        className="w-full pl-10 pr-4 py-2 focus:outline-none bg-transparent dark:text-white"
       />
 
       {/* Type Dropdown */}
-      <div className="relative border-l border-gray-200 h-full" ref={dropdownRef}>
+      <div className="relative border-l border-gray-200 dark:border-gray-600 h-full flex-shrink-0" ref={dropdownRef}>
         <button
           onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-          className="h-full px-4 flex items-center text-xs bg-white dark:bg-gray-800"
+          className="h-full px-3 py-2 flex items-center text-xs bg-transparent hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
         >
-          <span className="dark:text-white">{selectedType}</span>
+          <span className="text-gray-700 dark:text-gray-300 whitespace-nowrap">{selectedType}</span>
           <FiChevronDown
-            className={`w-4 h-4 ml-2 dark:text-white transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`}
+            className={`w-4 h-4 ml-1 text-gray-500 dark:text-gray-400 transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`}
           />
         </button>
 
@@ -59,7 +59,7 @@ export default function HistoryFilters({ selectedType, setSelectedType, inputVal
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
-              className="absolute right-0 top-full mt-2 w-40 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-10"
+              className="absolute right-0 top-full mt-1 w-40 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl z-[100] overflow-hidden"
             >
               {typeOptions.map(option => (
                 <button
@@ -68,9 +68,9 @@ export default function HistoryFilters({ selectedType, setSelectedType, inputVal
                     setSelectedType(option.label);
                     setIsDropdownOpen(false);
                   }}
-                  className="w-full text-left px-4 py-2 hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center justify-between"
+                  className="w-full text-left px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 flex items-center justify-between transition-colors"
                 >
-                  <span className="dark:text-white">{option.label}</span>
+                  <span className="text-gray-700 dark:text-gray-200">{option.label}</span>
                   {selectedType === option.label && (
                     <FiCheck className="text-primary dark:text-white w-4 h-4" />
                   )}

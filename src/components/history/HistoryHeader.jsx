@@ -86,13 +86,14 @@ function App({ displayedRange, setDisplayedRange }) {
   };
 
   return (
-    <div className="flex items-center h-full">
+    <div className="flex items-center">
       <div className="relative" ref={calendarRef}>
         <button
           onClick={handleCalendarOpen}
           className="flex items-center gap-2 px-3 py-2 border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+          title="Select date range"
         >
-          <FiCalendar className="w-5 h-5" />
+          <FiCalendar className="w-4 h-4 sm:w-5 sm:h-5" />
         </button>
 
         {showModal && (

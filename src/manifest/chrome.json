@@ -29,6 +29,7 @@
     "web_accessible_resources": [
         {
             "resources": [
+                "index.html",
                 "assets/*",
                 "images/*",
                 "injection.js",

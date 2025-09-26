@@ -25,6 +25,7 @@ export default function Header() {
   const [modalContent, setModalContent] = useState(null);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [isSplitMode, setIsSplitMode] = useState(false);
+  const [windowWidth, setWindowWidth] = useState(window.innerWidth);
   const dropdownRef = useRef(null);
   const navigate = useNavigate();
 
@@ -81,11 +82,11 @@ export default function Header() {
   };
 
   const dropdownOptions = [
-    { icon: <FiShield className="mr-2" />, label: 'Security & Privacy', content: <SecuritySettings /> },
-    { icon: <FiGlobe className="mr-2" />, label: 'Chain Connect', content: <NetworkSettings /> },
-    { icon: <FiKey className="mr-2" />, label: 'Backup & Recovery', content: <BackupSettings /> },
-    { icon: <FiDollarSign className="mr-2" />, label: 'Currency', content: <CurrencySettings /> },
-    { icon: <FiClock className="mr-2" />, label: 'History', content: <History isModal={true} /> }
+    { icon: <FiShield />, label: 'Security & Privacy', content: <SecuritySettings /> },
+    { icon: <FiGlobe />, label: 'Chain Connect', content: <NetworkSettings /> },
+    { icon: <FiKey />, label: 'Backup & Recovery', content: <BackupSettings /> },
+    { icon: <FiDollarSign />, label: 'Currency', content: <CurrencySettings /> },
+    { icon: <FiClock />, label: 'History', content: <History isModal={true} /> }
   ];
 
   const handleOptionClick = (content) => {
@@ -130,6 +131,20 @@ export default function Header() {
     initializeMode();
   }, []);
 
+  // Track window width for responsive behavior
+  useEffect(() => {
+    const handleResize = () => {
+      setWindowWidth(window.innerWidth);
+    };
+
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  const isPopupMode = windowWidth <= 400;
+  const isMediumScreen = windowWidth >= 640;
+  const isLargeScreen = windowWidth >= 1024;
+
   const handleLogoutConfirm = () => {
     setUserDetails({})
     indexDBUtil.storeNetworkSetting("")
@@ -137,67 +152,131 @@ export default function Header() {
     navigate('/login', { replace: true });
   };
 
+
   return (
     <header className="border-b sticky top-0 left-0 right-0 z-50 border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-800">
       <ContentContainer>
-        <div className="py-3 px-3 flex items-center justify-between gap-2">
+        <div className={`
+          py-3 flex items-center justify-between gap-2
+          ${isPopupMode ? 'px-3' : 'px-4 sm:px-6 lg:px-8'}
+        `}>
           <div className="flex items-center flex-shrink-0">
             <NetworkSwitcher />
           </div>
 
-          <div className="flex flex-col items-center flex-grow min-w-0">
-            <span className="text-sm font-bold text-gray-600 dark:text-gray-300 truncate">{userDetails?.username}</span>
+          <div className={`
+            flex flex-col items-center flex-grow min-w-0
+            ${!isPopupMode ? 'sm:flex-row sm:gap-2' : ''}
+          `}>
+            <span className={`
+              font-bold text-gray-600 dark:text-gray-300 truncate
+              ${isPopupMode ? 'text-sm' : 'text-sm sm:text-base'}
+              ${!isPopupMode ? 'max-w-xs lg:max-w-md' : ''}
+            `}>
+              {userDetails?.username}
+            </span>
             <div className="flex items-center space-x-1">
-              <span className="text-xs text-gray-600 dark:text-gray-300">{userDetails?.did?.slice(0, 5) + '....' + userDetails?.did?.slice(-5)}</span>
-              <button onClick={() => handleClickCopy()} className="p-1 hover:bg-gray-100 dark:hover:bg-gray-700 rounded">
-                <FiCopy className="w-3 h-3" />
+              <span className={`
+                text-gray-600 dark:text-gray-300
+                ${isPopupMode ? 'text-xs' : 'text-xs sm:text-sm'}
+              `}>
+                {isPopupMode || !isMediumScreen
+                  ? userDetails?.did?.slice(0, 5) + '....' + userDetails?.did?.slice(-5)
+                  : userDetails?.did?.slice(0, 10) + '....' + userDetails?.did?.slice(-10)
+                }
+              </span>
+              <button
+                onClick={() => handleClickCopy()}
+                className={`
+                  hover:bg-gray-100 dark:hover:bg-gray-700 rounded transition-colors
+                  ${isPopupMode ? 'p-1' : 'p-1.5'}
+                `}
+              >
+                <FiCopy className={isPopupMode ? "w-3 h-3" : "w-3 h-3 sm:w-4 sm:h-4"} />
               </button>
             </div>
           </div>
 
-          <div className="flex items-center space-x-1 flex-shrink-0">
+          <div className={`
+            flex items-center flex-shrink-0
+            ${isPopupMode ? 'space-x-1' : 'space-x-2'}
+          `}>
             {/* Split Button */}
             <button
               onClick={toggleSplitMode}
-              className={`p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors ${
-                isSplitMode
-                  ? 'bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300'
-                  : 'text-gray-600 dark:text-gray-300'
-              }`}
+              className={`
+                hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors
+                ${isPopupMode ? 'p-2' : 'p-2 sm:p-2.5'}
+                ${
+                  isSplitMode
+                    ? 'bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300'
+                    : 'text-gray-600 dark:text-gray-300'
+                }
+              `}
               title={isSplitMode ? 'Exit Split Mode' : 'Enter Split Mode'}
             >
-              <FiColumns className="w-4 h-4" />
+              <FiColumns className={isPopupMode ? "w-4 h-4" : "w-4 h-4 sm:w-5 sm:h-5"} />
             </button>
 
             {/* Settings Button */}
             <div className="relative" ref={dropdownRef}>
               <button
                 onClick={toggleDropdown}
-                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors text-gray-600 dark:text-gray-300"
+                className={`
+                  hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors text-gray-600 dark:text-gray-300
+                  ${isPopupMode ? 'p-2' : 'p-2 sm:p-2.5'}
+                `}
               >
-                <BsThreeDotsVertical className="w-4 h-4" />
+                <BsThreeDotsVertical className={isPopupMode ? "w-4 h-4" : "w-4 h-4 sm:w-5 sm:h-5"} />
               </button>
               {dropdownOpen && (
-              <div className="absolute p-3 right-0 top-8 z-50 bg-white text-gray-900 border rounded shadow-lg">
+              <div className={`
+                absolute right-0 z-50 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100
+                border border-gray-200 dark:border-gray-700 rounded-lg shadow-xl
+                ${isPopupMode ? 'top-8 p-3 min-w-[200px]' : 'top-10 p-3 min-w-[200px] sm:min-w-[240px]'}
+                ${!isPopupMode && windowWidth > 768 ? 'right-0' : 'right-0'}
+              `}>
                 <div className="">
                   {dropdownOptions.map((option, index) => (
-                    <div key={index} className="flex font-medium text-nowrap cursor-pointer text-sm items-center p-2 rounded-sm hover:bg-gray-200 cursor-pointer " onClick={() => handleOptionClick(option.content)}>
-                      {option.icon}
-                      {option.label}
+                    <div
+                      key={index}
+                      className={`
+                        flex items-center rounded-sm transition-colors
+                        hover:bg-gray-200 dark:hover:bg-gray-700 cursor-pointer
+                        ${isPopupMode
+                          ? 'text-sm font-medium p-2 gap-2 whitespace-nowrap'
+                          : 'text-sm font-medium p-2.5 gap-3 sm:text-base'
+                        }
+                        ${!isPopupMode && !isMediumScreen ? 'whitespace-nowrap' : ''}
+                      `}
+                      onClick={() => handleOptionClick(option.content)}
+                    >
+                      <span className="flex-shrink-0">
+                        {option.icon}
+                      </span>
+                      <span>
+                        {option.label}
+                      </span>
                     </div>
                   ))}
                 </div>
-                <div className="flex items-center justify-between">
-
+                <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-700">
                   <button
                     onClick={() => {
                       setDropdownOpen(false);
                       setShowLogoutConfirm(true)
                     }}
-                    className="px-2 w-full flex items-center  gap-2 text-sm font-medium rounded-sm cursor-pointer hover:bg-gray-200 py-2"
+                    className={`
+                      w-full flex items-center rounded-sm transition-colors
+                      hover:bg-gray-200 dark:hover:bg-gray-700 cursor-pointer
+                      ${isPopupMode
+                        ? 'text-sm font-medium p-2 gap-2'
+                        : 'text-sm font-medium p-2.5 gap-3 sm:text-base'
+                      }
+                    `}
                   >
-                    <FiLock className="w-4 h-4" />
-                    Lock Wallet
+                    <FiLock className="w-4 h-4 flex-shrink-0" />
+                    <span>Lock Xell</span>
                   </button>
                 </div>
               </div>
@@ -218,24 +297,46 @@ export default function Header() {
               initial={{ scale: 0.9 }}
               animate={{ scale: 1 }}
               exit={{ scale: 0.9 }}
-              className="bg-white dark:bg-gray-800 p-6 w-full rounded-lg shadow-lg  mx-4"
+              className={`
+                bg-white dark:bg-gray-800 rounded-lg shadow-lg
+                ${isPopupMode
+                  ? 'p-4 mx-4 max-w-sm'
+                  : 'p-6 mx-4 sm:mx-auto sm:max-w-md lg:max-w-lg'
+                }
+              `}
             >
-              <h3 className="text-lg font-bold mb-4 text-gray-900 dark:text-white">
+              <h3 className={`
+                font-bold mb-4 text-gray-900 dark:text-white
+                ${isPopupMode ? 'text-base' : 'text-lg sm:text-xl'}
+              `}>
                 Confirm Lock
               </h3>
-              <p className="mb-6 text-base text-gray-700 dark:text-gray-300">
+              <p className={`
+                mb-6 text-gray-700 dark:text-gray-300
+                ${isPopupMode ? 'text-sm' : 'text-base'}
+              `}>
                 Are you sure you want to lock?
               </p>
-              <div className="flex justify-end space-x-4">
+              <div className={`
+                flex justify-end
+                ${isPopupMode ? 'space-x-2' : 'space-x-4'}
+              `}>
                 <button
                   onClick={() => setShowLogoutConfirm(false)}
-                  className="px-4 text-sm py-2 text-sm font-medium text-gray-700 bg-gray-200 rounded hover:bg-gray-300"
+                  className={`
+                    font-medium text-gray-700 dark:text-gray-300 bg-gray-200 dark:bg-gray-700
+                    rounded-md hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors
+                    ${isPopupMode ? 'px-3 py-1.5 text-sm' : 'px-4 py-2 text-sm sm:text-base'}
+                  `}
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleLogoutConfirm}
-                  className="px-4 py-2 text-sm font-medium text-white bg-secondary rounded "
+                  className={`
+                    font-medium text-white bg-secondary rounded-md hover:bg-opacity-90 transition-colors
+                    ${isPopupMode ? 'px-3 py-1.5 text-sm' : 'px-4 py-2 text-sm sm:text-base'}
+                  `}
                 >
                   Lock
                 </button>
@@ -245,7 +346,7 @@ export default function Header() {
         )}
       </AnimatePresence>
       {modalOpen && (
-        <Modal onClose={() => setModalOpen(false)}>
+        <Modal onClose={() => setModalOpen(false)} fullWidth={true}>
           {modalContent}
         </Modal>
       )}

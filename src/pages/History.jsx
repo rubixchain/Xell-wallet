@@ -12,7 +12,7 @@ import { NETWORK_TYPES } from '../../config';
 import { useNavigate } from 'react-router-dom'; //  ADDED
 import { normalizeEpoch } from '../utils/utils';
 
-export default function History({ isModal = false }) {
+export default function History({ isModal = false, isModalView = false, isPopupMode = false, isSplitMode = false, modalWindowWidth = null }) {
   const [tarnsactionsFilter, setTransactionsFilter] = useState([]);
   const { transactionsData, setTransactionsData } = useContext(TransactionsContext);
   const { userDetails } = useContext(UserContext);
@@ -163,17 +163,34 @@ export default function History({ isModal = false }) {
     fetchRBTTransactions();
   }, [displayedRange, selectedType, inputValue, userDetails?.did, userDetails?.network]);
 
-  return (
-    <div className={`${isModal ? "" : "min-h-screen bg-gray-50 dark:bg-gray-900"}`}>
-      {/*  Show header only if not in modal */}
-      {!isModal && <Header />}
+  // Determine responsive sizing based on context
+  const isInModal = isModal || isModalView;
+  const isSmallScreen = isPopupMode || modalWindowWidth <= 400;
+  const isMedium = modalWindowWidth >= 640;
+  const isLarge = modalWindowWidth >= 1024;
 
-      <div className={`space-y-6 ${isModal ? "" : "p-4 sm:p-10"} w-full`}>
-        <main className={`w-full ${isModal ? "" : "flex justify-center"}`}>
-          <div className="w-full space-y-6 bg-white dark:bg-gray-800 shadow-xl p-4 transition-colors">
+  return (
+    <div className={`${!isInModal ? "min-h-screen bg-gray-50 dark:bg-gray-900" : "h-full flex flex-col"}`}>
+      {/*  Show header only if not in modal */}
+      {!isInModal && <Header />}
+
+      <div className={`
+        ${isInModal ? "flex-1 flex flex-col" : "space-y-6 p-4 sm:p-10"}
+        w-full
+      `}>
+        <main className={`
+          w-full
+          ${!isInModal ? "flex justify-center" : "h-full flex flex-col"}
+        `}>
+          <div className={`
+            w-full bg-white dark:bg-gray-800 transition-colors
+            ${isInModal ? "flex flex-col h-full" : "space-y-6 shadow-xl p-4"}
+            ${isInModal && isSmallScreen ? "space-y-3" : "space-y-6"}
+            ${isInModal ? "" : "p-4"}
+          `}>
 
             {/*  BACK BUTTON only if NOT modal */}
-            {!isModal && (
+            {!isInModal && (
               <button
                 onClick={handleBack}
                 className="inline-flex mb-4 items-center px-4 py-2 text-sm font-medium text-white bg-secondary rounded hover:bg-primary transition-colors"
@@ -182,10 +199,18 @@ export default function History({ isModal = false }) {
               </button>
             )}
 
-            <div className="flex  sm:flex-row sm:items-center sm:justify-between gap-2">
+            <div className={`
+              flex relative
+              ${isSmallScreen
+                ? "flex-col gap-3"
+                : "flex-row items-center justify-between gap-4"
+              }
+            `}>
               <HistoryHeader
                 displayedRange={displayedRange}
                 setDisplayedRange={setDisplayedRange}
+                isSmallScreen={isSmallScreen}
+                isSplitMode={isSplitMode}
               />
 
               <HistoryFilters
@@ -193,20 +218,35 @@ export default function History({ isModal = false }) {
                 setSelectedType={setSelectedType}
                 inputValue={inputValue}
                 setInputValue={setInputValue}
+                isSmallScreen={isSmallScreen}
+                isSplitMode={isSplitMode}
               />
             </div>
-            {isLoading ? (
-              <div className="flex items-center justify-center py-12">
-                <div className="flex flex-col items-center space-y-4">
-                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-secondary"></div>
-                  <p className="text-gray-600 dark:text-gray-400 text-sm">
-                    Loading transactions...
-                  </p>
+            <div className={isInModal ? "flex-1 overflow-hidden" : ""}>
+              {isLoading ? (
+                <div className={`
+                  flex items-center justify-center
+                  ${isInModal ? "h-full" : "py-12"}
+                `}>
+                  <div className="flex flex-col items-center space-y-4">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-secondary"></div>
+                    <p className={`
+                      text-gray-600 dark:text-gray-400
+                      ${isSmallScreen ? "text-xs" : "text-sm"}
+                    `}>
+                      Loading transactions...
+                    </p>
+                  </div>
                 </div>
-              </div>
-            ) : (
-              <TransactionList tarnsactionsFilter={tarnsactionsFilter} />
-            )}
+              ) : (
+                <TransactionList
+                  tarnsactionsFilter={tarnsactionsFilter}
+                  isInModal={isInModal}
+                  isSmallScreen={isSmallScreen}
+                  isSplitMode={isSplitMode}
+                />
+              )}
+            </div>
           </div>
         </main>
       </div>

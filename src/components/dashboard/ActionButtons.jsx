@@ -42,16 +42,24 @@ export default function ActionButtons({ accountInfo, setIsTransactionCompleted }
 
   const actions = [
     {
-      icon: FiSend,
-      label: 'Send',
-      onClick: () => setIsSendModalOpen(true),
-      bgColor: 'bg-secondary',
-      iconColor: 'text-white'
+      icon: FiRefreshCcw,
+      label: 'Buy/Sell',
+       onClick: () => setIsBuySellModalOpen(true),
+      bgColor: 'bg-gray-400',
+      iconColor: 'text-gray-600',
+      disabled: true
     },
     {
       icon: FiDownload,
       label: 'Receive',
       onClick: () => setIsReceiveModalOpen(true),
+      bgColor: 'bg-secondary',
+      iconColor: 'text-white'
+    },
+    {
+      icon: FiSend,
+      label: 'Send',
+      onClick: () => setIsSendModalOpen(true),
       bgColor: 'bg-secondary',
       iconColor: 'text-white'
     },
@@ -63,13 +71,6 @@ export default function ActionButtons({ accountInfo, setIsTransactionCompleted }
     //   bgColor: 'bg-secondary',
     //   iconColor: 'text-white'
     // },
-    {
-      icon: FiRefreshCcw,
-      label: 'Buy/Sell',
-       onClick: () => setIsBuySellModalOpen(true),
-      bgColor: 'bg-secondary',
-      iconColor: 'text-purple-100'
-    },
   ];
 
   return (
@@ -80,21 +81,22 @@ export default function ActionButtons({ accountInfo, setIsTransactionCompleted }
         initial="initial"
         animate="animate"
       >
-        {actions.map(({ icon: Icon, label, onClick, bgColor, iconColor }) => (
+        {actions.map(({ icon: Icon, label, onClick, bgColor, iconColor, disabled }) => (
           <motion.button
             key={label}
-            onClick={onClick}
+            onClick={disabled ? undefined : onClick}
             variants={buttonVariants}
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
+            whileHover={disabled ? {} : { scale: 1.05 }}
+            whileTap={disabled ? {} : { scale: 0.95 }}
             className='flex flex-col items-center justify-center'
+            disabled={disabled}
           >
             <div
-              className={`p-3 ${bgColor} w-fit rounded-full flex flex-col items-center space-y-1 text-white shadow-lg hover:shadow-xl transition-shadow`}
+              className={`p-3 ${bgColor} w-fit rounded-full flex flex-col items-center space-y-1 text-white ${disabled ? 'shadow-none cursor-not-allowed opacity-60' : 'shadow-lg hover:shadow-xl'} transition-shadow`}
             >
               <Icon className={`w-4 h-4 ${iconColor}`} />
             </div>
-            <span className="font-normal text-sm">{label}</span>
+            <span className={`font-normal text-sm ${disabled ? 'text-gray-500' : ''}`}>{label}</span>
           </motion.button>
         ))}
       </motion.div>
