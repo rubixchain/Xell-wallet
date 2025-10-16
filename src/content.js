@@ -70,37 +70,6 @@
     // ============================================================================
     // MESSAGE HANDLING
     // ============================================================================
-    function handleWindowMessage(event) {
-        if (!event.data || !event.data.target || event.data.target !== CONFIG.TARGET_NAME) {
-            return;
-        }
-
-        if (!isExtensionValid()) {
-            window.postMessage(
-                createMessagePayload(event.data.type, event.data.requestId, {
-                    isError: true,
-                    error: 'Extension context invalidated. Please refresh the page.'
-                }),
-                '*'
-            );
-            return;
-        }
-
-        try {
-            runtime.runtime.sendMessage(event.data.data, function (response) {
-                // Handle response if needed
-            });
-        } catch (error) {
-            window.postMessage(
-                createMessagePayload(event.data.type, event.data.requestId, {
-                    isError: true,
-                    error: 'Failed to communicate with extension.'
-                }),
-                '*'
-            );
-        }
-    }
-
     function handleRuntimeMessage(message, sender, sendResponse) {
         try {
             // Handle messages from the background script
@@ -153,7 +122,7 @@
         injectScript();
 
         // Setup message listeners
-        window.addEventListener('message', handleWindowMessage);
+        // Note: Only use custom event listener to avoid duplicate messages
         runtime.runtime.onMessage.addListener(handleRuntimeMessage);
         window.addEventListener(CONFIG.EVENT_NAME, handleCustomEvent);
 
@@ -169,7 +138,6 @@
     // CLEANUP
     // ============================================================================
     function cleanup() {
-        window.removeEventListener('message', handleWindowMessage);
         window.removeEventListener(CONFIG.EVENT_NAME, handleCustomEvent);
     }
 
