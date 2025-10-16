@@ -306,7 +306,10 @@ export default function SendModal({ isOpen, onClose, accountInfo, setIsTransacti
   const handleRejectTransaction = () => {
     setShowConfirmation(false);
     setTransactionData(null);
-    onClose();
+  };
+
+  const handleAmountChangeFromConfirmation = (newAmount) => {
+    setAmount(newAmount);
   };
 
   return (
@@ -572,6 +575,7 @@ export default function SendModal({ isOpen, onClose, accountInfo, setIsTransacti
         onReject={handleRejectTransaction}
         transactionData={transactionData}
         isLoading={loader}
+        onAmountChange={handleAmountChangeFromConfirmation}
       />
     </div >
   );

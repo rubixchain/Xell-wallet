@@ -84,14 +84,14 @@ export const UserProvider = ({ children }) => {
                     tokenSymbol: NETWORK_TYPES.RBT
                 };
             }
-            
+
             // Update userDetails with the correct network information
             setUserDetails(prev => ({
                 ...prev,
                 network: getActivenetwork?.network,
                 tokenSymbol: getActivenetwork?.tokenSymbol
             }));
-            
+
             indexDBUtil.storeNetworkSetting({
                 network: getActivenetwork?.network,
                 RPCUrl: getActivenetwork?.RPCUrl,

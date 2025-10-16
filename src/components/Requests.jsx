@@ -23,7 +23,7 @@ const Requests = () => {
                 });
                 window.close();
             } catch (e) {
-             
+
             }
         };
 
@@ -77,7 +77,7 @@ const Requests = () => {
                     window.close();
 
                 } catch (e) {
-                    
+
                 }
             },
             [WALLET_TYPES.WALLET_ARBITRARY_REQUEST]: () => {
