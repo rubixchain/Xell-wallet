@@ -87,40 +87,26 @@ export default function Header() {
   };
 
   const handleAccountSwitch = async (account) => {
-    console.log('=== ACCOUNT SWITCH START ===');
-    console.log('Switching to account:', account.username);
-    console.log('Current userDetails:', userDetails);
-
     try {
-      // Get current user's password from userDetails
       const currentPassword = userDetails?.pin;
-      console.log('Current password exists:', !!currentPassword);
-      console.log('Current password value:', currentPassword);
 
       if (!currentPassword) {
-        console.log('ERROR: No password found in userDetails');
         toast.error('Session expired. Please login again.');
         return;
       }
 
-      console.log('Calling validateAndGetAccount with:', { username: account.username, password: currentPassword });
       const accountData = await indexDBUtil.validateAndGetAccount(
         account.username,
         currentPassword
       );
-      console.log('validateAndGetAccount response:', accountData);
 
       if (!accountData.status) {
-        console.log('ERROR: Account validation failed:', accountData.message);
         toast.error('Failed to switch account');
         return;
       }
 
-      console.log('Account validated successfully, loading networks...');
       const getActivenetwork = await indexDBUtil.getNetworksByDID(accountData.data.did) || [];
-      console.log('Active networks:', getActivenetwork);
       const activeNetwork = getActivenetwork?.find(item => item?.selected);
-      console.log('Selected network:', activeNetwork);
 
       let networkConfig;
       if (activeNetwork) {
@@ -131,18 +117,14 @@ export default function Header() {
           tokenSymbol: activeNetwork?.tokenSymbol
         };
       }
-      console.log('Network config:', networkConfig);
 
-      console.log('Storing network settings...');
       await indexDBUtil.storeNetworkSetting(networkConfig);
 
-      console.log('Updating localStorage...');
       localStorage.setItem("currentUser", JSON.stringify({
         username: accountData.data.username,
         network: accountData.data.network
       }));
 
-      console.log('Executing API call...');
       await EXECUTE_API({
         data: {
           ...accountData.data,
@@ -151,7 +133,6 @@ export default function Header() {
         type: WALLET_TYPES.STORE_USER_DETAILS
       });
 
-      console.log('Updating userDetails state...');
       setUserDetails({
         ...accountData.data,
         tokenSymbol: networkConfig?.tokenSymbol
@@ -160,11 +141,8 @@ export default function Header() {
       localStorage.setItem(ENUMS.INITIAL_ACTIVE_TIME, JSON.stringify(Date.now()));
 
       setAccountDropdownOpen(false);
-      console.log('=== ACCOUNT SWITCH SUCCESS ===');
       toast.success(`Switched to ${account.username}`);
     } catch (error) {
-      console.log('=== ACCOUNT SWITCH ERROR ===');
-      console.error('Account switch error:', error);
       toast.error('Failed to switch account');
     }
   };
@@ -191,10 +169,7 @@ export default function Header() {
           </div>
 
           <div className="flex flex-col items-center relative" ref={accountDropdownRef}>
-            <div className="flex items-center gap-1 cursor-pointer" onClick={() => {
-              console.log('Username clicked, toggling dropdown');
-              setAccountDropdownOpen(!accountDropdownOpen);
-            }}>
+            <div className="flex items-center gap-1 cursor-pointer" onClick={() => setAccountDropdownOpen(!accountDropdownOpen)}>
               <span className="text-sm font-bold text-gray-600 dark:text-gray-300">{userDetails?.username}</span>
               <FiChevronDown className="w-4 h-4 text-gray-600 dark:text-gray-300" />
             </div>
@@ -206,7 +181,6 @@ export default function Header() {
                       key={account.username}
                       onClick={(e) => {
                         e.stopPropagation();
-                        console.log('Account item clicked:', account.username);
                         handleAccountSwitch(account);
                       }}
                       className={`flex items-center gap-2 p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer ${
