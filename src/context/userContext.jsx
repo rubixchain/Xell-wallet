@@ -32,6 +32,13 @@ export const UserProvider = ({ children }) => {
 
             }
             setCurrency(value)
+
+            const needsMigration = await indexDBUtil.needsMigration();
+            if (needsMigration) {
+                navigate('/migration/intro', { replace: true });
+                return;
+            }
+
             let currentUser = localStorage.getItem("currentUser")
             chrome.storage.local.get(["websiteInitiated", "title", "icon"], (result) => {
                 if (result?.websiteInitiated) {

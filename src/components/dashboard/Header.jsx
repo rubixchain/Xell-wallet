@@ -1,4 +1,4 @@
-import { FiCopy, FiShield, FiGlobe, FiKey, FiDollarSign, FiLogOut, FiClock } from 'react-icons/fi';
+import { FiCopy, FiShield, FiGlobe, FiKey, FiDollarSign, FiLogOut, FiClock, FiChevronDown } from 'react-icons/fi';
 import RubixLogo from '../RubixLogo';
 import NetworkSwitcher from '../network/NetworkSwitcher';
 import ContentContainer from '../layout/ContentContainer';
@@ -17,14 +17,19 @@ import { AnimatePresence, motion } from 'framer-motion';
 import indexDBUtil from '../../indexDB';
 import { WALLET_TYPES } from '../../enums';
 import History from "../../pages/History"
+import { EXECUTE_API } from '../../utils';
+import { ENUMS } from '../../enums';
 
 export default function Header() {
-  const { userDetails, setUserDetails } = useContext(UserContext);
+  const { userDetails, setUserDetails, setIsUserLoggedIn } = useContext(UserContext);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [modalContent, setModalContent] = useState(null);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [accountDropdownOpen, setAccountDropdownOpen] = useState(false);
+  const [allAccounts, setAllAccounts] = useState([]);
   const dropdownRef = useRef(null);
+  const accountDropdownRef = useRef(null);
   const navigate = useNavigate();
 
   const handleClickCopy = () => {
@@ -55,6 +60,9 @@ export default function Header() {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
         setDropdownOpen(false);
       }
+      if (accountDropdownRef.current && !accountDropdownRef.current.contains(event.target)) {
+        setAccountDropdownOpen(false);
+      }
     };
 
     document.addEventListener('mousedown', handleClickOutside);
@@ -62,6 +70,104 @@ export default function Header() {
       document.removeEventListener('mousedown', handleClickOutside);
     };
   }, []);
+
+  useEffect(() => {
+    loadAllAccounts();
+  }, []);
+
+  const loadAllAccounts = async () => {
+    try {
+      const data = await indexDBUtil.getData();
+      if (data?.data) {
+        setAllAccounts(data.data);
+      }
+    } catch (error) {
+      console.error('Failed to load accounts:', error);
+    }
+  };
+
+  const handleAccountSwitch = async (account) => {
+    console.log('=== ACCOUNT SWITCH START ===');
+    console.log('Switching to account:', account.username);
+    console.log('Current userDetails:', userDetails);
+
+    try {
+      // Get current user's password from userDetails
+      const currentPassword = userDetails?.pin;
+      console.log('Current password exists:', !!currentPassword);
+      console.log('Current password value:', currentPassword);
+
+      if (!currentPassword) {
+        console.log('ERROR: No password found in userDetails');
+        toast.error('Session expired. Please login again.');
+        return;
+      }
+
+      console.log('Calling validateAndGetAccount with:', { username: account.username, password: currentPassword });
+      const accountData = await indexDBUtil.validateAndGetAccount(
+        account.username,
+        currentPassword
+      );
+      console.log('validateAndGetAccount response:', accountData);
+
+      if (!accountData.status) {
+        console.log('ERROR: Account validation failed:', accountData.message);
+        toast.error('Failed to switch account');
+        return;
+      }
+
+      console.log('Account validated successfully, loading networks...');
+      const getActivenetwork = await indexDBUtil.getNetworksByDID(accountData.data.did) || [];
+      console.log('Active networks:', getActivenetwork);
+      const activeNetwork = getActivenetwork?.find(item => item?.selected);
+      console.log('Selected network:', activeNetwork);
+
+      let networkConfig;
+      if (activeNetwork) {
+        networkConfig = {
+          network: activeNetwork?.id,
+          RPCUrl: activeNetwork?.rpcUrls?.find(item => item?.selected)?.url,
+          name: activeNetwork?.name,
+          tokenSymbol: activeNetwork?.tokenSymbol
+        };
+      }
+      console.log('Network config:', networkConfig);
+
+      console.log('Storing network settings...');
+      await indexDBUtil.storeNetworkSetting(networkConfig);
+
+      console.log('Updating localStorage...');
+      localStorage.setItem("currentUser", JSON.stringify({
+        username: accountData.data.username,
+        network: accountData.data.network
+      }));
+
+      console.log('Executing API call...');
+      await EXECUTE_API({
+        data: {
+          ...accountData.data,
+          tokenSymbol: networkConfig?.tokenSymbol
+        },
+        type: WALLET_TYPES.STORE_USER_DETAILS
+      });
+
+      console.log('Updating userDetails state...');
+      setUserDetails({
+        ...accountData.data,
+        tokenSymbol: networkConfig?.tokenSymbol
+      });
+
+      localStorage.setItem(ENUMS.INITIAL_ACTIVE_TIME, JSON.stringify(Date.now()));
+
+      setAccountDropdownOpen(false);
+      console.log('=== ACCOUNT SWITCH SUCCESS ===');
+      toast.success(`Switched to ${account.username}`);
+    } catch (error) {
+      console.log('=== ACCOUNT SWITCH ERROR ===');
+      console.error('Account switch error:', error);
+      toast.error('Failed to switch account');
+    }
+  };
 
   const handleLogoutConfirm = () => {
     setUserDetails({})
@@ -84,8 +190,38 @@ export default function Header() {
             <NetworkSwitcher />
           </div>
 
-          <div className="flex flex-col items-center ">
-            <span className="text-sm font-bold text-gray-600 dark:text-gray-300">{userDetails?.username}</span>
+          <div className="flex flex-col items-center relative" ref={accountDropdownRef}>
+            <div className="flex items-center gap-1 cursor-pointer" onClick={() => {
+              console.log('Username clicked, toggling dropdown');
+              setAccountDropdownOpen(!accountDropdownOpen);
+            }}>
+              <span className="text-sm font-bold text-gray-600 dark:text-gray-300">{userDetails?.username}</span>
+              <FiChevronDown className="w-4 h-4 text-gray-600 dark:text-gray-300" />
+            </div>
+            {accountDropdownOpen && (
+              <div className="absolute top-8 z-50 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg min-w-[180px]">
+                <div className="p-2 max-h-64 overflow-y-auto">
+                  {allAccounts.map((account) => (
+                    <div
+                      key={account.username}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        console.log('Account item clicked:', account.username);
+                        handleAccountSwitch(account);
+                      }}
+                      className={`flex items-center gap-2 p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer ${
+                        account.username === userDetails?.username ? 'bg-gray-100 dark:bg-gray-700' : ''
+                      }`}
+                    >
+                      <span className="text-sm font-medium text-gray-900 dark:text-gray-100">@{account.username}</span>
+                      {account.username === userDetails?.username && (
+                        <span className="ml-auto text-xs text-secondary">✓</span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
             <div className="flex items-center space-x-2">
               <span className="text-sm  text-gray-600 dark:text-gray-300">{userDetails?.did?.slice(0, 5) + '....' + userDetails?.did?.slice(-5)}</span>
               <button onClick={() => handleClickCopy()} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">

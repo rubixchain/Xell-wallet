@@ -92,6 +92,10 @@ export default function SetupWallet() {
         return
       }
 
+      // Set unified password for new wallet creation
+      await indexDBUtil.setUnifiedPasswordForSingleUser(updatedUserDetails.pin);
+      await indexDBUtil.setStorageVersion('3.1');
+
       toast.success('login success')
       setIsUserLoggedIn(true)
       let payload = {

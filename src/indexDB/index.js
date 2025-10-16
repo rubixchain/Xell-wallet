@@ -709,38 +709,62 @@ const indexDBUtil = {
                         return;
                     }
 
-                    // Find account matching username
                     const account = data.accounts.find(acc => acc.username === username);
 
                     if (!account) {
                         resolve({ status: false, message: 'Account not found' });
                         return;
                     }
-                    try {
-                        const bytes = CryptoJS.AES.decrypt(account?.privatekey, password);
-                        let decrypted = bytes.toString(CryptoJS.enc.Utf8);
-                        if (decrypted) {
-                            resolve({
-                                status: true,
-                                data: {
-                                    publickey: account?.publickey,
-                                    pin: password,
-                                    username: account.username,
-                                    did: account?.did,
-                                    network: account?.network,
-                                }
-                            });
-                        } else {
+
+                    if (data.unifiedPassword) {
+                        try {
+                            const bytes = CryptoJS.AES.decrypt(data.unifiedPassword, password);
+                            const decrypted = bytes.toString(CryptoJS.enc.Utf8);
+
+                            if (decrypted === password) {
+                                resolve({
+                                    status: true,
+                                    data: {
+                                        publickey: account?.publickey,
+                                        pin: password,
+                                        username: account.username,
+                                        did: account?.did,
+                                        network: account?.network,
+                                    }
+                                });
+                            } else {
+                                resolve({ status: false, message: 'Invalid password' });
+                            }
+                        } catch (e) {
                             resolve({ status: false, message: 'Invalid password' });
                         }
-                    }
-                    catch (e) {
-                        resolve({ status: false, message: 'Invalid password' });
+                    } else {
+                        try {
+                            const bytes = CryptoJS.AES.decrypt(account?.privatekey, password);
+                            let decrypted = bytes.toString(CryptoJS.enc.Utf8);
+                            if (decrypted) {
+                                resolve({
+                                    status: true,
+                                    data: {
+                                        publickey: account?.publickey,
+                                        pin: password,
+                                        username: account.username,
+                                        did: account?.did,
+                                        network: account?.network,
+                                    }
+                                });
+                            } else {
+                                resolve({ status: false, message: 'Invalid password' });
+                            }
+                        }
+                        catch (e) {
+                            resolve({ status: false, message: 'Invalid password' });
+                        }
                     }
                 };
             });
         } catch (error) {
-          
+
             throw error;
         }
     },
@@ -1288,6 +1312,297 @@ const indexDBUtil = {
                         data: data
                     });
                 };
+            });
+        } catch (error) {
+            throw error;
+        }
+    },
+
+    getStorageVersion: async function() {
+        try {
+            const version = localStorage.getItem('storageVersion');
+            return version || '3.0';
+        } catch (error) {
+            return '3.0';
+        }
+    },
+
+    setStorageVersion: async function(version) {
+        try {
+            localStorage.setItem('storageVersion', version);
+
+            const db = await this.initDB();
+            return new Promise((resolve, reject) => {
+                const transaction = db.transaction([this.storeName], 'readwrite');
+                const store = transaction.objectStore(this.storeName);
+                const request = store.get('UserDetails');
+
+                request.onsuccess = () => {
+                    const data = request.result;
+                    if (data) {
+                        data.storageVersion = version;
+                        const updateRequest = store.put(data);
+                        updateRequest.onsuccess = () => resolve({ status: true });
+                        updateRequest.onerror = () => reject(updateRequest.error);
+                    } else {
+                        resolve({ status: false });
+                    }
+                };
+
+                request.onerror = () => reject(request.error);
+            });
+        } catch (error) {
+            throw error;
+        }
+    },
+
+    needsMigration: async function() {
+        try {
+            const version = await this.getStorageVersion();
+            const accounts = await this.getData();
+
+            if (parseFloat(version) < 3.1 && accounts?.data?.length > 0) {
+                return true;
+            }
+            return false;
+        } catch (error) {
+            return false;
+        }
+    },
+
+    getAllAccountsForMigration: async function() {
+        try {
+            const db = await this.initDB();
+            return new Promise((resolve, reject) => {
+                const transaction = db.transaction([this.storeName], 'readonly');
+                const store = transaction.objectStore(this.storeName);
+                const request = store.get('UserDetails');
+
+                request.onsuccess = () => {
+                    const data = request.result;
+                    if (!data || !data.accounts) {
+                        resolve([]);
+                        return;
+                    }
+
+                    const accountList = data.accounts.map(acc => ({
+                        username: acc.username,
+                        did: acc.did,
+                        network: acc.network
+                    }));
+
+                    resolve(accountList);
+                };
+
+                request.onerror = () => reject(request.error);
+            });
+        } catch (error) {
+            throw error;
+        }
+    },
+
+    validateMultiplePasswords: async function(passwordMap) {
+        try {
+            const db = await this.initDB();
+            return new Promise((resolve, reject) => {
+                const transaction = db.transaction([this.storeName], 'readonly');
+                const store = transaction.objectStore(this.storeName);
+                const request = store.get('UserDetails');
+
+                request.onsuccess = () => {
+                    const data = request.result;
+                    if (!data || !data.accounts) {
+                        resolve({ valid: [], invalid: [] });
+                        return;
+                    }
+
+                    const valid = [];
+                    const invalid = [];
+
+                    data.accounts.forEach(account => {
+                        const password = passwordMap[account.username];
+                        if (!password) {
+                            invalid.push(account.username);
+                            return;
+                        }
+
+                        try {
+                            const bytes = CryptoJS.AES.decrypt(account.privatekey, password);
+                            const decrypted = bytes.toString(CryptoJS.enc.Utf8);
+
+                            if (decrypted && decrypted.length > 0) {
+                                valid.push(account.username);
+                            } else {
+                                invalid.push(account.username);
+                            }
+                        } catch (e) {
+                            invalid.push(account.username);
+                        }
+                    });
+
+                    resolve({ valid, invalid });
+                };
+
+                request.onerror = () => reject(request.error);
+            });
+        } catch (error) {
+            throw error;
+        }
+    },
+
+    setUnifiedPassword: async function(newPassword, oldPasswordMap) {
+        try {
+            const db = await this.initDB();
+            return new Promise((resolve, reject) => {
+                const transaction = db.transaction([this.storeName], 'readwrite');
+                const store = transaction.objectStore(this.storeName);
+                const request = store.get('UserDetails');
+
+                request.onsuccess = () => {
+                    const data = request.result;
+                    if (!data || !data.accounts) {
+                        resolve({ status: false, message: 'No accounts found' });
+                        return;
+                    }
+
+                    const validAccounts = [];
+                    const invalidAccounts = [];
+
+                    data.accounts.forEach(account => {
+                        const oldPassword = oldPasswordMap[account.username];
+                        if (!oldPassword) {
+                            invalidAccounts.push(account.username);
+                            return;
+                        }
+
+                        try {
+                            const bytes = CryptoJS.AES.decrypt(account.privatekey, oldPassword);
+                            const decryptedPrivateKey = bytes.toString(CryptoJS.enc.Utf8);
+
+                            if (decryptedPrivateKey && decryptedPrivateKey.length > 0) {
+                                const reencrypted = CryptoJS.AES.encrypt(decryptedPrivateKey, newPassword).toString();
+                                account.privatekey = reencrypted;
+                                validAccounts.push(account);
+                            } else {
+                                invalidAccounts.push(account.username);
+                            }
+                        } catch (e) {
+                            invalidAccounts.push(account.username);
+                        }
+                    });
+
+                    data.accounts = validAccounts;
+                    data.unifiedPassword = CryptoJS.AES.encrypt(newPassword, newPassword).toString();
+                    data.storageVersion = '3.1';
+
+                    const updateRequest = store.put(data);
+                    updateRequest.onsuccess = () => {
+                        localStorage.setItem('storageVersion', '3.1');
+                        resolve({
+                            status: true,
+                            deleted: invalidAccounts,
+                            remaining: validAccounts.map(acc => acc.username)
+                        });
+                    };
+                    updateRequest.onerror = () => reject(updateRequest.error);
+                };
+
+                request.onerror = () => reject(request.error);
+            });
+        } catch (error) {
+            throw error;
+        }
+    },
+
+    validateUnifiedPassword: async function(password) {
+        try {
+            const db = await this.initDB();
+            return new Promise((resolve, reject) => {
+                const transaction = db.transaction([this.storeName], 'readonly');
+                const store = transaction.objectStore(this.storeName);
+                const request = store.get('UserDetails');
+
+                request.onsuccess = () => {
+                    const data = request.result;
+                    if (!data || !data.unifiedPassword) {
+                        resolve(false);
+                        return;
+                    }
+
+                    try {
+                        const bytes = CryptoJS.AES.decrypt(data.unifiedPassword, password);
+                        const decrypted = bytes.toString(CryptoJS.enc.Utf8);
+                        resolve(decrypted === password);
+                    } catch (e) {
+                        resolve(false);
+                    }
+                };
+
+                request.onerror = () => reject(request.error);
+            });
+        } catch (error) {
+            return false;
+        }
+    },
+
+    deleteAccountsByUsername: async function(usernames) {
+        try {
+            const db = await this.initDB();
+            return new Promise((resolve, reject) => {
+                const transaction = db.transaction([this.storeName], 'readwrite');
+                const store = transaction.objectStore(this.storeName);
+                const request = store.get('UserDetails');
+
+                request.onsuccess = () => {
+                    const data = request.result;
+                    if (!data || !data.accounts) {
+                        resolve({ status: false });
+                        return;
+                    }
+
+                    data.accounts = data.accounts.filter(
+                        account => !usernames.includes(account.username)
+                    );
+
+                    const updateRequest = store.put(data);
+                    updateRequest.onsuccess = () => resolve({ status: true });
+                    updateRequest.onerror = () => reject(updateRequest.error);
+                };
+
+                request.onerror = () => reject(request.error);
+            });
+        } catch (error) {
+            throw error;
+        }
+    },
+
+    setUnifiedPasswordForSingleUser: async function(password) {
+        try {
+            const db = await this.initDB();
+            return new Promise((resolve, reject) => {
+                const transaction = db.transaction([this.storeName], 'readwrite');
+                const store = transaction.objectStore(this.storeName);
+                const request = store.get('UserDetails');
+
+                request.onsuccess = () => {
+                    const data = request.result;
+                    if (!data) {
+                        resolve({ status: false });
+                        return;
+                    }
+
+                    data.unifiedPassword = CryptoJS.AES.encrypt(password, password).toString();
+                    data.storageVersion = '3.1';
+
+                    const updateRequest = store.put(data);
+                    updateRequest.onsuccess = () => {
+                        localStorage.setItem('storageVersion', '3.1');
+                        resolve({ status: true });
+                    };
+                    updateRequest.onerror = () => reject(updateRequest.error);
+                };
+
+                request.onerror = () => reject(request.error);
             });
         } catch (error) {
             throw error;

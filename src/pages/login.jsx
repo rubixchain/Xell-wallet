@@ -87,6 +87,15 @@ function Login() {
                 }
                 return
             }
+
+            const storageVersion = await indexDBUtil.getStorageVersion();
+            if (parseFloat(storageVersion) < 3.1) {
+                const allAccounts = await indexDBUtil.getData();
+                if (allAccounts?.data?.length === 1) {
+                    await indexDBUtil.setUnifiedPasswordForSingleUser(pin);
+                }
+            }
+
             let getActivenetwork = await indexDBUtil.getNetworksByDID(res?.data?.did) || []
             getActivenetwork = getActivenetwork?.find(item => item?.selected)
             if (getActivenetwork) {

@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import Layout from './components/Layout';
 import Welcome from './pages/Welcome';
@@ -23,6 +23,9 @@ import TermsOfServices from './pages/termsofservices';
 import PrivacyPolicy from './pages/privacypolicy';
 import AddNetwork from './pages/AddNetwork';
 import { updateVersion } from './utils';
+import MigrationIntro from './pages/migration/MigrationIntro';
+import MigrationPasswords from './pages/migration/MigrationPasswords';
+import MigrationSetPassword from './pages/migration/MigrationSetPassword';
 
 function App() {
 
@@ -54,8 +57,12 @@ function App() {
               {/* <DemoModeButton /> */}
               <Routes>
                 <Route path={routes.HOME} element={<Layout />}>
+                  {/* Migration routes */}
+                  <Route path="/migration/intro" element={<MigrationIntro />} />
+                  <Route path="/migration/passwords" element={<MigrationPasswords />} />
+                  <Route path="/migration/set-password" element={<MigrationSetPassword />} />
+
                   {/* Public routes */}
-                  {/* <Route index element={hasWallet ? <Navigate to={routes.DASHBOARD} /> : <Welcome />} /> */}
                   <Route path={routes.WELCOME} element={<Welcome />} />
                   <Route path={routes.CREATE_WALLET} element={<CreateWallet />} />
                   <Route path={routes.IMPORT_WALLET} element={<ImportWallet />} />
