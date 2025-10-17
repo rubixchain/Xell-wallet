@@ -27,6 +27,7 @@ export default function SetupWallet() {
   const navigate = useNavigate()
   const location = useLocation()
   const state = location?.state
+  const isCreatingFromDashboard = state?.fromDashboard || false;
 
 
   useEffect(() => {
@@ -179,7 +180,7 @@ export default function SetupWallet() {
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -20 }}
             >
-              <SetupUsername onSubmit={handleUsernameSubmit} />
+              <SetupUsername onSubmit={handleUsernameSubmit} isNewAccount={isCreatingFromDashboard} />
             </motion.div>
           )}
 

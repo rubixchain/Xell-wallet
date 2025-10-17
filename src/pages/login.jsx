@@ -229,16 +229,6 @@ function Login() {
                 >
                     Unlock
                 </button>
-                <p className="my-4 font-medium ">--- Or ---</p>
-                <button
-                    onClick={() => {
-                        setUserDetails({});
-                        navigate(ROUTES.WELCOME, { replace: true });
-                    }}
-                    className="font-semibold text-sm underline underline-offset-2 decoration-[1.5px] decoration-black"
-                >
-                    Create or Import Wallet
-                </button>
 
             </div>
         </Card>

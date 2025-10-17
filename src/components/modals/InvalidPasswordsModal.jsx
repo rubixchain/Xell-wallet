@@ -1,6 +1,9 @@
 import React from 'react';
 
-function InvalidPasswordsModal({ invalidAccounts, onGoBack, onContinue }) {
+function InvalidPasswordsModal({ invalidAccounts, forgottenAccounts = [], onGoBack, onContinue }) {
+    const hasForgotten = forgottenAccounts.length > 0;
+    const hasInvalid = invalidAccounts.length > 0;
+
     return (
         <div
             style={{
@@ -27,27 +30,52 @@ function InvalidPasswordsModal({ invalidAccounts, onGoBack, onContinue }) {
                 }}
             >
                 <h2 className="text-xl font-bold mb-4" style={{ color: '#000' }}>
-                    Invalid Passwords Detected
+                    Account Deletion Warning
                 </h2>
 
                 <p className="text-sm mb-4" style={{ color: '#666' }}>
-                    The following accounts have incorrect passwords and will be permanently deleted if you continue:
+                    The following accounts will be permanently deleted if you continue:
                 </p>
 
-                <div className="rounded-lg p-4 mb-4" style={{ maxHeight: '120px', overflowY: 'auto', backgroundColor: '#f5f5f5' }}>
-                    <ul className="space-y-2">
-                        {invalidAccounts.map((username) => (
-                            <li key={username} className="flex items-center gap-2" style={{ color: '#000' }}>
-                                <span style={{ color: '#666' }}>@</span>
-                                <span className="font-medium">{username}</span>
-                            </li>
-                        ))}
-                    </ul>
-                </div>
+                {hasForgotten && (
+                    <div className="mb-4">
+                        <p className="text-sm font-semibold mb-2" style={{ color: '#000' }}>
+                            Forgotten PIN accounts:
+                        </p>
+                        <div className="rounded-lg p-4 mb-2 border" style={{ backgroundColor: '#f5f5f5', borderColor: '#ddd' }}>
+                            <ul className="space-y-2">
+                                {forgottenAccounts.map((username) => (
+                                    <li key={username} className="flex items-center gap-2" style={{ color: '#666' }}>
+                                        <span>@</span>
+                                        <span className="font-medium">{username}</span>
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
+                    </div>
+                )}
+
+                {hasInvalid && (
+                    <div className="mb-4">
+                        <p className="text-sm font-semibold mb-2" style={{ color: '#000' }}>
+                            Incorrect PIN entered:
+                        </p>
+                        <div className="rounded-lg p-4 mb-2 border" style={{ backgroundColor: '#f5f5f5', borderColor: '#ddd' }}>
+                            <ul className="space-y-2">
+                                {invalidAccounts.map((username) => (
+                                    <li key={username} className="flex items-center gap-2" style={{ color: '#666' }}>
+                                        <span>@</span>
+                                        <span className="font-medium">{username}</span>
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
+                    </div>
+                )}
 
                 <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3 mb-6">
                     <p className="text-red-400 text-sm">
-                        ⚠️ Warning: This action cannot be undone. Please double-check your passwords before proceeding.
+                        ⚠️ Warning: This action cannot be undone. {hasInvalid ? 'Please double-check your PINs before proceeding.' : 'These accounts will be permanently removed.'}
                     </p>
                 </div>
 

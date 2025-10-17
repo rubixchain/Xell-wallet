@@ -13,6 +13,7 @@ function MigrationPasswords() {
     const [isValidating, setIsValidating] = useState(false);
     const [showInvalidModal, setShowInvalidModal] = useState(false);
     const [invalidAccounts, setInvalidAccounts] = useState([]);
+    const [forgottenAccounts, setForgottenAccounts] = useState({});
 
     useEffect(() => {
         loadAccounts();
@@ -24,10 +25,13 @@ function MigrationPasswords() {
             setAccounts(accountList);
             if (accountList.length > 0) {
                 const initialPasswords = {};
+                const initialForgotten = {};
                 accountList.forEach(acc => {
                     initialPasswords[acc.username] = '';
+                    initialForgotten[acc.username] = false;
                 });
                 setPasswords(initialPasswords);
+                setForgottenAccounts(initialForgotten);
             }
         } catch (error) {
             toast.error('Failed to load accounts');
@@ -45,10 +49,68 @@ function MigrationPasswords() {
         }));
     };
 
+    const handleForgottenChange = (username, checked) => {
+        setForgottenAccounts(prev => ({
+            ...prev,
+            [username]: checked
+        }));
+        if (checked) {
+            // Clear password if marked as forgotten
+            setPasswords(prev => ({
+                ...prev,
+                [username]: ''
+            }));
+            setErrors(prev => ({
+                ...prev,
+                [username]: ''
+            }));
+        }
+    };
+
     const handleValidate = async () => {
-        const allFilled = Object.values(passwords).every(pwd => pwd.length === 6);
-        if (!allFilled) {
-            toast.error('Please enter password for all accounts');
+        // Get accounts that are marked as forgotten
+        const forgottenUsernames = Object.keys(forgottenAccounts).filter(username => forgottenAccounts[username]);
+
+        // Check if non-forgotten accounts have passwords filled
+        const accountsNeedingPasswords = accounts.filter(acc => !forgottenAccounts[acc.username]);
+        const allNonForgottenFilled = accountsNeedingPasswords.every(acc => passwords[acc.username]?.length === 6);
+
+        if (!allNonForgottenFilled) {
+            toast.error('Please enter PIN for all accounts or mark them as forgotten');
+            return;
+        }
+
+        // If there are forgotten accounts, validate the rest first
+        if (forgottenUsernames.length > 0) {
+            setIsValidating(true);
+            try {
+                // Only validate non-forgotten accounts
+                const passwordsToValidate = { ...passwords };
+                forgottenUsernames.forEach(username => {
+                    delete passwordsToValidate[username];
+                });
+
+                const result = await indexDBUtil.validateMultiplePasswords(passwordsToValidate);
+
+                if (result.invalid.length === 0) {
+                    // Show modal with only forgotten accounts
+                    setInvalidAccounts([]);
+                    setShowInvalidModal(true);
+                } else {
+                    // Show modal with both forgotten and invalid
+                    const newErrors = {};
+                    result.invalid.forEach(username => {
+                        newErrors[username] = 'Invalid PIN';
+                    });
+                    setErrors(newErrors);
+                    setInvalidAccounts(result.invalid);
+                    setShowInvalidModal(true);
+                }
+            } catch (error) {
+                toast.error('Failed to validate PINs');
+            } finally {
+                setIsValidating(false);
+            }
             return;
         }
 
@@ -64,14 +126,14 @@ function MigrationPasswords() {
             } else {
                 const newErrors = {};
                 result.invalid.forEach(username => {
-                    newErrors[username] = 'Invalid password';
+                    newErrors[username] = 'Invalid PIN';
                 });
                 setErrors(newErrors);
                 setInvalidAccounts(result.invalid);
                 setShowInvalidModal(true);
             }
         } catch (error) {
-            toast.error('Failed to validate passwords');
+            toast.error('Failed to validate PINs');
         } finally {
             setIsValidating(false);
         }
@@ -83,13 +145,19 @@ function MigrationPasswords() {
 
     const handleModalContinue = () => {
         setShowInvalidModal(false);
-        // Remove invalid accounts from the passwords map
+
+        // Get all accounts to delete (both forgotten and invalid)
+        const forgottenUsernames = Object.keys(forgottenAccounts).filter(username => forgottenAccounts[username]);
+        const allAccountsToDelete = [...new Set([...invalidAccounts, ...forgottenUsernames])];
+
+        // Remove deleted accounts from passwords map
         const validPasswords = { ...passwords };
-        invalidAccounts.forEach(username => {
+        allAccountsToDelete.forEach(username => {
             delete validPasswords[username];
         });
+
         // Navigate with only valid accounts
-        const validAccounts = accounts.filter(acc => !invalidAccounts.includes(acc.username));
+        const validAccounts = accounts.filter(acc => !allAccountsToDelete.includes(acc.username));
         navigate('/migration/set-password', {
             state: { passwords: validPasswords, accounts: validAccounts }
         });
@@ -127,19 +195,35 @@ function MigrationPasswords() {
                                         </div>
                                         <input
                                             type="password"
-                                            placeholder="Enter 6-digit password"
+                                            placeholder="Enter 6-digit PIN"
                                             value={passwords[account.username] || ''}
                                             onChange={(e) => handlePasswordChange(account.username, e.target.value)}
                                             maxLength={6}
+                                            disabled={forgottenAccounts[account.username]}
                                             className={`w-full bg-surface-high text-senary px-4 py-2 rounded-lg focus:outline-none focus:ring-2 ${
                                                 errors[account.username]
                                                     ? 'ring-2 ring-red-500'
                                                     : 'focus:ring-secondary'
-                                            }`}
+                                            } ${forgottenAccounts[account.username] ? 'opacity-50 cursor-not-allowed' : ''}`}
                                         />
                                         {errors[account.username] && (
                                             <p className="text-red-500 text-sm mt-1">{errors[account.username]}</p>
                                         )}
+                                        <div className="flex items-center gap-2 mt-2">
+                                            <input
+                                                type="checkbox"
+                                                id={`forgot-${account.username}`}
+                                                checked={forgottenAccounts[account.username] || false}
+                                                onChange={(e) => handleForgottenChange(account.username, e.target.checked)}
+                                                className="w-4 h-4 text-secondary rounded focus:ring-2 focus:ring-secondary cursor-pointer"
+                                            />
+                                            <label
+                                                htmlFor={`forgot-${account.username}`}
+                                                className="text-sm text-quinary cursor-pointer"
+                                            >
+                                                I forgot my PIN for this account
+                                            </label>
+                                        </div>
                                     </div>
                                 </div>
                             ))}
@@ -148,7 +232,7 @@ function MigrationPasswords() {
 
                     <button
                         onClick={handleValidate}
-                        disabled={isValidating || Object.values(passwords).some(pwd => pwd.length !== 6)}
+                        disabled={isValidating}
                         className="w-full bg-secondary hover:bg-primary text-quaternary font-semibold py-4 px-6 rounded-lg transition-colors disabled:bg-disabled disabled:cursor-not-allowed"
                     >
                         {isValidating ? 'Validating...' : 'Validate & Continue'}
@@ -159,6 +243,7 @@ function MigrationPasswords() {
             {showInvalidModal && (
                 <InvalidPasswordsModal
                     invalidAccounts={invalidAccounts}
+                    forgottenAccounts={Object.keys(forgottenAccounts).filter(username => forgottenAccounts[username])}
                     onGoBack={handleModalGoBack}
                     onContinue={handleModalContinue}
                 />

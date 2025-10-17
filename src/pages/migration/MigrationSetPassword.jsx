@@ -21,10 +21,10 @@ function MigrationSetPassword() {
     const [newPassword, setNewPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
     const [error, setError] = useState('');
+    const [confirmError, setConfirmError] = useState('');
     const [isProcessing, setIsProcessing] = useState(false);
     const [showDeletedModal, setShowDeletedModal] = useState(false);
     const [deletedAccounts, setDeletedAccounts] = useState([]);
-    const [step, setStep] = useState(1);
 
     if (!passwords || !accounts) {
         navigate('/migration/intro');
@@ -38,25 +38,22 @@ function MigrationSetPassword() {
 
     const handleConfirmPasswordChange = (pin) => {
         setConfirmPassword(pin);
-        setError('');
-    };
-
-    const handleNext = () => {
-        if (newPassword.length !== 6) {
-            setError('Password must be 6 digits');
-            return;
-        }
-        setStep(2);
+        setConfirmError('');
     };
 
     const handleSetPassword = async () => {
-        if (newPassword !== confirmPassword) {
-            setError('Passwords do not match');
+        if (newPassword.length !== 6) {
+            setError('PIN must be 6 digits');
             return;
         }
 
-        if (newPassword.length !== 6) {
-            setError('Password must be 6 digits');
+        if (confirmPassword.length !== 6) {
+            setConfirmError('PIN must be 6 digits');
+            return;
+        }
+
+        if (newPassword !== confirmPassword) {
+            setConfirmError('PINs do not match');
             return;
         }
 
@@ -160,85 +157,65 @@ function MigrationSetPassword() {
                         This password will work for all your accounts
                     </p>
 
-                    {step === 1 && (
-                        <div className="w-full">
-                            <div className="flex items-center gap-3 mb-4">
-                                <div className="bg-secondary/20 p-3 rounded-lg">
-                                    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                                    </svg>
-                                </div>
-                                <div>
-                                    <h2 className="text-lg font-bold text-senary">Create PIN</h2>
-                                    <p className="text-sm text-quinary">Choose a secure 6-digit PIN</p>
-                                </div>
+                    <div className="w-full">
+                        <div className="flex items-center gap-3 mb-4">
+                            <div className="bg-secondary/20 p-3 rounded-lg">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                                </svg>
                             </div>
-
-                            <PinInput
-                                onChange={handleNewPasswordChange}
-                                value={newPassword}
-                                length={6}
-                                error={error}
-                            />
-
-                            {error && (
-                                <p className="text-red-500 text-sm mt-2 text-center">{error}</p>
-                            )}
-
-                            <div className="bg-blue-50 rounded-lg p-4 mt-4">
-                                <p className="text-sm font-semibold text-blue-900 mb-2">PIN Requirements:</p>
-                                <ul className="space-y-1 text-sm text-blue-700">
-                                    <li>• Use only numbers (0-9)</li>
-                                    <li>• Avoid sequential numbers (e.g., 123456)</li>
-                                    <li>• Don't use repeating digits (e.g., 111111)</li>
-                                    <li>• Choose a PIN you haven't used elsewhere</li>
-                                </ul>
+                            <div>
+                                <h2 className="text-lg font-bold text-senary">Create PIN</h2>
+                                <p className="text-sm text-quinary">Choose a secure 6-digit PIN</p>
                             </div>
-
-                            <button
-                                onClick={handleNext}
-                                disabled={newPassword.length !== 6}
-                                className="w-full bg-secondary hover:bg-primary text-quaternary font-semibold py-4 px-6 rounded-lg transition-colors disabled:bg-disabled disabled:cursor-not-allowed mt-6"
-                            >
-                                Continue
-                            </button>
                         </div>
-                    )}
 
-                    {step === 2 && (
-                        <div className="w-full">
+                        <PinInput
+                            onChange={handleNewPasswordChange}
+                            value={newPassword}
+                            length={6}
+                            error={error}
+                        />
+
+                        {error && (
+                            <p className="text-red-500 text-sm mt-2 text-center">{error}</p>
+                        )}
+
+                        <div className="mt-6 mb-4">
                             <label className="block text-sm font-semibold text-senary mb-3">
-                                Confirm Password
+                                Confirm PIN
                             </label>
 
                             <PinInput
                                 onChange={handleConfirmPasswordChange}
                                 value={confirmPassword}
                                 length={6}
-                                error={error}
+                                error={confirmError}
                             />
 
-                            {error && (
-                                <p className="text-red-500 text-sm mt-2 text-center">{error}</p>
+                            {confirmError && (
+                                <p className="text-red-500 text-sm mt-2 text-center">{confirmError}</p>
                             )}
-
-                            <div className="flex gap-3 mt-6">
-                                <button
-                                    onClick={() => setStep(1)}
-                                    className="flex-1 border border-secondary text-secondary font-semibold py-4 px-6 rounded-lg transition-colors"
-                                >
-                                    Back
-                                </button>
-                                <button
-                                    onClick={handleSetPassword}
-                                    disabled={isProcessing || confirmPassword.length !== 6}
-                                    className="flex-1 bg-secondary hover:bg-primary text-quaternary font-semibold py-4 px-6 rounded-lg transition-colors disabled:bg-disabled disabled:cursor-not-allowed"
-                                >
-                                    {isProcessing ? 'Processing...' : 'Set Password'}
-                                </button>
-                            </div>
                         </div>
-                    )}
+
+                        <div className="bg-blue-50 rounded-lg p-4 mb-6">
+                            <p className="text-sm font-semibold text-blue-900 mb-2">PIN Requirements:</p>
+                            <ul className="space-y-1 text-sm text-blue-700">
+                                <li>• Use only numbers (0-9)</li>
+                                <li>• Avoid sequential numbers (e.g., 123456)</li>
+                                <li>• Don't use repeating digits (e.g., 111111)</li>
+                                <li>• Choose a PIN you haven't used elsewhere</li>
+                            </ul>
+                        </div>
+
+                        <button
+                            onClick={handleSetPassword}
+                            disabled={isProcessing || newPassword.length !== 6 || confirmPassword.length !== 6}
+                            className="w-full bg-secondary hover:bg-primary text-quaternary font-semibold py-4 px-6 rounded-lg transition-colors disabled:bg-disabled disabled:cursor-not-allowed"
+                        >
+                            {isProcessing ? 'Processing...' : 'Set Password'}
+                        </button>
+                    </div>
                 </div>
             </Card>
 

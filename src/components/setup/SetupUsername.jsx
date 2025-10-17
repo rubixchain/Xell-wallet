@@ -4,9 +4,9 @@ import { FiShield, FiUser } from 'react-icons/fi';
 import Button from '../Button';
 import { UserContext } from '../../context/userContext';
 
-export default function SetupUsername({ onSubmit }) {
+export default function SetupUsername({ onSubmit, isNewAccount = false }) {
   const { userDetails } = useContext(UserContext)
-  const [username, setUsername] = useState(userDetails?.username || '');
+  const [username, setUsername] = useState(isNewAccount ? '' : (userDetails?.username || ''));
   const [error, setError] = useState('');
 
 

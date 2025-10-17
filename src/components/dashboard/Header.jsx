@@ -194,6 +194,28 @@ export default function Header() {
                     </div>
                   ))}
                 </div>
+                <div className="border-t border-gray-200 dark:border-gray-700 p-2">
+                  <div
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setAccountDropdownOpen(false);
+                      navigate('/setup-wallet', { state: { allChecked: true, fromDashboard: true } });
+                    }}
+                    className="flex items-center gap-2 p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
+                  >
+                    <span className="text-sm font-medium text-gray-900 dark:text-gray-100">+ Create Wallet</span>
+                  </div>
+                  <div
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setAccountDropdownOpen(false);
+                      navigate('/import-wallet');
+                    }}
+                    className="flex items-center gap-2 p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
+                  >
+                    <span className="text-sm font-medium text-gray-900 dark:text-gray-100">+ Import Wallet</span>
+                  </div>
+                </div>
               </div>
             )}
             <div className="flex items-center space-x-2">
