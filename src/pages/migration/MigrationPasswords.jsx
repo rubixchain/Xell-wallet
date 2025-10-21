@@ -14,6 +14,7 @@ function MigrationPasswords() {
     const [showInvalidModal, setShowInvalidModal] = useState(false);
     const [invalidAccounts, setInvalidAccounts] = useState([]);
     const [forgottenAccounts, setForgottenAccounts] = useState({});
+    const [attemptCounts, setAttemptCounts] = useState({});
 
     useEffect(() => {
         loadAccounts();
@@ -26,12 +27,15 @@ function MigrationPasswords() {
             if (accountList.length > 0) {
                 const initialPasswords = {};
                 const initialForgotten = {};
+                const initialAttempts = {};
                 accountList.forEach(acc => {
                     initialPasswords[acc.username] = '';
                     initialForgotten[acc.username] = false;
+                    initialAttempts[acc.username] = 0;
                 });
                 setPasswords(initialPasswords);
                 setForgottenAccounts(initialForgotten);
+                setAttemptCounts(initialAttempts);
             }
         } catch (error) {
             toast.error('Failed to load accounts');
@@ -97,11 +101,25 @@ function MigrationPasswords() {
                     setInvalidAccounts([]);
                     setShowInvalidModal(true);
                 } else {
-                    // Show modal with both forgotten and invalid
+                    // Increment attempt count and check if should auto-forget
                     const newErrors = {};
+                    const newAttempts = { ...attemptCounts };
+                    const newForgotten = { ...forgottenAccounts };
+
                     result.invalid.forEach(username => {
-                        newErrors[username] = 'Invalid PIN';
+                        newAttempts[username] = (newAttempts[username] || 0) + 1;
+
+                        if (newAttempts[username] >= 3) {
+                            // Auto-check "I forgot my PIN" after 3 failed attempts
+                            newForgotten[username] = true;
+                            newErrors[username] = 'Too many attempts. Marked as forgotten.';
+                        } else {
+                            newErrors[username] = `Invalid PIN (Attempt ${newAttempts[username]}/3)`;
+                        }
                     });
+
+                    setAttemptCounts(newAttempts);
+                    setForgottenAccounts(newForgotten);
                     setErrors(newErrors);
                     setInvalidAccounts(result.invalid);
                     setShowInvalidModal(true);
@@ -124,10 +142,25 @@ function MigrationPasswords() {
                     state: { passwords, accounts }
                 });
             } else {
+                // Increment attempt count and check if should auto-forget
                 const newErrors = {};
+                const newAttempts = { ...attemptCounts };
+                const newForgotten = { ...forgottenAccounts };
+
                 result.invalid.forEach(username => {
-                    newErrors[username] = 'Invalid PIN';
+                    newAttempts[username] = (newAttempts[username] || 0) + 1;
+
+                    if (newAttempts[username] >= 3) {
+                        // Auto-check "I forgot my PIN" after 3 failed attempts
+                        newForgotten[username] = true;
+                        newErrors[username] = 'Too many attempts. Marked as forgotten.';
+                    } else {
+                        newErrors[username] = `Invalid PIN (Attempt ${newAttempts[username]}/3)`;
+                    }
                 });
+
+                setAttemptCounts(newAttempts);
+                setForgottenAccounts(newForgotten);
                 setErrors(newErrors);
                 setInvalidAccounts(result.invalid);
                 setShowInvalidModal(true);
@@ -215,13 +248,16 @@ function MigrationPasswords() {
                                                 id={`forgot-${account.username}`}
                                                 checked={forgottenAccounts[account.username] || false}
                                                 onChange={(e) => handleForgottenChange(account.username, e.target.checked)}
-                                                className="w-4 h-4 text-secondary rounded focus:ring-2 focus:ring-secondary cursor-pointer"
+                                                disabled={(attemptCounts[account.username] || 0) >= 3}
+                                                className="w-4 h-4 text-secondary rounded focus:ring-2 focus:ring-secondary cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
                                             />
                                             <label
                                                 htmlFor={`forgot-${account.username}`}
-                                                className="text-sm text-quinary cursor-pointer"
+                                                className={`text-sm ${(attemptCounts[account.username] || 0) >= 3 ? 'text-red-500 font-medium' : 'text-quinary cursor-pointer'}`}
                                             >
-                                                I forgot my PIN for this account
+                                                {(attemptCounts[account.username] || 0) >= 3
+                                                    ? 'Too many attempts - Account will be deleted'
+                                                    : 'I forgot my PIN for this account'}
                                             </label>
                                         </div>
                                     </div>
@@ -244,6 +280,7 @@ function MigrationPasswords() {
                 <InvalidPasswordsModal
                     invalidAccounts={invalidAccounts}
                     forgottenAccounts={Object.keys(forgottenAccounts).filter(username => forgottenAccounts[username])}
+                    attemptCounts={attemptCounts}
                     onGoBack={handleModalGoBack}
                     onContinue={handleModalContinue}
                 />

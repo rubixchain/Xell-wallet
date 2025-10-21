@@ -1,8 +1,15 @@
 import React from 'react';
 
-function InvalidPasswordsModal({ invalidAccounts, forgottenAccounts = [], onGoBack, onContinue }) {
+function InvalidPasswordsModal({ invalidAccounts, forgottenAccounts = [], onGoBack, onContinue, attemptCounts = {} }) {
     const hasForgotten = forgottenAccounts.length > 0;
     const hasInvalid = invalidAccounts.length > 0;
+
+    // Check if there are any incorrect accounts that haven't reached max attempts
+    const hasIncorrectNotAutoForgotten = invalidAccounts.some(username =>
+        !forgottenAccounts.includes(username) && (attemptCounts[username] || 0) < 3
+    );
+
+    const isContinueDisabled = hasIncorrectNotAutoForgotten;
 
     return (
         <div
@@ -88,7 +95,8 @@ function InvalidPasswordsModal({ invalidAccounts, forgottenAccounts = [], onGoBa
                     </button>
                     <button
                         onClick={onContinue}
-                        className="flex-1 bg-red-500 hover:bg-red-600 text-white font-semibold py-3 px-4 rounded-lg transition-colors"
+                        disabled={isContinueDisabled}
+                        className="flex-1 bg-red-500 hover:bg-red-600 text-white font-semibold py-3 px-4 rounded-lg transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed disabled:text-gray-500"
                     >
                         Continue Anyway
                     </button>
