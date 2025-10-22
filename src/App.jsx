@@ -29,60 +29,8 @@ import MigrationSetPassword from './pages/migration/MigrationSetPassword';
 import NetworkMigration from './pages/migration/NetworkMigration';
 
 function MigrationCheck() {
-  const [isMigrating, setIsMigrating] = React.useState(false);
-
-  useEffect(() => {
-    (async () => {
-      const needsNetworkMigration = await indexDBUtil.needsNetworkMigration();
-      if (needsNetworkMigration) {
-        setIsMigrating(true);
-        try {
-          const { migrateToNetworkStructure } = await import('./indexDB/migration');
-          await migrateToNetworkStructure();
-          setIsMigrating(false);
-        } catch (error) {
-          console.error('Migration failed:', error);
-          setIsMigrating(false);
-        }
-      }
-    })();
-  }, []);
-
-  if (isMigrating) {
-    return (
-      <div style={{
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        backgroundColor: 'rgba(255, 255, 255, 0.95)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        zIndex: 9999
-      }}>
-        <div style={{ textAlign: 'center' }}>
-          <div style={{
-            width: '48px',
-            height: '48px',
-            border: '4px solid #e5e7eb',
-            borderTop: '4px solid #10b981',
-            borderRadius: '50%',
-            animation: 'spin 1s linear infinite',
-            margin: '0 auto 16px'
-          }}></div>
-          <p style={{ color: '#374151', fontSize: '16px', fontWeight: '600' }}>
-            Updating your wallet...
-          </p>
-          <p style={{ color: '#6b7280', fontSize: '14px', marginTop: '8px' }}>
-            Please wait a moment
-          </p>
-        </div>
-      </div>
-    );
-  }
-
+  // Network migration is now handled automatically after password unification in MigrationSetPassword.jsx
+  // No separate check needed here
   return null;
 }
 
