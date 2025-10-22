@@ -1607,6 +1607,180 @@ const indexDBUtil = {
         } catch (error) {
             throw error;
         }
+    },
+
+    needsNetworkMigration: async function() {
+        try {
+            const version = await this.getStorageVersion();
+            const accounts = await this.getData();
+
+            if (parseFloat(version) < 4.0 && accounts?.data?.length > 0) {
+                return true;
+            }
+            return false;
+        } catch (error) {
+            return false;
+        }
+    },
+
+    getAccountNetworkBindings: async function(username) {
+        try {
+            const db = await this.initDB();
+            return new Promise((resolve, reject) => {
+                const transaction = db.transaction([this.storeName], 'readonly');
+                const store = transaction.objectStore(this.storeName);
+                const request = store.get('AccountNetworkBindings');
+
+                request.onsuccess = () => {
+                    const data = request.result;
+                    if (!data || !data.bindings) {
+                        resolve([]);
+                        return;
+                    }
+
+                    const userBindings = data.bindings.filter(b => b.username === username);
+                    resolve(userBindings);
+                };
+
+                request.onerror = () => reject(request.error);
+            });
+        } catch (error) {
+            throw error;
+        }
+    },
+
+    saveAccountNetworkBinding: async function(binding) {
+        try {
+            const db = await this.initDB();
+            return new Promise((resolve, reject) => {
+                const transaction = db.transaction([this.storeName], 'readwrite');
+                const store = transaction.objectStore(this.storeName);
+                const request = store.get('AccountNetworkBindings');
+
+                request.onsuccess = () => {
+                    const data = request.result || { id: 'AccountNetworkBindings', bindings: [] };
+
+                    const existingIndex = data.bindings.findIndex(
+                        b => b.username === binding.username &&
+                             b.networkId === binding.networkId
+                    );
+
+                    if (existingIndex !== -1) {
+                        data.bindings[existingIndex] = {
+                            ...data.bindings[existingIndex],
+                            ...binding
+                        };
+                    } else {
+                        data.bindings.push(binding);
+                    }
+
+                    const updateRequest = store.put(data);
+                    updateRequest.onsuccess = () => resolve({ status: true });
+                    updateRequest.onerror = () => reject(updateRequest.error);
+                };
+
+                request.onerror = () => reject(request.error);
+            });
+        } catch (error) {
+            throw error;
+        }
+    },
+
+    accountExistsInNetwork: async function(username, networkId) {
+        try {
+            const bindings = await this.getAccountNetworkBindings(username);
+            return bindings.some(b => b.networkId === networkId);
+        } catch (error) {
+            return false;
+        }
+    },
+
+    storeToDBV4: async function ({ privatekey, publickey, pin, username, mnemonics }) {
+        try {
+            const rubixMainnetUrl = config.RUBIX_MAINNET_BASE_URL;
+            const rubixTestnetUrl = config.RUBIX_TESTNET_BASE_URL;
+
+            let res = await END_POINTS.create_wallet({ public_key: publickey, network: "1" });
+
+            if (!res) {
+                toast.error(res?.message || 'failed to create wallet');
+                return;
+            }
+
+            await END_POINTS.register_did({ did: res?.did });
+
+            const db = await this.initDB();
+            return new Promise((resolve, reject) => {
+                const transaction = db.transaction([this.storeName], 'readwrite');
+                const store = transaction.objectStore(this.storeName);
+
+                const getRequest = store.get("UserDetails");
+
+                let encryptedPK = CryptoJS.AES.encrypt(privatekey, pin).toString();
+                let encryptedMnemonics = CryptoJS.AES.encrypt(mnemonics, pin).toString();
+
+                getRequest.onsuccess = async () => {
+                    const existingData = getRequest.result;
+                    const newAccount = {
+                        privatekey: encryptedPK,
+                        publickey: publickey,
+                        username: username,
+                        did: res?.did,
+                        network: "1",
+                        createdAt: new Date().toISOString(),
+                        mnemonics: encryptedMnemonics
+                    };
+
+                    const objectToStore = {
+                        id: "UserDetails",
+                        accounts: existingData ?
+                            [...(existingData.accounts || []), newAccount] :
+                            [newAccount]
+                    };
+
+                    const putRequest = store.put(objectToStore);
+                    putRequest.onerror = () => reject(putRequest.error);
+                    putRequest.onsuccess = async () => {
+                        try {
+                            await this.saveAccountNetworkBinding({
+                                username: username,
+                                did: res?.did,
+                                networkId: 1,
+                                nodeId: 1,
+                                nodeUrl: rubixMainnetUrl,
+                                swarmKey: "RUBIX_MAINNET_SWARM_KEY"
+                            });
+
+                            await this.saveAccountNetworkBinding({
+                                username: username,
+                                did: res?.did,
+                                networkId: 2,
+                                nodeId: 1,
+                                nodeUrl: rubixTestnetUrl,
+                                swarmKey: "RUBIX_TESTNET_SWARM_KEY"
+                            });
+
+                            await this.storeNetworks(db, res?.did);
+                            resolve({
+                                status: true, data: {
+                                    username: username,
+                                    did: res?.did,
+                                    network: "1",
+                                    pin: pin,
+                                    publickey: publickey,
+                                }
+                            });
+                        } catch (error) {
+                            reject(error);
+                        }
+                    };
+                };
+
+                getRequest.onerror = () => reject(getRequest.error);
+            });
+        } catch (error) {
+            throw error;
+        }
     }
 };
 

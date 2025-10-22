@@ -86,16 +86,22 @@ export default function SetupWallet() {
       const updatedUserDetails = { ...userDetails, network: 1, tokenSymbol: NETWORK_TYPES.RBT };
       setUserDetails(updatedUserDetails);
       setLoader(true)
-      let res = await indexDBUtil.storeToDB({ ...updatedUserDetails, publickey: state.publickey, privatekey: state?.privatekey, mnemonics: state?.mnemonics })
+
+      const storageVersion = await indexDBUtil.getStorageVersion();
+      const useV4 = parseFloat(storageVersion) >= 4.0;
+
+      let res = useV4
+        ? await indexDBUtil.storeToDBV4({ ...updatedUserDetails, publickey: state.publickey, privatekey: state?.privatekey, mnemonics: state?.mnemonics })
+        : await indexDBUtil.storeToDB({ ...updatedUserDetails, publickey: state.publickey, privatekey: state?.privatekey, mnemonics: state?.mnemonics });
+
       setLoader(false)
       if (!res?.status) {
         toast.error(res?.message)
         return
       }
 
-      // Set unified password for new wallet creation
       await indexDBUtil.setUnifiedPasswordForSingleUser(updatedUserDetails.pin);
-      await indexDBUtil.setStorageVersion('3.1');
+      await indexDBUtil.setStorageVersion(useV4 ? '4.0' : '3.1');
 
       toast.success('login success')
       setIsUserLoggedIn(true)

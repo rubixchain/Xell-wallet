@@ -14,5 +14,6 @@ export const routes = {
     LOGIN: '/login',
     TERMS_OF_SERVICES: "/termsofservices",
     PRIVACY_POLICY: "/privacypolicy",
-    ADD_NETWORK: "/add-network"
+    ADD_NETWORK: "/add-network",
+    NETWORK_MIGRATION: "/network-migration"
 }

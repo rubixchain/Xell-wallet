@@ -26,6 +26,7 @@ import { updateVersion } from './utils';
 import MigrationIntro from './pages/migration/MigrationIntro';
 import MigrationPasswords from './pages/migration/MigrationPasswords';
 import MigrationSetPassword from './pages/migration/MigrationSetPassword';
+import NetworkMigration from './pages/migration/NetworkMigration';
 
 function App() {
 
@@ -41,6 +42,11 @@ function App() {
       }
       await indexDBUtil.encryptData()
       await updateVersion()
+
+      const needsNetworkMigration = await indexDBUtil.needsNetworkMigration();
+      if (needsNetworkMigration && window.location.pathname !== routes.NETWORK_MIGRATION) {
+        window.location.href = routes.NETWORK_MIGRATION;
+      }
     })()
   }, []);
 
@@ -61,6 +67,7 @@ function App() {
                   <Route path="/migration/intro" element={<MigrationIntro />} />
                   <Route path="/migration/passwords" element={<MigrationPasswords />} />
                   <Route path="/migration/set-password" element={<MigrationSetPassword />} />
+                  <Route path={routes.NETWORK_MIGRATION} element={<NetworkMigration />} />
 
                   {/* Public routes */}
                   <Route path={routes.WELCOME} element={<Welcome />} />

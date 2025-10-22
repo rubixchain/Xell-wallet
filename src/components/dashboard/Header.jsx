@@ -19,6 +19,8 @@ import { WALLET_TYPES } from '../../enums';
 import History from "../../pages/History"
 import { EXECUTE_API } from '../../utils';
 import { ENUMS } from '../../enums';
+import NetworkNodeSelector from '../network/NetworkNodeSelector';
+import { END_POINTS } from '../../api/endpoints';
 
 export default function Header() {
   const { userDetails, setUserDetails, setIsUserLoggedIn } = useContext(UserContext);
@@ -28,6 +30,8 @@ export default function Header() {
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [accountDropdownOpen, setAccountDropdownOpen] = useState(false);
   const [allAccounts, setAllAccounts] = useState([]);
+  const [showNetworkSelector, setShowNetworkSelector] = useState(false);
+  const [selectedAccount, setSelectedAccount] = useState(null);
   const dropdownRef = useRef(null);
   const accountDropdownRef = useRef(null);
   const navigate = useNavigate();
@@ -88,6 +92,76 @@ export default function Header() {
 
   const handleAccountSwitch = async (account) => {
     try {
+      const storageVersion = await indexDBUtil.getStorageVersion();
+      const useV4 = parseFloat(storageVersion) >= 4.0;
+
+      if (useV4) {
+        setSelectedAccount(account);
+        setShowNetworkSelector(true);
+        setAccountDropdownOpen(false);
+      } else {
+        const currentPassword = userDetails?.pin;
+
+        if (!currentPassword) {
+          toast.error('Session expired. Please login again.');
+          return;
+        }
+
+        const accountData = await indexDBUtil.validateAndGetAccount(
+          account.username,
+          currentPassword
+        );
+
+        if (!accountData.status) {
+          toast.error('Failed to switch account');
+          return;
+        }
+
+        const getActivenetwork = await indexDBUtil.getNetworksByDID(accountData.data.did) || [];
+        const activeNetwork = getActivenetwork?.find(item => item?.selected);
+
+        let networkConfig;
+        if (activeNetwork) {
+          networkConfig = {
+            network: activeNetwork?.id,
+            RPCUrl: activeNetwork?.rpcUrls?.find(item => item?.selected)?.url,
+            name: activeNetwork?.name,
+            tokenSymbol: activeNetwork?.tokenSymbol
+          };
+        }
+
+        await indexDBUtil.storeNetworkSetting(networkConfig);
+
+        localStorage.setItem("currentUser", JSON.stringify({
+          username: accountData.data.username,
+          network: accountData.data.network
+        }));
+
+        await EXECUTE_API({
+          data: {
+            ...accountData.data,
+            tokenSymbol: networkConfig?.tokenSymbol
+          },
+          type: WALLET_TYPES.STORE_USER_DETAILS
+        });
+
+        setUserDetails({
+          ...accountData.data,
+          tokenSymbol: networkConfig?.tokenSymbol
+        });
+
+        localStorage.setItem(ENUMS.INITIAL_ACTIVE_TIME, JSON.stringify(Date.now()));
+
+        setAccountDropdownOpen(false);
+        toast.success(`Switched to ${account.username}`);
+      }
+    } catch (error) {
+      toast.error('Failed to switch account');
+    }
+  };
+
+  const handleNetworkNodeSelect = async (network, node) => {
+    try {
       const currentPassword = userDetails?.pin;
 
       if (!currentPassword) {
@@ -96,7 +170,7 @@ export default function Header() {
       }
 
       const accountData = await indexDBUtil.validateAndGetAccount(
-        account.username,
+        selectedAccount.username,
         currentPassword
       );
 
@@ -105,45 +179,56 @@ export default function Header() {
         return;
       }
 
-      const getActivenetwork = await indexDBUtil.getNetworksByDID(accountData.data.did) || [];
-      const activeNetwork = getActivenetwork?.find(item => item?.selected);
+      const bindings = await indexDBUtil.getAccountNetworkBindings(selectedAccount.username);
+      const binding = bindings.find(b => b.networkId === network.id && b.nodeId === node.id);
 
-      let networkConfig;
-      if (activeNetwork) {
-        networkConfig = {
-          network: activeNetwork?.id,
-          RPCUrl: activeNetwork?.rpcUrls?.find(item => item?.selected)?.url,
-          name: activeNetwork?.name,
-          tokenSymbol: activeNetwork?.tokenSymbol
-        };
+      if (!binding) {
+        await END_POINTS.register_did({ did: accountData.data.did });
+
+        await indexDBUtil.saveAccountNetworkBinding({
+          username: selectedAccount.username,
+          did: accountData.data.did,
+          networkId: network.id,
+          nodeId: node.id,
+          nodeUrl: node.url,
+          swarmKey: network.swarmKey
+        });
       }
+
+      const networkConfig = {
+        network: network.id,
+        RPCUrl: node.url,
+        name: network.name,
+        tokenSymbol: network.tokenSymbol
+      };
 
       await indexDBUtil.storeNetworkSetting(networkConfig);
 
       localStorage.setItem("currentUser", JSON.stringify({
         username: accountData.data.username,
-        network: accountData.data.network
+        network: network.id
       }));
 
       await EXECUTE_API({
         data: {
           ...accountData.data,
-          tokenSymbol: networkConfig?.tokenSymbol
+          tokenSymbol: networkConfig.tokenSymbol
         },
         type: WALLET_TYPES.STORE_USER_DETAILS
       });
 
       setUserDetails({
         ...accountData.data,
-        tokenSymbol: networkConfig?.tokenSymbol
+        tokenSymbol: networkConfig.tokenSymbol
       });
 
       localStorage.setItem(ENUMS.INITIAL_ACTIVE_TIME, JSON.stringify(Date.now()));
 
-      setAccountDropdownOpen(false);
-      toast.success(`Switched to ${account.username}`);
+      setShowNetworkSelector(false);
+      setSelectedAccount(null);
+      toast.success(`Switched to ${selectedAccount.username} on ${network.name}`);
     } catch (error) {
-      toast.error('Failed to switch account');
+      toast.error('Failed to switch account: ' + error.message);
     }
   };
 
@@ -299,6 +384,16 @@ export default function Header() {
         <Modal onClose={() => setModalOpen(false)}>
           {modalContent}
         </Modal>
+      )}
+      {showNetworkSelector && selectedAccount && (
+        <NetworkNodeSelector
+          username={selectedAccount.username}
+          onSelect={handleNetworkNodeSelect}
+          onClose={() => {
+            setShowNetworkSelector(false);
+            setSelectedAccount(null);
+          }}
+        />
       )}
     </header>
   );
