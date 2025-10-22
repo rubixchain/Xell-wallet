@@ -59,7 +59,7 @@ function MigrationPasswords() {
             [username]: checked
         }));
         if (checked) {
-            // Clear password if marked as forgotten
+            // Clear password, errors, and attempt count if manually marked as forgotten
             setPasswords(prev => ({
                 ...prev,
                 [username]: ''
@@ -67,6 +67,10 @@ function MigrationPasswords() {
             setErrors(prev => ({
                 ...prev,
                 [username]: ''
+            }));
+            setAttemptCounts(prev => ({
+                ...prev,
+                [username]: 0
             }));
         }
     };
@@ -234,12 +238,12 @@ function MigrationPasswords() {
                                             maxLength={6}
                                             disabled={forgottenAccounts[account.username]}
                                             className={`w-full bg-surface-high text-senary px-4 py-2 rounded-lg focus:outline-none focus:ring-2 ${
-                                                errors[account.username]
+                                                errors[account.username] && !forgottenAccounts[account.username]
                                                     ? 'ring-2 ring-red-500'
                                                     : 'focus:ring-secondary'
                                             } ${forgottenAccounts[account.username] ? 'opacity-50 cursor-not-allowed' : ''}`}
                                         />
-                                        {errors[account.username] && (
+                                        {errors[account.username] && !forgottenAccounts[account.username] && (
                                             <p className="text-red-500 text-sm mt-1">{errors[account.username]}</p>
                                         )}
                                         <div className="flex items-center gap-2 mt-2">
@@ -253,9 +257,13 @@ function MigrationPasswords() {
                                             />
                                             <label
                                                 htmlFor={`forgot-${account.username}`}
-                                                className={`text-sm ${(attemptCounts[account.username] || 0) >= 3 ? 'text-red-500 font-medium' : 'text-quinary cursor-pointer'}`}
+                                                className={`text-sm ${
+                                                    !forgottenAccounts[account.username] && (attemptCounts[account.username] || 0) >= 3
+                                                        ? 'text-red-500 font-medium'
+                                                        : 'text-quinary cursor-pointer'
+                                                }`}
                                             >
-                                                {(attemptCounts[account.username] || 0) >= 3
+                                                {!forgottenAccounts[account.username] && (attemptCounts[account.username] || 0) >= 3
                                                     ? 'Too many attempts - Account will be deleted'
                                                     : 'I forgot my PIN for this account'}
                                             </label>

@@ -2,11 +2,14 @@ import React from 'react';
 
 function InvalidPasswordsModal({ invalidAccounts, forgottenAccounts = [], onGoBack, onContinue, attemptCounts = {} }) {
     const hasForgotten = forgottenAccounts.length > 0;
-    const hasInvalid = invalidAccounts.length > 0;
+
+    // Filter out forgotten accounts from invalid accounts list
+    const incorrectAccounts = invalidAccounts.filter(username => !forgottenAccounts.includes(username));
+    const hasInvalid = incorrectAccounts.length > 0;
 
     // Check if there are any incorrect accounts that haven't reached max attempts
-    const hasIncorrectNotAutoForgotten = invalidAccounts.some(username =>
-        !forgottenAccounts.includes(username) && (attemptCounts[username] || 0) < 3
+    const hasIncorrectNotAutoForgotten = incorrectAccounts.some(username =>
+        (attemptCounts[username] || 0) < 3
     );
 
     const isContinueDisabled = hasIncorrectNotAutoForgotten;
@@ -69,7 +72,7 @@ function InvalidPasswordsModal({ invalidAccounts, forgottenAccounts = [], onGoBa
                         </p>
                         <div className="rounded-lg p-4 mb-2 border" style={{ backgroundColor: '#f5f5f5', borderColor: '#ddd' }}>
                             <ul className="space-y-2">
-                                {invalidAccounts.map((username) => (
+                                {incorrectAccounts.map((username) => (
                                     <li key={username} className="flex items-center gap-2" style={{ color: '#666' }}>
                                         <span>@</span>
                                         <span className="font-medium">{username}</span>

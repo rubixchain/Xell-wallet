@@ -1614,7 +1614,9 @@ const indexDBUtil = {
             const version = await this.getStorageVersion();
             const accounts = await this.getData();
 
-            if (parseFloat(version) < 4.0 && accounts?.data?.length > 0) {
+            // Only trigger network migration for users who completed password unification (v3.1)
+            // Users on v3.0 should see password unification migration first
+            if (parseFloat(version) >= 3.1 && parseFloat(version) < 4.0 && accounts?.data?.length > 0) {
                 return true;
             }
             return false;
