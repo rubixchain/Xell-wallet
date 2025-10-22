@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import Layout from './components/Layout';
 import Welcome from './pages/Welcome';
@@ -28,6 +28,22 @@ import MigrationPasswords from './pages/migration/MigrationPasswords';
 import MigrationSetPassword from './pages/migration/MigrationSetPassword';
 import NetworkMigration from './pages/migration/NetworkMigration';
 
+function MigrationCheck() {
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  useEffect(() => {
+    (async () => {
+      const needsNetworkMigration = await indexDBUtil.needsNetworkMigration();
+      if (needsNetworkMigration && location.pathname !== routes.NETWORK_MIGRATION) {
+        navigate(routes.NETWORK_MIGRATION, { replace: true });
+      }
+    })();
+  }, [navigate, location.pathname]);
+
+  return null;
+}
+
 function App() {
 
   useEffect(() => {
@@ -42,11 +58,6 @@ function App() {
       }
       await indexDBUtil.encryptData()
       await updateVersion()
-
-      const needsNetworkMigration = await indexDBUtil.needsNetworkMigration();
-      if (needsNetworkMigration && window.location.pathname !== routes.NETWORK_MIGRATION) {
-        window.location.href = routes.NETWORK_MIGRATION;
-      }
     })()
   }, []);
 
@@ -58,6 +69,7 @@ function App() {
             v7_startTransition: true,
             v7_relativeSplatPath: true, // Add this line
           }}>
+            <MigrationCheck />
             <UserProvider>
               {/* <UseSessionTimeout /> */}
               {/* <DemoModeButton /> */}

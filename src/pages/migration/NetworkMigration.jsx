@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { migrateToNetworkStructure, getMigrationProgress } from '../../indexDB/migration';
 import indexDBUtil from '../../indexDB/index';
 import toast from 'react-hot-toast';
-import { ROUTES } from '../../routes/routes';
+import { routes } from '../../routes/routes';
 
 export default function NetworkMigration() {
     const navigate = useNavigate();
@@ -61,7 +61,7 @@ export default function NetworkMigration() {
                 toast.success(result.message);
 
                 setTimeout(() => {
-                    navigate(ROUTES.LOGIN, { replace: true });
+                    navigate(routes.LOGIN, { replace: true });
                 }, 2000);
             } else {
                 toast.error(result.message || 'Migration failed');
