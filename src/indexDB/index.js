@@ -1,12 +1,16 @@
 import toast from "react-hot-toast";
 import * as bip39 from 'bip39';
 import { END_POINTS } from "../api/endpoints";
-import bip32 from 'bip32';
+import { BIP32Factory } from 'bip32';
+import * as ecc from 'tiny-secp256k1';
 import secp256k1 from 'secp256k1';
 import { generateSignature } from "../utils";
 import CryptoJS from 'crypto-js';
 import { config, NETWORK_TYPES } from "../../config";
 import axios from "axios";
+
+// Initialize BIP32 with elliptic curve implementation
+const bip32 = BIP32Factory(ecc);
 
 const indexDBUtil = {
     dbName: 'WalletDB',
@@ -367,17 +371,33 @@ const indexDBUtil = {
     savePrivateKey: async function (key, data) {
         try {
             const db = await this.initDB();
-            const result = bip39.mnemonicToSeedSync(data?.originalPhrase);
-            let privateKey = result.slice(0, 32);
-            if (!secp256k1.privateKeyVerify(privateKey)) {
+            
+            // Step 1: Convert mnemonic to seed (BIP39)
+            const seed = bip39.mnemonicToSeedSync(data?.originalPhrase);
+            
+            // Step 2: Create BIP32 master key from seed
+            const root = bip32.fromSeed(seed);
+            
+            // Step 3: Derive child key at path m/0 (to match Go/Python implementation)
+            const child = root.derivePath("m/0");
+            
+            // Step 4: Extract private key from child (not directly from seed!)
+            let privateKeyBuffer = child.privateKey;
+            
+            if (!privateKeyBuffer || !secp256k1.privateKeyVerify(privateKeyBuffer)) {
                 toast.error('invalid private key');
                 return;
             }
-            const publicKeyBuffer = secp256k1.publicKeyCreate(privateKey, true);
+            
+            // Step 5: Generate compressed public key from private key
+            const publicKeyBuffer = secp256k1.publicKeyCreate(privateKeyBuffer, true);
             let publicKey = Buffer.from(publicKeyBuffer).toString('hex');
-            privateKey = privateKey?.toString('hex');
+            
+            // Convert to hex for storage (but keep buffer for signing)
+            let privateKey = privateKeyBuffer.toString('hex');
+            
             if (publicKey.length !== 66) {
-                toast.error('invalid private key');
+                toast.error('invalid public key');
                 return;
             }
             const isPrivateKeyExists = await this.checkPrivateKeyExists(privateKey);
@@ -433,7 +453,7 @@ const indexDBUtil = {
                         return null;
                     }
 
-                    let signature = await generateSignature(privateKey, registerDid?.result?.hash);
+                    let signature = await generateSignature(privateKeyBuffer, registerDid?.result?.hash);
                     let signatureResponse = await customApi.post('/signature-response', {
                         id: registerDid?.result?.id,
                         Signature: { Signature: signature },

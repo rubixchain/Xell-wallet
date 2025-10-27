@@ -33,27 +33,55 @@ export const UserProvider = ({ children }) => {
             }
             setCurrency(value)
             let currentUser = localStorage.getItem("currentUser")
-            chrome.storage.local.get(["websiteInitiated", "title", "icon"], (result) => {
-                if (result?.websiteInitiated) {
-                    setWebsiteInitiated({
-                        initiated: result?.websiteInitiated || {},
-                        title: result?.title || '',
-                        icon: result?.icon || ''
-                    });
-                    chrome.storage.local.remove(["websiteInitiated", "title", "icon"], () => {
+            
+            // Check if running in browser extension context
+            if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+                chrome.storage.local.get(["websiteInitiated", "title", "icon"], (result) => {
+                    if (result?.websiteInitiated) {
+                        setWebsiteInitiated({
+                            initiated: result?.websiteInitiated || {},
+                            title: result?.title || '',
+                            icon: result?.icon || ''
+                        });
+                        chrome.storage.local.remove(["websiteInitiated", "title", "icon"], () => {
 
-                    });
-                }
-            });
+                        });
+                    }
+                });
+            }
             if (!currentUser) {
                 navigate(ROUTES.WELCOME, { replace: true })
                 return
             }
             currentUser = JSON.parse(currentUser)
-            let checkUser = await chrome.runtime.sendMessage(
-                { type: WALLET_TYPES.GET_USER_DETAILS }
-            )
-
+            
+            let checkUser;
+            // Check if running in browser extension context
+            if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage) {
+                checkUser = await chrome.runtime.sendMessage(
+                    { type: WALLET_TYPES.GET_USER_DETAILS }
+                )
+            } else {
+                // Fallback for dev mode (not in extension context)
+                // Get user details from IndexedDB directly
+                try {
+                    const userData = await indexDBUtil.getData("UserDetails", currentUser.username, currentUser.pin);
+                    if (userData) {
+                        checkUser = {
+                            status: true,
+                            userDetails: {
+                                username: userData.username,
+                                did: userData.did,
+                                network: userData.network,
+                                publickey: userData.publickey,
+                                pin: userData.pin
+                            }
+                        };
+                    }
+                } catch (error) {
+                    console.error('Error fetching user details:', error);
+                }
+            }
 
             if (!checkUser || !checkUser?.status || currentUser.username !== checkUser.userDetails?.username) {
                 navigate(ROUTES.LOGIN, { replace: true })

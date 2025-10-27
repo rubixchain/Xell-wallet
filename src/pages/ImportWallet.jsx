@@ -1,6 +1,9 @@
 import React, { useState, useCallback, useRef } from 'react';
 import { FiArrowLeft, FiUpload, FiFile, FiDownload } from 'react-icons/fi';
 import * as bip39 from "bip39"
+import { BIP32Factory } from 'bip32';
+import * as ecc from 'tiny-secp256k1';
+import { Buffer } from 'buffer';
 import toast from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
 import { routes } from '../routes/routes';
@@ -8,6 +11,9 @@ import BackButton from '../components/BackButton';
 import Card from '../components/Card';
 import indexDBUtil from '../indexDB';
 import secp256k1 from 'secp256k1';
+
+// Initialize BIP32 with elliptic curve implementation
+const bip32 = BIP32Factory(ecc);
 
 const Header = () => {
   return (
@@ -83,12 +89,25 @@ const ImportWallet = () => {
     if (!verifyMnemonic) {
       return toast.error('Invalid mnemonics')
     }
-    const result = bip39.mnemonicToSeedSync(trimed);
-    let privatekey = result.slice(0, 32);
-    if (!secp256k1.privateKeyVerify(privatekey)) {
+    
+    // Step 1: Convert mnemonic to seed (BIP39)
+    const seed = bip39.mnemonicToSeedSync(trimed);
+    
+    // Step 2: Create BIP32 master key from seed
+    const root = bip32.fromSeed(seed);
+    
+    // Step 3: Derive child key at path m/0 (to match Go/Python implementation)
+    const child = root.derivePath("m/0");
+    
+    // Step 4: Extract private key from child (not directly from seed!)
+    let privatekey = child.privateKey;
+    
+    if (!privatekey || !secp256k1.privateKeyVerify(privatekey)) {
       toast.error('invalid private key')
       return
     }
+    
+    // Step 5: Generate compressed public key from private key
     const publicKeyBuffer = secp256k1.publicKeyCreate(privatekey, true)
     let publickey = Buffer.from(publicKeyBuffer).toString('hex');
     privatekey = privatekey?.toString('hex')
