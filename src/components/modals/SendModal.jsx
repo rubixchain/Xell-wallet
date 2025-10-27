@@ -41,27 +41,23 @@ export default function SendModal({ isOpen, onClose, accountInfo, setIsTransacti
     setFavorites(fav)
   }, [])
 
-  // Handle click outside dropdown
+
   useEffect(() => {
     function handleClickOutside(event) {
-      // Only handle if dropdown is open and click is outside the dropdown
       if (showTokenDropdown && dropdownRef.current && !dropdownRef.current.contains(event.target)) {
         setShowTokenDropdown(false);
-        setTokenSearchQuery(''); // Clear search when closing
+        setTokenSearchQuery('');
       }
     }
 
-    // Use click event instead of mousedown to avoid conflicts
     document.addEventListener('click', handleClickOutside);
     return () => {
       document.removeEventListener('click', handleClickOutside);
     };
   }, [showTokenDropdown]);
 
-  // Set available tokens from selectedTokens when tokenSymbol is empty
   useEffect(() => {
     if (!userDetails?.tokenSymbol && selectedTokens && selectedTokens.length > 0) {
-      // Add RBT token to the list
       const tokensWithRBT = [
         {
           symbol: 'RBT',
@@ -77,12 +73,10 @@ export default function SendModal({ isOpen, onClose, accountInfo, setIsTransacti
         }))
       ];
 
-      // Set RBT as default selected token
       setSelectedToken(tokensWithRBT[0]);
     }
   }, [userDetails?.tokenSymbol, selectedTokens, accountInfo?.rbt_amount]);
 
-  // Get combined tokens list for dropdown
   const getAvailableTokens = () => {
     if (!userDetails?.tokenSymbol && selectedTokens && selectedTokens.length > 0) {
       return [
@@ -103,7 +97,6 @@ export default function SendModal({ isOpen, onClose, accountInfo, setIsTransacti
   const availableTokens = getAvailableTokens();
 
 
-  // Filter tokens based on search query
   const filteredTokens = availableTokens.filter(token =>
     token.ft_name?.toLowerCase().includes(tokenSearchQuery.toLowerCase())
   );
@@ -158,16 +151,13 @@ export default function SendModal({ isOpen, onClose, accountInfo, setIsTransacti
     setFavorites(res);
   };
 
-  // Get current token symbol and balance
   const getCurrentTokenInfo = () => {
-    // If tokenSymbol is provided, use it
     if (userDetails?.network == 1 || userDetails?.network == 2) {
       return {
         symbol: 'RBT',
         balance: accountInfo?.rbt_amount || '0'
       };
     } else {
-      // For other tokens (TRI, TRIE, etc.), use ft_count
       return {
         symbol: userDetails.tokenSymbol,
         balance: accountInfo?.ft_count || '0'
@@ -207,7 +197,7 @@ export default function SendModal({ isOpen, onClose, accountInfo, setIsTransacti
       }
     }
     catch (e) {
-      // toast.error(e)
+     
       setLoader(false)
     }
   }
@@ -221,7 +211,6 @@ export default function SendModal({ isOpen, onClose, accountInfo, setIsTransacti
       return toast.error('Please enter recipient address')
     }
 
-    // Prepare transaction data for confirmation
     const txData = {
       amount,
       recipientAddress,
@@ -241,7 +230,6 @@ export default function SendModal({ isOpen, onClose, accountInfo, setIsTransacti
       const isRBT = (userDetails?.network == 1 || userDetails?.network == 2);
 
       if (isRBT) {
-        // RBT Transfer
         let data = {
           comment: comments,
           receiver: recipientAddress,
@@ -264,7 +252,6 @@ export default function SendModal({ isOpen, onClose, accountInfo, setIsTransacti
           setLoader(false)
         }
       } else {
-        // FT Transfer
         let data = {
           comment: comments,
           creatorDID: accountInfo?.creator_did,
@@ -323,7 +310,6 @@ export default function SendModal({ isOpen, onClose, accountInfo, setIsTransacti
         animate={{ opacity: 1, scale: 1 }}
         onMouseDown={(e) => e?.stopPropagation()}
       >
-        {/* Header */}
         <div className="flex items-center space-x-4 z-100 border-b-2 pb-3">
           <button
             onClick={() => {
@@ -348,7 +334,6 @@ export default function SendModal({ isOpen, onClose, accountInfo, setIsTransacti
 
         <form onSubmit={handleSubmit} className="space-y-6">
 
-          {/* Favorites Section */}
           {favorites.length > 0 && (
             <div className="space-y-2">
               <label className="block font-semibold text-black dark:text-gray-300">
@@ -388,7 +373,6 @@ export default function SendModal({ isOpen, onClose, accountInfo, setIsTransacti
             </div>
           )}
 
-          {/* Transaction Amount */}
           <div className="space-y-2">
             <div className="flex justify-between items-center">
               <label className="block text-sm font-semibold text-gray-900 dark:text-white">
@@ -406,9 +390,8 @@ export default function SendModal({ isOpen, onClose, accountInfo, setIsTransacti
                 value={amount}
                 onChange={(e) => {
                   let value = e.target.value
-                  setAmountError('') // Clear previous errors
+                  setAmountError('')
 
-                  // Match number pattern with up to 3 decimal places
                   const regex = /^\d*\.?\d{0,3}$/;
 
                   if (!value) {
@@ -416,7 +399,6 @@ export default function SendModal({ isOpen, onClose, accountInfo, setIsTransacti
                     return
                   }
 
-                  // Check if value matches regex pattern
                   if (!regex.test(value)) {
                     setAmountError('Invalid amount format');
                     return
@@ -424,13 +406,11 @@ export default function SendModal({ isOpen, onClose, accountInfo, setIsTransacti
 
                   const numValue = parseFloat(value);
                   
-                  // Check if amount exceeds balance
                   if (numValue > parseFloat(currentTokenInfo.balance)) {
                     setAmountError(`Amount exceeds available balance of ${currentTokenInfo.balance} ${currentTokenInfo.symbol}`);
                     return
                   }
 
-                  // If all validations pass, update amount
                   if (numValue >= 0) {
                     setAmount(value);
                   }
@@ -450,7 +430,6 @@ export default function SendModal({ isOpen, onClose, accountInfo, setIsTransacti
             </div>
           </div>
 
-          {/* Recipient Address */}
           <div className="space-y-2">
             <label className="block text-sm font-semibold text-gray-900 dark:text-white">
               Recipient Address
@@ -488,7 +467,6 @@ export default function SendModal({ isOpen, onClose, accountInfo, setIsTransacti
             )}
           </div>
 
-          {/* Save to Favorites Form */}
           < AnimatePresence >
             {showSaveToFavorites && (
               <motion.div
@@ -525,7 +503,6 @@ export default function SendModal({ isOpen, onClose, accountInfo, setIsTransacti
             }
           </AnimatePresence >
 
-          {/* Comment / Memo */}
           <div className="space-y-2">
             <label className="block text-sm font-semibold text-gray-900 dark:text-white">
               Comment / Memo
@@ -544,7 +521,6 @@ export default function SendModal({ isOpen, onClose, accountInfo, setIsTransacti
             </div>
           </div>
 
-          {/* Submit Button */}
           <button
             disabled={loader || !recipientAddress || !amount || amountError || (!userDetails?.tokenSymbol && !selectedToken)}
             onClick={(e) => onClickSendToken(e)}
@@ -567,7 +543,6 @@ export default function SendModal({ isOpen, onClose, accountInfo, setIsTransacti
         </form >
       </motion.div >
 
-      {/* Transaction Confirmation Modal */}
       <TransactionConfirmationModal
         isOpen={showConfirmation}
         onClose={() => setShowConfirmation(false)}

@@ -75,6 +75,30 @@ export async function migrateToNetworkStructure() {
                                 testnetSuccess = false;
                             }
 
+                            // Update network list for this account - only show Rubix Mainnet and Testnet
+                            await indexDBUtil.updateAccountNetworks(account.did, [
+                                {
+                                    id: 1,
+                                    name: "Rubix Mainnet",
+                                    tokenSymbol: "RBT",
+                                    selected: true, // Set mainnet as default
+                                    rpcUrls: [{
+                                        url: rubixMainnetUrl,
+                                        selected: true
+                                    }]
+                                },
+                                {
+                                    id: 2,
+                                    name: "Rubix Testnet",
+                                    tokenSymbol: "RBT",
+                                    selected: false,
+                                    rpcUrls: [{
+                                        url: rubixTestnetUrl,
+                                        selected: true
+                                    }]
+                                }
+                            ]);
+
                             if (mainnetSuccess || testnetSuccess) {
                                 migrationResults.success.push(account.username);
                             } else {

@@ -7,7 +7,6 @@ import { WALLET_TYPES } from './enums';
 const UseSessionTimeout = () => {
     const { setIsUserLoggedIn, isUserLoggedIn, autoLockTime, setUserDetails } = useContext(UserContext);
     const navigate = useNavigate();
-    // const [lastActivity, setLastActivity] = useState(Date.now());
     const timerRef = useRef(null);
 
     const resetTimeout = (timeoutMinutes = 0) => {
@@ -23,7 +22,7 @@ const UseSessionTimeout = () => {
 
 
     const checkActivity = (timeoutMinutes, lastActivity) => {
-        const timeoutMs = timeoutMinutes * 60 * 1000; // Convert minutes to milliseconds
+        const timeoutMs = timeoutMinutes * 60 * 1000;
         if (Date.now() - lastActivity >= timeoutMs) {
             clearInterval(timerRef.current);
             setIsUserLoggedIn(false);
@@ -49,12 +48,10 @@ const UseSessionTimeout = () => {
             resetTimeout(autoLockTime);
         };
 
-        // Set up event listeners
         events.forEach(event => document.addEventListener(event, updateActivity));
 
         resetTimeout(autoLockTime);
 
-        // Clean up
         return () => {
             events.forEach(event => document.removeEventListener(event, updateActivity));
             if (timerRef.current) {
@@ -63,14 +60,12 @@ const UseSessionTimeout = () => {
         };
     }, [navigate, autoLockTime]);
 
-    // Reset timeout when user logs in
     useEffect(() => {
         if (isUserLoggedIn) {
             resetTimeout(autoLockTime);
         }
     }, [isUserLoggedIn,]);
 
-    // Expose resetTimeout function for manual resets
     return null
 };
 

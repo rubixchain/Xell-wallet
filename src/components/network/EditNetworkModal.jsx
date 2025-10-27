@@ -89,7 +89,7 @@ export default function EditNetworkModal({ networks, network, onClickNetworkModa
     const modalRef = useRef(null);
     const networkmodalRef = useRef(null);
     const [errors, setErrors] = useState({});
-    // Remove appendApi state
+
 
     useEffect(() => {
         const handleClickOutside = (event) => {
@@ -129,117 +129,39 @@ export default function EditNetworkModal({ networks, network, onClickNetworkModa
             return toast.error("Please enter token symbol");
         }
 
-        // Store current network settings for rollback
-        let currentNetworkSettings = null;
-
-
         try {
-            setIsLoading(true)
+            setIsLoading(true);
 
-            // Store current state before making changes
-            currentNetworkSettings = await indexDBUtil.getNetworkSetting();
-
-         
-            // Ensure only one rpcUrl is selected if only one exists
-            let updatedNetwork = {
-                ...network,
-                network: selectedNetworkIndex ? selectedNetworkIndex : networks?.length + 1,
+            const updatedNetwork = {
+                name: network.name,
+                tokenName: network.tokenName,
+                tokenSymbol: network.tokenSymbol,
+                rpcUrls: network.rpcUrls.map((rpc, idx) => ({
+                    ...rpc,
+                    id: rpc.id || `custom-${Date.now()}-${idx}`,
+                    name: rpc.name || `Node ${idx + 1}`,
+                    default: false,
+                    isCustom: true
+                })),
+                swarmKey: network.swarmKey || ''
             };
-            if (network.rpcUrls.length === 1) {
-                updatedNetwork.rpcUrls = [
-                    { ...network.rpcUrls[0], selected: true }
-                ];
+
+            if (updatedNetwork.rpcUrls.length === 1) {
+                updatedNetwork.rpcUrls[0].selected = true;
             }
-            // Use rpcUrls as-is
-            updatedNetwork.rpcUrls = updatedNetwork.rpcUrls.map((item) => {
-                return { ...item }
-            })
 
-            const networkSetting = {
-                network: updatedNetwork?.network,
-                RPCUrl: updatedNetwork.rpcUrls?.find(item => item?.selected)?.url,
-                name: updatedNetwork.name,
-                tokenSymbol: updatedNetwork.tokenSymbol
-            };
-            await indexDBUtil.storeNetworkSetting(networkSetting);
+            const result = await indexDBUtil.addCustomNetworkGlobal(updatedNetwork);
 
-            // Create wallet and register DID for the network
-            const walletResult = await END_POINTS.create_wallet({
-                public_key: userDetails?.publickey,
-                network: network?.id
-            });
-
-            if (!walletResult) {
-                toast.dismiss();
-                let msg = walletResult?.message || 'failed to create wallet';
-                msg = msg.replace(/(code\s*\d{3})/gi, '').replace(/\d{3}/g, '').replace(/\s+/g, ' ').trim();
-                toast.error(msg);
+            if (!result.status) {
+                toast.error('Failed to save custom network');
+                setIsLoading(false);
                 return;
             }
 
-            // Register DID for the network
-            const registerDid = await END_POINTS.register_did({ did: walletResult.did });
-            if (!registerDid?.status) {
-                toast.dismiss();
-                let msg = registerDid?.message || 'Failed to register DID';
-                msg = msg.replace(/(code\s*\d{3})/gi, '').replace(/\d{3}/g, '').replace(/\s+/g, ' ').trim();
-                toast.error(msg);
-                return;
-            }
-
-            const userData = await indexDBUtil.getData("UserDetails", userDetails.username, userDetails.pin);
-            if (!userData?.privatekey) {
-                toast.dismiss();
-                toast.error('Private key not found');
-                return;
-            }
-
-            const signature = await generateSignature(userData.privatekey, registerDid.result.hash);
-            const signatureResponse = await END_POINTS.signature_response({
-                id: registerDid.result.id,
-                Signature: { Signature: signature },
-                mode: 4
-            });
-
-            if (!signatureResponse?.status) {
-                toast.dismiss();
-                let msg = signatureResponse?.message || "Failed to register DID";
-                msg = msg.replace(/(code\s*\d{3})/gi, '').replace(/\d{3}/g, '').replace(/\s+/g, ' ').trim();
-                toast.error(msg);
-                return;
-            }
-
-            if (selectedNetworkIndex != null) {
-                await indexDBUtil.updateSelectedNetwork(userDetails?.did, updatedNetwork);
-            } else {
-                await indexDBUtil.addNetworkToDID(userDetails?.did, updatedNetwork);
-            }
-            setNetworks(prev => {
-                const newNetworks = [...prev];
-                if (selectedNetworkIndex != null) {
-                    // Update existing network
-                    newNetworks[selectedNetworkIndex] = updatedNetwork;
-                } else {
-                    // Add new network
-                    newNetworks.push(updatedNetwork);
-                }
-                return newNetworks;
-            });
-            await indexDBUtil.updateUserDetailsNetwork(userDetails.did, updatedNetwork.network);
-            setUserDetails({
-                ...userDetails,
-                network: updatedNetwork?.network,
-                tokenSymbol: updatedNetwork?.tokenSymbol
-            })
-            await EXECUTE_API({
-                data: {
-                    ...userDetails,
-                    network: updatedNetwork.network,
-                    tokenSymbol: updatedNetwork.tokenSymbol
-                },
-                type: WALLET_TYPES.STORE_USER_DETAILS
-            })
+            toast.success('Custom network added successfully');
             onClose();
+
+            window.location.reload();
         }
         catch (error) {
             toast.dismiss();
@@ -247,13 +169,9 @@ export default function EditNetworkModal({ networks, network, onClickNetworkModa
             msg = msg.replace(/(code\s*\d{3})/gi, '').replace(/\d{3}/g, '').replace(/with status.*$/i, '').replace(/\s+/g, ' ').trim();
             if (/request failed/i.test(msg)) msg = 'Request failed';
             toast.error(msg);
-            // Restore previous network settings on error
-            if (currentNetworkSettings) {
-                await indexDBUtil.storeNetworkSetting(currentNetworkSettings);
-            }
         }
         finally {
-            setIsLoading(false)
+            setIsLoading(false);
         }
     }
 

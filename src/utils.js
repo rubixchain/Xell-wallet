@@ -8,11 +8,9 @@ export async function convertCurrency(amount, fromCurrency, toCurrency) {
         const response = await fetch('https://api.exchangerate-api.com/v4/latest/USD');
         const data = await response.json();
 
-        // Convert to USD first (if not already USD)
-        const usdAmount = fromCurrency === 'USD'
+                const usdAmount = fromCurrency === 'USD'
             ? amount
             : amount / data.rates[fromCurrency];
-        // Convert from USD to target currency
         const convertedAmount = usdAmount * data.rates[toCurrency];
         return convertedAmount.toFixed(2);
     } catch (error) {
@@ -27,15 +25,11 @@ function stringToByteArray(str) {
 
 export const generateSignature = async (privKeyStr, message) => {
     try {
-        // Create byte array from base64 string using browser-native APIs
 
         let messagebyteArray;
 
-        // Attempt to use TextEncoder/Decoder approach first
         try {
-            // Decode base64 to string
             const decodedStr = atob(message);
-            // Convert string to Uint8Array
             messagebyteArray = new Uint8Array(decodedStr.length);
             for (let i = 0; i < decodedStr.length; i++) {
                 messagebyteArray[i] = decodedStr.charCodeAt(i);
@@ -45,7 +39,6 @@ export const generateSignature = async (privKeyStr, message) => {
             throw new Error("Base64 decode failed");
         }
 
-        // Force synchronous execution with try-catch to ensure all operations complete
         try {
             const signature = secp256k1.sign(messagebyteArray, privKeyStr);
             const signatureDER = signature.toDERRawBytes();
@@ -56,7 +49,7 @@ export const generateSignature = async (privKeyStr, message) => {
         }
     } catch (error) {
 
-        throw error; // Re-throw to ensure caller knows about the failure
+        throw error;
     }
 };
 

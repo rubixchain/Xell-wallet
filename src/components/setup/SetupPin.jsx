@@ -5,9 +5,9 @@ import PinInput from './PinInput';
 import Button from '../Button';
 import { UserContext } from '../../context/userContext';
 
-export default function SetupPin({ onSubmit, error }) {
+export default function SetupPin({ onSubmit, error, clearPin }) {
   const { userDetails } = useContext(UserContext)
-  const [pin, setPin] = useState(userDetails?.pin || '');
+  const [pin, setPin] = useState(clearPin ? '' : (userDetails?.pin || ''));
 
   const handleSubmit = (e) => {
     e.preventDefault();

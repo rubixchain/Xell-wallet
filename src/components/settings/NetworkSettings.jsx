@@ -33,7 +33,6 @@ export default function NetworkSettings() {
       glow: 'shadow-purple-500/20'
     }
   };
-  // const [network, setNetwork] = useState('Mainnet');
   const popupRef = useRef(null)
 
 

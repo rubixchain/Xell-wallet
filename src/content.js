@@ -49,7 +49,6 @@
     // SCRIPT INJECTION
     // ============================================================================
     function injectScript() {
-        // Check if script is already injected
         const existingScript = document.querySelector(CONFIG.SCRIPT_SELECTOR);
         if (existingScript) {
             return;
@@ -72,7 +71,6 @@
     // ============================================================================
     function handleRuntimeMessage(message, sender, sendResponse) {
         try {
-            // Handle messages from the background script
             switch (message?.type) {
                 case CONFIG.MESSAGE_TYPES.WALLET_SIGN_RESPONSE:
                 case CONFIG.MESSAGE_TYPES.WALLET_ARBITRARY_RESPONSE:
@@ -81,18 +79,15 @@
                 case CONFIG.MESSAGE_TYPES.INITIATE_EXECUTE_NFT:
                 case CONFIG.MESSAGE_TYPES.INITIATE_TRANSFER_FT:
                 case CONFIG.MESSAGE_TYPES.INITIATE_CREATE_FT:
-                    // Forward to the webpage
                     window.postMessage(
                         createMessagePayload(message.type, message.requestId, message),
                         '*'
                     );
                     break;
                 case 'CONTENT_SCRIPT_CHECK':
-                    // Respond to content script check
                     sendResponse({ loaded: true });
                     return true;
                 default:
-                    // Unknown message type - silent handling
                     break;
             }
         } catch (error) {
@@ -118,19 +113,14 @@
     // INITIALIZATION
     // ============================================================================
     function initialize() {
-        // Inject script
         injectScript();
 
-        // Setup message listeners
-        // Note: Only use custom event listener to avoid duplicate messages
         runtime.runtime.onMessage.addListener(handleRuntimeMessage);
         window.addEventListener(CONFIG.EVENT_NAME, handleCustomEvent);
 
-        // Notify background that content script is loaded
         try {
             runtime.runtime.sendMessage({ type: 'CONTENT_SCRIPT_LOADED' });
         } catch (error) {
-            // Silent fail - background might not be ready
         }
     }
 
@@ -145,11 +135,9 @@
     // START
     // ============================================================================
     initialize();
-
-    // Handle unload
+        
     window.addEventListener('beforeunload', cleanup);
 
-    // Export for testing (optional)
     window.__xellContentScript = {
         isExtensionValid,
         injectScript,

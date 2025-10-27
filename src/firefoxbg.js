@@ -11,7 +11,7 @@ function injectResultIntoWebpage(tabId, result) {
     }, (response) => {
         if (browser.runtime.lastError) {
 
-            pendingTabId = null; // Clear after sending
+                pendingTabId = null;
         } else {
 
         }
@@ -35,7 +35,7 @@ browser.runtime.onMessage.addListener(
                 top: 10,
                 left: window.screen.width - 100
             })
-            pendingTabId = sender.tab.id; // Store the
+            pendingTabId = sender.tab.id;
             browser?.storage.local.set({ websiteInitiated: message }, () => {
 
             });
@@ -47,16 +47,15 @@ browser.runtime.onMessage.addListener(
             WALLET_TYPES.EXECUTE_CONTRACT,
             WALLET_TYPES.INITIATE_DEPLOY_NFT, WALLET_TYPES.INITIATE_TRANSFER_FT, WALLET_TYPES.INITIATE_EXECUTE_NFT].includes(message?.type)) {
             handleApiCall(message?.type, message?.data, pendingTabId, injectResultIntoWebpage).then((finalResult) => {
-                // Final acknowledgment to the original message
+              
                 sendResponse({ success: true });
             }).catch((error) => {
 
-                // Inject the error result into the webpage
                 const errorResult = { status: false, step: "unknown", error: "Unexpected error: " + error.message };
                 injectResultIntoWebpage(pendingTabId, errorResult);
                 sendResponse({ success: false, error: error.message });
             });
 
-            return true; // Keep the message channel open for async response
+            return true;
         }
     })

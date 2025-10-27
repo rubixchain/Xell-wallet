@@ -4,6 +4,8 @@ export const routes = {
     DASHBOARD: '/dashboard',
     CREATE_WALLET: '/create-wallet',
     IMPORT_WALLET: '/import-wallet',
+    IMPORT_WALLET_USERNAME: '/import-wallet-username',
+    IMPORT_WALLET_NETWORK: '/import-wallet-network',
     VERIFY_PHARSE: '/verify-phrase',
     RECOVERY_PHARSE: '/recovery-phrase',
     SETUP_WALLET: '/setup-wallet',
@@ -15,5 +17,6 @@ export const routes = {
     TERMS_OF_SERVICES: "/termsofservices",
     PRIVACY_POLICY: "/privacypolicy",
     ADD_NETWORK: "/add-network",
-    NETWORK_MIGRATION: "/network-migration"
+    NETWORK_MIGRATION: "/network-migration",
+    NETWORK_NODE_SELECTION: "/network-node-selection"
 }

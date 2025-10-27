@@ -102,7 +102,7 @@ const ImportWallet = () => {
       return
     }
     toast.success('Phrase verified successfully')
-    navigate(routes.SETUP_WALLET, { state: { type: 'import', publickey, privatekey, mnemonics: trimed } })
+    navigate(routes.IMPORT_WALLET_USERNAME, { state: { publickey, privatekey, mnemonics: trimed } })
   };
 
   const handleRecoveryContinue = async () => {

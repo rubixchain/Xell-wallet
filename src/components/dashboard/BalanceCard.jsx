@@ -12,7 +12,7 @@ import { NETWORK_TYPES } from '../../../config';
 const ShimmerCard = () => (
   <motion.div
     className="flex justify-between items-center [background:linear-gradient(0deg,#033500,#033500),radial-gradient(117.1%_345.76%_at_49.91%_104.8%,rgba(255,227,20,0)_0%,rgba(255,227,20,0.2)_100%),radial-gradient(124.84%_309.96%_at_4.03%_100%,rgba(255,227,20,0.15)_0%,rgba(255,227,20,0)_100%)] [box-shadow:0px_0px_1px_0px_#0000000D,0px_2px_2px_0px_#0000000A,0px_4px_2px_0px_#00000008,0px_7px_3px_0px_#00000003,0px_11px_3px_0px_#00000000] rounded-lg p-4 shadow-md"
-    // variants={containerVariants}
+
     initial="initial"
     animate="animate"
     transition={{ duration: 0.3 }}
@@ -59,204 +59,20 @@ export default function BalanceCard({ accountInfo, setIsTransactionCompleted }) 
     JPY: '¥',
     INR: '₹'
   };
-  // useEffect(() => {
-  //   (async () => {
-  //     if (!tickerData?.price) {
-  //       return
-  //     }
-  //     setIsLoading(true)
-  //     let res = await convertCurrency(tickerData?.price, "USD", currency?.value)
-  //     setConversionPrice(res)
-  //     setIsLoading(false)
-  //   })()
-  // }, [tickerData?.price, currency])
 
-  // Reset and recalculate when accountInfo or network changes
   useEffect(() => {
     if (accountInfo && Object.keys(accountInfo).length > 0) {
-      // Force recalculation when accountInfo changes (network switch)
       setIsLoading(true);
       setTimeout(() => setIsLoading(false), 100);
     }
   }, [accountInfo?.rbt_amount, accountInfo?.ft_count, userDetails?.network]);
 
-  // Reset and recalculate when accountInfo or network changes
   useEffect(() => {
     if (accountInfo && Object.keys(accountInfo).length > 0) {
-      // Force recalculation when accountInfo changes (network switch)
       setIsLoading(true);
       setTimeout(() => setIsLoading(false), 100);
     }
   }, [accountInfo?.rbt_amount, accountInfo?.ft_count, userDetails?.network]);
-  // useEffect(() => {
-  //   if (!isUserLoggedIn) {
-  //     return;
-  //   }
-
-  //   let pingInterval;
-
-  //   const connect = () => {
-  //     if (socketRef.current?.readyState === WebSocket.OPEN) {
-  //       socketRef.current.close();
-  //     }
-
-  //     // Create WebSocket with the same configuration as Python
-  //     const ws = new WebSocket("wss://wbs-api.mexc.com/ws");
-
-  //     // Match Python's ping_interval and ping_timeout settings
-  //     ws.onopen = () => {
-       
-  //       // Use exact same subscription message as Python
-  //       const subscribeMessage = {
-  //         "method": "SUBSCRIPTION",
-  //         "params": [
-  //           "spot@public.miniTicker.v3.api.pb@RBTUSDT@UTC+8"
-  //         ]
-  //       };
-  //       ws.send(JSON.stringify(subscribeMessage));
-
-  //       // Set ping interval to match Python's 20 seconds
-  //       if (pingInterval) {
-  //         clearInterval(pingInterval);
-  //       }
-  //       pingInterval = setInterval(() => {
-  //         if (ws.readyState === WebSocket.OPEN) {
-  //           ws.send(JSON.stringify({ "ping": Date.now() }));
-  //         }
-  //       }, 20000);
-  //     };
-
-  //     ws.onmessage = async (event) => {
-  //       try {
-
-  //         let data;
-  //         if (event.data instanceof Blob) {
-  //           // First try as text in case it's a JSON message
-  //           try {
-  //             const text = await event.data.text();
-  //             // Find the line that contains the price data
-  //             const lines = text.split('\n');
-
-  //             // Look for price in the last line which contains the actual data
-  //             const priceLine = lines[2] || ''; // Get the last line or empty string
-
-  //             // Extract numbers using a more flexible regex
-  //             const numbers = priceLine.match(/\d+\.\d+/g) || [];
-  //             if (numbers.length > 0) {
-  //               // First number in the sequence is usually the price
-  //               const price = numbers[0];
-  //               // Second number is the change
-  //               const change = numbers.length > 1 ? numbers[1] : '0';
-
-  //               data = {
-  //                 d: {
-  //                   s: 'RBTUSDT',
-  //                   price: parseFloat(price),
-  //                   r: parseFloat(change)
-  //                 },
-  //                 c: 'spot@public.miniTicker.v3.api.pb@RBTUSDT@UTC+5:30'
-  //               };
-  //             }
-  //           } catch (err) {
-          
-  //           }
-  //         } else {
-            
-  //           data = JSON.parse(event.data);
-  //         }
-  //         if (data?.d?.price) {
-  //           // Only update if we don't already have valid data or if this is newer data
-  //           if (!tickerData?.price || !tickerData?.r) {
-  //             setTickerData({
-  //               ...data?.d,
-  //               price: data?.d?.price
-  //             });
-  //           }
-  //         }
-
-  //       } catch (err) {
-  //         console.warn('WebSocket message parsing error:', err);
-  //       }
-  //     };
-
-  //     ws.onerror = (error) => {
-  //       console.warn('WebSocket error:', error);
-  //     };
-
-  //     ws.onclose = () => {
-  //       // Clear ping interval
-  //       if (pingInterval) {
-  //         clearInterval(pingInterval);
-  //       }
-
-  //       // Attempt to reconnect if user is still logged in
-  //       if (isUserLoggedIn) {
-  //         setTimeout(connect, 5000);
-  //       }
-  //     };
-
-  //     // Assign the WebSocket to ref after all handlers are set up
-  //     socketRef.current = ws;
-  //   };
-
-  //   // Initial connection
-  //   connect();
-
-  //   // Cleanup on unmount or when user logs out
-  //   return () => {
-  //     if (pingInterval) {
-  //       clearInterval(pingInterval);
-  //     }
-  //     if (socketRef.current?.readyState === WebSocket.OPEN) {
-  //       socketRef.current.close();
-  //     }
-  //   };
-  // }, []);
-
-  // // Function to fetch current ticker data via REST API
-  // const fetchCurrentTickerData = async () => {
-  //   setIsLoading(true); // Use setIsLoading for REST API fetching
-  //   try {
-  //     // Fetch current RBTUSDT ticker data from MEXC API
-  //     const response = await fetch('https://www.mexc.com/api/v3/ticker/24hr?symbol=RBTUSDT');
-  //     const data = await response.json();
-      
-  //     if (data && data.priceChangePercent) {
-  //       setTickerData({
-  //         s: 'RBTUSDT',
-  //         price: parseFloat(data.lastPrice || 0),
-  //         r: parseFloat(data.priceChangePercent || 0) / 100 // Convert percentage to decimal
-  //       });
-  //     } else {
-  //       // Set default values if API response is invalid
-  //       setTickerData({
-  //         s: 'RBTUSDT',
-  //         price: 0,
-  //         r: 0
-  //       });
-  //     }
-  //   } catch (error) {
-  //     console.warn('Failed to fetch initial ticker data:', error);
-  //     // Set default values if API fails
-  //     setTickerData({
-  //       s: 'RBTUSDT',
-  //       price: 0,
-  //       r: 0
-  //     });
-  //   } finally {
-  //     setIsLoading(false);
-  //   }
-  // };
-
-  // // Fetch initial ticker data immediately when component mounts
-  // useEffect(() => {
-  //   const networkValue = userDetails?.network ?? (isUserLoggedIn ? 1 : null);
-  //   const shouldFetch = isUserLoggedIn && (Number(networkValue) === 1 || Number(networkValue) === 2);
-    
-  //   if (shouldFetch) {
-  //     fetchCurrentTickerData();
-  //   }
-  // }, [isUserLoggedIn, userDetails?.network]);
 
   const [selectedToken, setSelectedToken] = useState({ symbol: 'RBT', name: 'Xell Token' });
   const containerVariants = {
@@ -281,12 +97,6 @@ export default function BalanceCard({ accountInfo, setIsTransactionCompleted }) 
     toast.success("Copied to clipboard")
   }
 
-  // Show shimmer while fetching balance data
-  // Debug logging to understand the issue
-
-
-  // Check if we have valid account info with balance data
-  // Show balance card if we have accountInfo with any data
   const hasValidBalanceData = accountInfo && Object.keys(accountInfo).length > 0;
 
 
@@ -301,7 +111,6 @@ export default function BalanceCard({ accountInfo, setIsTransactionCompleted }) 
       variants={containerVariants}
       initial="initial"
       animate="animate"
-      // whileHover={{ scale: 1.1 }}
       transition={{ duration: 0.3 }}
     >
       <button

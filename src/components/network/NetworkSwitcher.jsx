@@ -2,7 +2,7 @@ import { useContext, useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FiGlobe, FiChevronDown } from 'react-icons/fi';
 import NetworkBadge from './NetworkBadge';
-import NetworkSelector from './NetworkSelector';
+import NetworkNodeSelector from './NetworkNodeSelector';
 import { UserContext } from '../../context/userContext';
 import indexDBUtil from '../../indexDB';
 import EditNetworkModal from './EditNetworkModal';
@@ -27,28 +27,23 @@ export default function NetworkSwitcher() {
   const [isAddRpcUrlOpen, setIsAddRpcUrlOpen] = useState(false);
   const [editingNetwork, setEditingNetwork] = useState(null);
   const [selectedNetworkIndex, setSelectedNetworkIndex] = useState(null);
+  const [showNetworkNodeSelector, setShowNetworkNodeSelector] = useState(false);
   const popupRef = useRef(null);
 
   const [networks, setNetworks] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [accountExistsInSelectedNetwork, setAccountExistsInSelectedNetwork] = useState(false);
 
   useEffect(() => {
-    if (!userDetails?.did || !isOpen) return;
+    if (!userDetails?.username || !isOpen) return;
     const fetchNetworks = async () => {
-      const networks = await indexDBUtil.getNetworksByDID(userDetails?.did);
+      const networks = await indexDBUtil.getGlobalNetworksForAccount(userDetails?.username);
       setNetworks(networks);
     };
     fetchNetworks();
-  }, [userDetails?.did, isOpen]);
+  }, [userDetails?.username, isOpen]);
 
-  // useEffect(() => {
-  //   let network = localStorage.getItem('network');
-  //   if (!network || network === "undefined") {
-  //     setSelectedNetwork('mainnet');
-  //   } else {
-  //     setSelectedNetwork(network);
-  //   }
-  // }, []);
+
 
   useEffect(() => {
     function handleClickOutside(event) {
@@ -63,71 +58,35 @@ export default function NetworkSwitcher() {
     };
   }, []);
 
-  const handleNetworkChange = async (network) => {
+  const handleNetworkChange = async (network, selectedRpcUrl = null) => {
     if (!network?.id || !userDetails?.did) {
       toast.error('Invalid network or user details');
       return;
     }
-    // Store current network settings for rollback
+
     let currentNetworkSettings = null;
 
     try {
       setIsLoading(true)
-      // Store current state before making changes
       currentNetworkSettings = await indexDBUtil.getNetworkSetting();
 
-      // Store network settings
+      const rpcUrlToUse = selectedRpcUrl || network.rpcUrls?.find(item => item?.selected);
+
       const networkSetting = {
         network: network.id,
-        RPCUrl: network.rpcUrls?.find(item => item?.selected)?.url,
+        RPCUrl: rpcUrlToUse?.url,
         name: network.name,
         tokenSymbol: network.tokenSymbol
       };
 
       await indexDBUtil.storeNetworkSetting(networkSetting);
 
-      // Create wallet and register DID for the network
-      const res = await END_POINTS.create_wallet({
-        public_key: userDetails?.publickey,
-        network: network?.id
-      });
-
-      if (!res) {
-        toast.error(res?.message || 'failed to create wallet');
-        return;
-      }
-
-      // Register DID for the network
-      const registerDid = await END_POINTS.register_did({ did: res.did });
-      if (!registerDid?.status) {
-        toast.error(registerDid?.message || 'Failed to register DID');
-        return;
-      }
-
-      const userData = await indexDBUtil.getData("UserDetails", userDetails.username, userDetails.pin);
-      if (!userData?.privatekey) {
-        toast.error('Private key not found');
-        return;
-      }
-
-      const signature = await generateSignature(userData.privatekey, registerDid.result.hash);
-      const signatureResponse = await END_POINTS.signature_response({
-        id: registerDid.result.id,
-        Signature: { Signature: signature },
-        mode: 4
-      });
-
-      if (!signatureResponse?.status) {
-        toast.error(signatureResponse?.message || "Failed to register DID");
-        return;
-      }
-      // Change selected network
       const networkChangeResult = await indexDBUtil.changeSelectedNetwork(userDetails.did, network.id);
       if (!networkChangeResult?.status) {
         toast.error('Failed to change network');
+        return;
       }
 
-      // Update state and close modal
       setNetworks(networkChangeResult.data.networks);
       await indexDBUtil.updateUserDetailsNetwork(userDetails.did, network.id);
       setSelectedNetwork(network.id);
@@ -145,13 +104,12 @@ export default function NetworkSwitcher() {
         type: WALLET_TYPES.STORE_USER_DETAILS
       })
       setIsOpen(false);
+      setShowNetworkNodeSelector(false);
 
       toast.success('Network changed successfully');
     } catch (error) {
-    
       toast.error(error.message || 'Failed to change network');
 
-      // Restore previous network settings on error
       if (currentNetworkSettings) {
         await indexDBUtil.storeNetworkSetting(currentNetworkSettings);
       }
@@ -190,33 +148,27 @@ export default function NetworkSwitcher() {
           setEditingNetwork(null)
         }}
         className="flex items-center space-x-2 px-1 py-1 rounded-xl bg-gradient-to-r from-gray-50 to-white dark:from-gray-800 dark:to-gray-750 border border-gray-200/80 dark:border-gray-700/80 hover:border-primary/20 dark:hover:border-primary/20 shadow-sm hover:shadow-md transition-all duration-200"
-      // whileHover={{ scale: 1.02 }}
-      // whileTap={{ scale: 0.98 }}
       >
         <div className="flex items-center space-x-3">
           <div className="p-1 bg-primary/5 dark:bg-primary/10 rounded-lg">
             <FiGlobe className="w-4 h-4 text-primary" />
           </div>
-          {/* <NetworkBadge network={selectedNetwork} /> */}
         </div>
       </motion.button>
 
-      {/* <AnimatePresence> */}
       {isOpen && (
         <div >
-          <NetworkSelector
-            setSelectedNetworkIndex={setSelectedNetworkIndex}
-            networks={networks}
-            selectedNetwork={selectedNetwork}
-            setIsOpen={setIsOpen}
-            setIsEditNetworkOpen={setIsEditNetworkOpen}
-            setEditingNetwork={setEditingNetwork}
-            handleNetworkClick={handleNetworkChange}
+          <NetworkNodeSelector
+            isOpen={isOpen}
+            onClose={() => setIsOpen(false)}
+            onSelect={handleNetworkChange}
+            currentAccount={userDetails}
+            allAccounts={[]}
+            disableCurrentNetwork={true}
           />
         </div>
       )}
-      {/* </AnimatePresence> */}
-
+    
       {isEditNetworkOpen && (
         <EditNetworkModal
           setIsLoading={setIsLoading}

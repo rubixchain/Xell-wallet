@@ -29,7 +29,7 @@ export default function AddRpcUrlModal({ onClose, onClickRpcUrlModalBack, setEdi
         }
         setError('');
         
-        // Apply endpoint type to URL using the utility function
+       
         const finalUrl = normalizeUrlWithEndpoint(rpcUrl, appendApi ? DEFAULT_ENDPOINT_TYPE : '');
         
         setEditingNetwork(prev => {

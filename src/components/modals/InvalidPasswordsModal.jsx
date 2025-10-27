@@ -3,11 +3,10 @@ import React from 'react';
 function InvalidPasswordsModal({ invalidAccounts, forgottenAccounts = [], onGoBack, onContinue, attemptCounts = {} }) {
     const hasForgotten = forgottenAccounts.length > 0;
 
-    // Filter out forgotten accounts from invalid accounts list
+
     const incorrectAccounts = invalidAccounts.filter(username => !forgottenAccounts.includes(username));
     const hasInvalid = incorrectAccounts.length > 0;
 
-    // Check if there are any incorrect accounts that haven't reached max attempts
     const hasIncorrectNotAutoForgotten = incorrectAccounts.some(username =>
         (attemptCounts[username] || 0) < 3
     );

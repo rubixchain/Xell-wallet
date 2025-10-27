@@ -16,6 +16,7 @@ import toast from 'react-hot-toast';
 import { EXECUTE_API } from '../utils';
 import { WALLET_TYPES } from '../enums';
 import { config, NETWORK_TYPES } from '../../config';
+import NetworkNodeSelector from '../components/network/NetworkNodeSelector';
 
 
 export default function RecoveryPhrase() {
@@ -23,7 +24,8 @@ export default function RecoveryPhrase() {
 
   const navigate = useNavigate();
   const [mnemonic, setMnemonic] = useState();
-  const [loader, setLoader] = useState(false)
+  const [loader, setLoader] = useState(false);
+  const [showNetworkNodeSelector, setShowNetworkNodeSelector] = useState(false);
 
 
   useEffect(() => {
@@ -41,90 +43,111 @@ export default function RecoveryPhrase() {
     await navigator.clipboard.writeText(mnemonic);
   };
 
-  const handleContinue = () => {
+  const handleContinue = async () => {
     navigate(routes.VERIFY_PHARSE, { state: { mnemonic } });
   };
+
   const onSkip = async () => {
+    setShowNetworkNodeSelector(true);
+  };
+
+  const handleNetworkNodeSelect = async (network, node, accountExistsInNetwork) => {
+    if (accountExistsInNetwork) {
+      // Account already exists in this network, just switch to it
+      toast.success(`Switched to existing account in ${network.name}`);
+      navigate(routes.SUCCESS);
+    } else {
+      // Account doesn't exist, create new account with selected node
+      await createAccount(network, node);
+    }
+  };
+
+  const createAccount = async (network, node) => {
+    if (!network || !node || loader) return; // Prevent double creation
+
     try {
-      setLoader(true)
-      indexDBUtil.setCurrentVersion()
+      setLoader(true);
       indexDBUtil.storeNetworkSetting({
-        network: userDetails?.network || 1,
-        RPCUrl: config?.RUBIX_MAINNET_BASE_URL,
-        name: "Rubix Mainnet",
-        tokenSymbol: NETWORK_TYPES.RBT
-      })
-      let res = await indexDBUtil.savePrivateKey('UserDetails', { ...userDetails, originalPhrase: mnemonic })
-      setLoader(false)
+        network: network.id,
+        RPCUrl: node.url,
+        name: network.name,
+        tokenSymbol: network.tokenSymbol
+      });
+
+      const res = await indexDBUtil.savePrivateKeyV4('UserDetails', {
+        ...userDetails,
+        originalPhrase: mnemonic,
+        network: network.id,
+        networkId: network.id,
+        nodeId: node.id,
+        nodeUrl: node.url,
+        swarmKey: network.swarmKey
+      });
+
+      setLoader(false);
+
       if (!res || !res?.status) {
-        return
+        toast.error('Failed to create account');
+        return;
       }
 
-      toast.success('Account created successfully')
-      setIsUserLoggedIn(true)
+      const hasUnifiedPassword = await indexDBUtil.hasUnifiedPassword();
+      if (!hasUnifiedPassword) {
+        await indexDBUtil.setUnifiedPasswordForSingleUser(userDetails.pin);
+      }
+      await indexDBUtil.setCurrentVersion(5);
+
+      toast.success('Account created successfully');
+      setIsUserLoggedIn(true);
+
+      localStorage.setItem('currency', JSON.stringify({ label: '$ USD - US Dollar', value: 'USD' }));
       localStorage.setItem("currentUser", JSON.stringify({
         username: res?.data?.username,
-        network: res?.data?.network || userDetails?.network || 1,
-      }))
-      setUserDetails({
-        publickey: res?.data?.publickey,
-        did: res?.data?.did,
-        username: res?.data?.username,
-        network: res?.data?.network || userDetails?.network || 1,  // Use existing network or default to 1
-        pin: res?.data?.pin,
-        tokenSymbol: NETWORK_TYPES.RBT
-      })
-
-      localStorage.setItem('currency', JSON.stringify({ label: '$ USD - US Dollar', value: 'USD' }))
+        network: network.id,
+      }));
 
       if (websiteInitiated?.type == WALLET_TYPES.WALLET_SIGN_REQUEST) {
         try {
-          window.close()
-          let result = await EXECUTE_API({ data: { 
-            username: res?.data?.username, 
-            did: res?.data?.did,
-            network: res?.data?.network,
-            pin: res?.data?.pin,
-            tokenSymbol:NETWORK_TYPES.RBT
-
-           },
-             type: WALLET_TYPES.WALLET_SIGN_RESPONSE })
+          window.close();
+          let result = await EXECUTE_API({
+            data: {
+              did: res?.data?.did,
+              username: res?.data?.username,
+              network: network.id,
+              pin: res?.data?.pin,
+              tokenSymbol: network.tokenSymbol
+            },
+            type: WALLET_TYPES.WALLET_SIGN_RESPONSE
+          });
           if (result) {
-            setWebsiteInitiated(null)
+            setWebsiteInitiated(null);
           }
-          return
+        } catch (e) {
+          console.error(e);
         }
-        catch (e) {
-
-        }
-
+        return;
       }
+
       await EXECUTE_API({
         data: {
-          publickey: res?.data?.publickey,
           did: res?.data?.did,
           username: res?.data?.username,
-          network: res?.data?.network,
+          network: network.id,
           pin: res?.data?.pin,
-          tokenSymbol: NETWORK_TYPES.RBT
-
+          tokenSymbol: network.tokenSymbol
         },
         type: WALLET_TYPES.STORE_USER_DETAILS
       });
       setUserDetails({
-        publickey: res?.data?.publickey,
-        did: res?.data?.did,
-        username: res?.data?.username,
-        network: res?.data?.network,
-        pin: res?.data?.pin,
-        tokenSymbol: NETWORK_TYPES.RBT
-      })
-      navigate(routes.SUCCESS, { replace: true })
+        ...res?.data,
+        tokenSymbol: network.tokenSymbol,
+      });
+      navigate(routes.DASHBOARD);
+    } catch (error) {
+      setLoader(false);
+      toast.error('Failed to create account');
     }
-    catch (e) {
-      setLoader(false)
-    }
-  }
+  };
   const handleDownload = () => {
     const content = `Recovery Phrase:\n\n${mnemonic}\n\nIMPORTANT:\n- Keep this phrase secret and secure\n- Never share it with anyone\n- Store it offline\n- Make multiple backups\n- Don't tamper the file`;
     download(content, 'recovery-phrase.txt')
@@ -168,6 +191,17 @@ export default function RecoveryPhrase() {
           </button>
         </div>
       </div>
+
+      {showNetworkNodeSelector && (
+        <NetworkNodeSelector
+          isOpen={showNetworkNodeSelector}
+          onClose={() => setShowNetworkNodeSelector(false)}
+          onSelect={handleNetworkNodeSelect}
+          currentAccount={userDetails}
+          allAccounts={[]}
+          disableCurrentNetwork={false}
+        />
+      )}
     </Card>
   );
 }

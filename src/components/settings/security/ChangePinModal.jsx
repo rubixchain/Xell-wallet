@@ -33,12 +33,6 @@ export default function ChangePinModal({ isOpen, onClose }) {
     };
   }, [])
 
-  // const onClickChangeTimer = (value) => {
-  //   localStorage.setItem("logginTimeOut", JSON.stringify(value))
-  //   setAutoLockTime(value);
-  //   setIsDropdownOpen(false);
-
-  // }
 
   const handlePinChange = (type, value) => {
     setPins(prev => ({ ...prev, [type]: value }));

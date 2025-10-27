@@ -32,7 +32,6 @@ async function injectResultIntoWebpage(tabId, result) {
     try {
         await chrome.tabs.sendMessage(tabId, result);
     } catch (error) {
-        // Silent error handling
     }
 }
 
@@ -41,7 +40,6 @@ async function injectResultIntoWebpage(tabId, result) {
 // ============================================================================
 async function handleWalletRequest(message, sender) {
     try {
-        // Get website information
         const tab = await chrome.tabs.get(sender.tab.id)
       
         await chrome.storage.local.set({
@@ -55,7 +53,6 @@ async function handleWalletRequest(message, sender) {
             icon: tab.favIconUrl || ''
         });
 
-        // Create the popup window using chrome.windows.create
         try {
             const popupWidth = 390; // Adjust based on your popup's design
             const popupHeight = 600;
@@ -63,11 +60,9 @@ async function handleWalletRequest(message, sender) {
             try {
                 const currentWindow = await chrome.windows.getCurrent({ populate: true });
                 if (currentWindow) {
-                    // Position the popup in the top-right corner of the browser window
-                    leftPosition = currentWindow.left + currentWindow.width - popupWidth - 10; // 10px padding from the right edge
-                    topPosition = currentWindow.top + 10; // 10px padding from the top to account for browser toolbar
+                    leftPosition = currentWindow.left + currentWindow.width - popupWidth - 10;
+                    topPosition = currentWindow.top + 10;
                 } else {
-                    // Fallback to screen dimensions if no current window is available
                     const displays = await new Promise((resolve) => {
                         chrome.system.display.getInfo((displayInfo) => {
                             resolve(displayInfo);
@@ -79,8 +74,6 @@ async function handleWalletRequest(message, sender) {
                     topPosition = bounds.top + 10;
                 }
             } catch (error) {
-               
-                // Fallback to default values
                 leftPosition = 1920 - popupWidth - 10;
                 topPosition = 10;
             }
@@ -96,12 +89,10 @@ async function handleWalletRequest(message, sender) {
             });
             pendingTabId = sender.tab.id;
         } catch (error) {
-            // Fallback to action popup
             await chrome.action.openPopup();
             pendingTabId = sender.tab.id;
         }
     } catch (error) {
-        // Handle popup open error
         if (sender.tab?.id) {
             try {
                 await chrome.tabs.sendMessage(sender.tab.id, {
@@ -109,7 +100,6 @@ async function handleWalletRequest(message, sender) {
                     error: "Failed to open extension popup: " + error.message
                 });
             } catch (err) {
-                // Silent error handling
             }
         }
     }
@@ -128,7 +118,6 @@ async function handleWalletSignResponse(message) {
     await injectResultIntoWebpage(pendingTabId, responsePayload);
     userDetails = { ...message.data };
 
-    // Clear storage after response is sent
     await chrome.storage.local.remove(["websiteInitiated", "title", "icon"]);
 }
 
@@ -142,13 +131,11 @@ async function handleWalletArbitraryResponse(message) {
         }
     };
     await injectResultIntoWebpage(pendingTabId, responsePayload);
-    // Clear storage after response is sent
     await chrome.storage.local.remove(["websiteInitiated", "title", "icon"]);
 }
 
 async function handleApiExecution(message, sender) {
     try {
-        // Return a promise that resolves when the API call completes
         return new Promise(async (resolve, reject) => {
             try {
                 const result = await handleApiCall(
@@ -254,7 +241,7 @@ const messageListener = async (message, sender, sendResponse) => {
             case 'CONTENT_SCRIPT_LOADED':
                 break;
             default:
-                // Unknown message type - silent handling
+
                 break;
         }
     } catch (error) {
@@ -268,26 +255,21 @@ const messageListener = async (message, sender, sendResponse) => {
 // ============================================================================
 function setupKeepAlive() {
     try {
-        // Clear existing intervals
         if (keepAliveInterval) {
             clearInterval(keepAliveInterval);
         }
 
-        // More robust keep alive interval
         keepAliveInterval = setInterval(() => {
-            // Keep service worker alive by doing some work
             chrome.storage.local.get(['keepAlive'], (result) => {
                 chrome.storage.local.set({ 'keepAlive': Date.now() });
             });
         }, CONFIG.KEEP_ALIVE_INTERVAL);
 
-        // Set up alarm for additional keep-alive
         chrome.alarms.create(CONFIG.KEEP_ALIVE_ALARM, {
             delayInMinutes: 1,
             periodInMinutes: 1
         });
     } catch (error) {
-        // Silent error handling
     }
 }
 
@@ -295,13 +277,11 @@ function setupKeepAlive() {
 // INITIALIZATION
 // ============================================================================
 function setupMessageListener() {
-    // Remove existing listener to prevent duplication
     if (isListenerRegistered) {
         chrome.runtime.onMessage.removeListener(messageListener);
         isListenerRegistered = false;
     }
 
-    // Register the listener
     if (!isListenerRegistered) {
         chrome.runtime.onMessage.addListener(messageListener);
         isListenerRegistered = true;
@@ -322,16 +302,13 @@ chrome.runtime.onStartup.addListener(() => {
 });
 
 chrome.runtime.onSuspend.addListener(() => {
-    // Clean up
     if (keepAliveInterval) {
         clearInterval(keepAliveInterval);
     }
 });
 
-// Alarm handler for keep-alive
 chrome.alarms.onAlarm.addListener((alarm) => {
     if (alarm.name === CONFIG.KEEP_ALIVE_ALARM) {
-        // Keep service worker alive
         chrome.storage.local.set({ 'keepAlive': Date.now() });
     }
 });
@@ -349,5 +326,4 @@ try {
     setupMessageListener();
     setupKeepAlive();
 } catch (error) {
-    // Silent error handling
 }

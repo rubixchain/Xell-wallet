@@ -25,7 +25,6 @@ const AddNetwork = () => {
     const verifySwarmKey = async (key) => {
         setIsVerifyingSwarmKey(true);
         try {
-            // TODO: Replace with actual API endpoint
             const response = await fetch('/api/verify-swarm-key', {
                 method: 'POST',
                 headers: {
@@ -78,7 +77,6 @@ const AddNetwork = () => {
         }
 
         try {
-            // TODO: Replace with actual API endpoint
             const response = await fetch('/api/add-network', {
                 method: 'POST',
                 headers: {

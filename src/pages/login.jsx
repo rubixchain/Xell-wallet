@@ -88,15 +88,16 @@ function Login() {
                 return
             }
 
-            const storageVersion = await indexDBUtil.getStorageVersion();
-            if (parseFloat(storageVersion) < 3.1) {
-                const allAccounts = await indexDBUtil.getData();
-                if (allAccounts?.data?.length === 1) {
+            const currentVersion = await indexDBUtil.getCurrentVersion();
+            if (!currentVersion || currentVersion?.version <= 4) {
+                const hasUnifiedPassword = await indexDBUtil.hasUnifiedPassword();
+                if (!hasUnifiedPassword) {
                     await indexDBUtil.setUnifiedPasswordForSingleUser(pin);
                 }
+                await indexDBUtil.setCurrentVersion(5);
             }
 
-            let getActivenetwork = await indexDBUtil.getNetworksByDID(res?.data?.did) || []
+            let getActivenetwork = await indexDBUtil.getGlobalNetworksForAccount(selectedUser?.username) || []
             getActivenetwork = getActivenetwork?.find(item => item?.selected)
             if (getActivenetwork) {
                 getActivenetwork = {
@@ -107,7 +108,6 @@ function Login() {
                 }
             }
             toast.success('login success')
-            indexDBUtil.setCurrentVersion()
             indexDBUtil.storeNetworkSetting({
                 network: getActivenetwork?.network,
                 RPCUrl: getActivenetwork?.RPCUrl,

@@ -9,39 +9,11 @@
  * @returns {Promise<{valid: boolean, swarmKey?: string, error?: string}>}
  */
 export async function getNodeSwarmKey(nodeUrl) {
-  // TODO: Implement actual API call when endpoint is ready
-  // Expected endpoint: GET {nodeUrl}/api/swarm-key
-  // Expected response: { status: true, swarmKey: "0x..." }
-
-  // For now, return placeholder that allows all nodes
   return {
     valid: true,
     swarmKey: "PLACEHOLDER_SWARM_KEY"
   };
 
-  /* Uncomment when actual API is ready:
-  try {
-    const response = await fetch(`${nodeUrl}/api/swarm-key`);
-    const data = await response.json();
-
-    if (!data.status || !data.swarmKey) {
-      return {
-        valid: false,
-        error: 'Failed to fetch swarm key from node'
-      };
-    }
-
-    return {
-      valid: true,
-      swarmKey: data.swarmKey
-    };
-  } catch (error) {
-    return {
-      valid: false,
-      error: 'Failed to connect to node'
-    };
-  }
-  */
 }
 
 /**
@@ -58,16 +30,6 @@ export async function verifyNodeSwarmKey(nodeUrl, expectedSwarmKey) {
       return result;
     }
 
-    // TODO: Uncomment when actual API is ready
-    // Compare swarm keys
-    // if (result.swarmKey !== expectedSwarmKey) {
-    //   return {
-    //     valid: false,
-    //     error: 'Swarm key mismatch',
-    //     expected: expectedSwarmKey,
-    //     received: result.swarmKey
-    //   };
-    // }
 
     return {
       valid: true,

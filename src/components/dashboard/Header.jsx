@@ -20,6 +20,7 @@ import History from "../../pages/History"
 import { EXECUTE_API } from '../../utils';
 import { ENUMS } from '../../enums';
 import NetworkNodeSelector from '../network/NetworkNodeSelector';
+import AccountSelectorModal from '../modals/AccountSelectorModal';
 import { END_POINTS } from '../../api/endpoints';
 
 export default function Header() {
@@ -30,8 +31,9 @@ export default function Header() {
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [accountDropdownOpen, setAccountDropdownOpen] = useState(false);
   const [allAccounts, setAllAccounts] = useState([]);
-  const [showNetworkSelector, setShowNetworkSelector] = useState(false);
+  const [showNetworkNodeSelector, setShowNetworkNodeSelector] = useState(false);
   const [selectedAccount, setSelectedAccount] = useState(null);
+  const [accountNetworks, setAccountNetworks] = useState([]);
   const dropdownRef = useRef(null);
   const accountDropdownRef = useRef(null);
   const navigate = useNavigate();
@@ -92,12 +94,26 @@ export default function Header() {
 
   const handleAccountSwitch = async (account) => {
     try {
-      const storageVersion = await indexDBUtil.getStorageVersion();
-      const useV4 = parseFloat(storageVersion) >= 4.0;
+      const currentVersion = await indexDBUtil.getCurrentVersion();
+      const hasNetworkNodeBindings = currentVersion?.version >= 5;
 
-      if (useV4) {
-        setSelectedAccount(account);
-        setShowNetworkSelector(true);
+      if (hasNetworkNodeBindings) {
+        const accountData = await indexDBUtil.validateAndGetAccount(
+          account.username,
+          userDetails?.pin
+        );
+
+        if (!accountData.status) {
+          toast.error('Failed to switch account');
+          return;
+        }
+
+        const networks = await indexDBUtil.getGlobalNetworksForAccount(account.username);
+        const currentNetwork = networks?.find(net => net.selected)?.id || null;
+
+        setAccountNetworks(networks);
+        setSelectedAccount({...account, currentNetwork});
+        setShowNetworkNodeSelector(true);
         setAccountDropdownOpen(false);
       } else {
         const currentPassword = userDetails?.pin;
@@ -160,7 +176,7 @@ export default function Header() {
     }
   };
 
-  const handleNetworkNodeSelect = async (network, node) => {
+  const handleNetworkNodeSelect = async (network, node, accountExistsInNetwork) => {
     try {
       const currentPassword = userDetails?.pin;
 
@@ -180,57 +196,53 @@ export default function Header() {
       }
 
       const bindings = await indexDBUtil.getAccountNetworkBindings(selectedAccount.username);
-      const binding = bindings.find(b => b.networkId === network.id && b.nodeId === node.id);
+      const binding = bindings.find(b =>
+        b.networkId === network.id &&
+        (b.nodeId === node?.id || b.nodeUrl === node?.url)
+      );
 
-      if (!binding) {
+      const isAlreadyRegistered = node?.selected || binding;
+
+      if (!isAlreadyRegistered) {
         await END_POINTS.register_did({ did: accountData.data.did });
-
-        await indexDBUtil.saveAccountNetworkBinding({
-          username: selectedAccount.username,
-          did: accountData.data.did,
-          networkId: network.id,
-          nodeId: node.id,
-          nodeUrl: node.url,
-          swarmKey: network.swarmKey
-        });
       }
 
-      const networkConfig = {
-        network: network.id,
-        RPCUrl: node.url,
-        name: network.name,
+      const networkConfig = await indexDBUtil.getNetworkSetting();
+      const updatedNetwork = {
+        ...network,
+        RPCUrl: node?.url || network.rpcUrls?.find(item => item?.selected)?.url,
         tokenSymbol: network.tokenSymbol
       };
 
-      await indexDBUtil.storeNetworkSetting(networkConfig);
+      await indexDBUtil.storeNetworkSetting(updatedNetwork);
+      await indexDBUtil.changeSelectedNetwork(accountData.data.did, network.id);
+      await indexDBUtil.updateUserDetailsNetwork(accountData.data.did, network.id);
 
-      localStorage.setItem("currentUser", JSON.stringify({
-        username: accountData.data.username,
-        network: network.id
-      }));
+      setUserDetails({
+        ...accountData.data,
+        network: network.id,
+        tokenSymbol: network.tokenSymbol
+      });
 
       await EXECUTE_API({
         data: {
           ...accountData.data,
-          tokenSymbol: networkConfig.tokenSymbol
+          network: network.id,
+          tokenSymbol: network.tokenSymbol
         },
         type: WALLET_TYPES.STORE_USER_DETAILS
       });
 
-      setUserDetails({
-        ...accountData.data,
-        tokenSymbol: networkConfig.tokenSymbol
-      });
-
       localStorage.setItem(ENUMS.INITIAL_ACTIVE_TIME, JSON.stringify(Date.now()));
 
-      setShowNetworkSelector(false);
+      setShowNetworkNodeSelector(false);
       setSelectedAccount(null);
       toast.success(`Switched to ${selectedAccount.username} on ${network.name}`);
     } catch (error) {
       toast.error('Failed to switch account: ' + error.message);
     }
   };
+
 
   const handleLogoutConfirm = () => {
     setUserDetails({})
@@ -253,56 +265,11 @@ export default function Header() {
             <NetworkSwitcher />
           </div>
 
-          <div className="flex flex-col items-center relative" ref={accountDropdownRef}>
+          <div className="flex flex-col items-center relative">
             <div className="flex items-center gap-1 cursor-pointer" onClick={() => setAccountDropdownOpen(!accountDropdownOpen)}>
               <span className="text-sm font-bold text-gray-600 dark:text-gray-300">{userDetails?.username}</span>
               <FiChevronDown className="w-4 h-4 text-gray-600 dark:text-gray-300" />
             </div>
-            {accountDropdownOpen && (
-              <div className="absolute top-8 z-50 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg min-w-[180px]">
-                <div className="p-2 max-h-64 overflow-y-auto">
-                  {allAccounts.map((account) => (
-                    <div
-                      key={account.username}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleAccountSwitch(account);
-                      }}
-                      className={`flex items-center gap-2 p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer ${
-                        account.username === userDetails?.username ? 'bg-gray-100 dark:bg-gray-700' : ''
-                      }`}
-                    >
-                      <span className="text-sm font-medium text-gray-900 dark:text-gray-100">@{account.username}</span>
-                      {account.username === userDetails?.username && (
-                        <span className="ml-auto text-xs text-secondary">✓</span>
-                      )}
-                    </div>
-                  ))}
-                </div>
-                <div className="border-t border-gray-200 dark:border-gray-700 p-2">
-                  <div
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setAccountDropdownOpen(false);
-                      navigate('/setup-wallet', { state: { allChecked: true, fromDashboard: true } });
-                    }}
-                    className="flex items-center gap-2 p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
-                  >
-                    <span className="text-sm font-medium text-gray-900 dark:text-gray-100">+ Create Wallet</span>
-                  </div>
-                  <div
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setAccountDropdownOpen(false);
-                      navigate('/import-wallet');
-                    }}
-                    className="flex items-center gap-2 p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer"
-                  >
-                    <span className="text-sm font-medium text-gray-900 dark:text-gray-100">+ Import Wallet</span>
-                  </div>
-                </div>
-              </div>
-            )}
             <div className="flex items-center space-x-2">
               <span className="text-sm  text-gray-600 dark:text-gray-300">{userDetails?.did?.slice(0, 5) + '....' + userDetails?.did?.slice(-5)}</span>
               <button onClick={() => handleClickCopy()} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
@@ -385,16 +352,27 @@ export default function Header() {
           {modalContent}
         </Modal>
       )}
-      {showNetworkSelector && selectedAccount && (
+      {showNetworkNodeSelector && selectedAccount && (
         <NetworkNodeSelector
-          username={selectedAccount.username}
+          isOpen={showNetworkNodeSelector}
+          onClose={() => setShowNetworkNodeSelector(false)}
           onSelect={handleNetworkNodeSelect}
-          onClose={() => {
-            setShowNetworkSelector(false);
-            setSelectedAccount(null);
-          }}
+          currentAccount={selectedAccount}
+          allAccounts={allAccounts}
+          disableCurrentNetwork={false}
         />
       )}
+      
+      {/* Account Selector Modal */}
+      <AccountSelectorModal
+        isOpen={accountDropdownOpen}
+        onClose={() => setAccountDropdownOpen(false)}
+        accounts={allAccounts}
+        currentAccount={userDetails}
+        onAccountSelect={handleAccountSwitch}
+        onCreateWallet={() => navigate('/setup-wallet', { state: { allChecked: true, fromDashboard: true } })}
+        onImportWallet={() => navigate('/import-wallet')}
+      />
     </header>
   );
 }

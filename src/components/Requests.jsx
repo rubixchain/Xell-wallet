@@ -123,9 +123,7 @@ const Requests = () => {
                 height: 550
             }}
         >
-            {/* Main Content */}
             <main className="flex flex-1 flex-col items-center w-full">
-                {/* Xell Wallet Header */}
                 <div className="flex items-center justify-center w-full p-4 border-b border-gray-200 dark:border-gray-700">
                     <img 
                         src="/images/xell-wallet.svg" 
@@ -137,7 +135,6 @@ const Requests = () => {
                     />
                 </div>
 
-                {/* Website Request Info */}
                 <div className="flex items-center justify-center p-3 w-full bg-gray-50 dark:bg-gray-800/50">
                     <div className="flex items-center gap-2">
                         <img src={websiteInitiated?.icon} alt="website icon" className="w-5 h-5 rounded" />
@@ -146,7 +143,6 @@ const Requests = () => {
                     </div>
                 </div>
 
-                {/* Title & Subtitle */}
                 <div className="text-center mb-4 px-4">
                     <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-1">
                         {websiteInitiated?.initiated?.type === WALLET_TYPES.WALLET_SIGN_REQUEST
@@ -160,7 +156,6 @@ const Requests = () => {
                     </p>
                 </div>
 
-                {/* Request Type */}
                 <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 mb-4 w-full">
                     <div className="flex justify-between items-center">
                         <span className="text-xs text-gray-600 dark:text-gray-400">Request Type:</span>
@@ -170,7 +165,6 @@ const Requests = () => {
                     </div>
                 </div>
 
-                {/* Request Data */}
                 <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 mb-4 w-full max-h-48 overflow-auto">
                     <div className="space-y-3 break-words">
                         {(() => {
@@ -179,12 +173,11 @@ const Requests = () => {
                                 return <div style={{ overflowX: 'auto' }}>{raw}</div>;
                             }
 
-                            // Function to flatten nested objects and parse JSON strings
+
                             const flattenObject = (obj, prefix = '') => {
                                 const flattened = {};
                                 
                                 Object.keys(obj).forEach(key => {
-                                    // Skip smartContractData - keep it as-is
                                     if (key === 'smartContractData') {
                                         return;
                                     }
@@ -192,17 +185,14 @@ const Requests = () => {
                                     const value = obj[key];
                                     const newKey = prefix ? `${prefix}.${key}` : key;
                                     
-                                    // Try to parse if it's a JSON string
                                     let processedValue = value;
                                     if (typeof value === 'string') {
                                         try {
-                                            // Check if it looks like JSON
                                             if ((value.startsWith('{') && value.endsWith('}')) || 
                                                 (value.startsWith('[') && value.endsWith(']'))) {
                                                 processedValue = JSON.parse(value);
                                             }
                                         } catch {
-                                            // Not valid JSON, keep as string
                                         }
                                     }
                                     
@@ -216,15 +206,9 @@ const Requests = () => {
                                 return flattened;
                             };
 
-                            // Process the data
                             let processedData = { ...(raw || {}) };
                             
-                            // Keep smartContractData as-is without parsing or flattening
-                            // The smartContractData will be displayed as a single field in the UI
-                            
-                            // Fix for missing receiver field in NFT execution
                             if (websiteInitiated?.initiated?.type === WALLET_TYPES.EXECUTE_NFT && processedData.nft_data && !processedData.receiver) {
-                                // Extract receiver from nft_data if it contains a DID
                                 const nftDataStr = String(processedData.nft_data);
                                 const didMatch = nftDataStr.match(/bafy[a-zA-Z0-9]{50,}/);
                                 if (didMatch) {
@@ -232,10 +216,8 @@ const Requests = () => {
                                 }
                             }
                             
-                            // Flatten any remaining nested objects, but keep smartContractData as-is
                             const flatData = flattenObject(processedData);
                             
-                            // If smartContractData exists, add it back as a single field
                             if (raw.smartContractData) {
                                 flatData.smartContractData = raw.smartContractData;
                             }
@@ -249,12 +231,10 @@ const Requests = () => {
                                     }}
                                 >
                                     {Object.entries(flatData).map(([key, value]) => {
-                                        // Remove common prefixes for cleaner display
                                         let displayKey = key
                                             .replace(/^publish_asset\./, '')
                                             .replace(/^asset_metadata\./, '')
                                             .replace(/^use_asset\./, '')
-                                            // Convert underscores to spaces and capitalize first letter of each word
                                             .replace(/_/g, ' ')
                                             .replace(/\b\w/g, l => l.toUpperCase());
                                         
@@ -307,7 +287,6 @@ const Requests = () => {
                 </div>
             </main>
 
-            {/* Action Buttons */}
             <div className="flex w-full justify-between pb-6">
                 <button
                     onClick={handleConnect}

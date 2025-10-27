@@ -4,6 +4,8 @@ import Layout from './components/Layout';
 import Welcome from './pages/Welcome';
 import CreateWallet from './pages/CreateWallet';
 import ImportWallet from './pages/ImportWallet';
+import ImportWalletUsername from './pages/ImportWalletUsername';
+import ImportWalletNetwork from './pages/ImportWalletNetwork';
 import VerifyPhrase from './pages/VerifyPhrase';
 import RecoveryPhrase from './pages/RecoveryPhrase';
 import SetupWallet from './pages/SetupWallet';
@@ -27,10 +29,9 @@ import MigrationIntro from './pages/migration/MigrationIntro';
 import MigrationPasswords from './pages/migration/MigrationPasswords';
 import MigrationSetPassword from './pages/migration/MigrationSetPassword';
 import NetworkMigration from './pages/migration/NetworkMigration';
+import NetworkNodeSelection from './pages/NetworkNodeSelection';
 
 function MigrationCheck() {
-  // Network migration is now handled automatically after password unification in MigrationSetPassword.jsx
-  // No separate check needed here
   return null;
 }
 
@@ -47,7 +48,7 @@ function App() {
         }))
       }
       await indexDBUtil.encryptData()
-      await updateVersion()
+      await indexDBUtil.migrateToGlobalNetworks()
     })()
   }, []);
 
@@ -75,9 +76,12 @@ function App() {
                   <Route path={routes.WELCOME} element={<Welcome />} />
                   <Route path={routes.CREATE_WALLET} element={<CreateWallet />} />
                   <Route path={routes.IMPORT_WALLET} element={<ImportWallet />} />
+                  <Route path={routes.IMPORT_WALLET_USERNAME} element={<ImportWalletUsername />} />
+                  <Route path={routes.IMPORT_WALLET_NETWORK} element={<ImportWalletNetwork />} />
                   <Route path={routes.VERIFY_PHARSE} element={<VerifyPhrase />} />
                   <Route path={routes.RECOVERY_PHARSE} element={<RecoveryPhrase />} />
                   <Route path={routes.SETUP_WALLET} element={<SetupWallet />} />
+                  <Route path={routes.NETWORK_NODE_SELECTION} element={<NetworkNodeSelection />} />
                   <Route path={routes.SUCCESS} element={<WalletSuccess />} />
                   <Route path={routes.LOGIN} element={<Login />} />
                   <Route path={routes.TERMS_OF_SERVICES} element={<TermsOfServices />} />

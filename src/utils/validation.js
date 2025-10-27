@@ -2,12 +2,10 @@ export function validatePin(pin) {
   if (pin.length !== 6) return false;
   if (!/^\d+$/.test(pin)) return false;
 
-  // Check for sequential numbers
   const sequential = '0123456789';
   const reverseSequential = '9876543210';
   if (sequential.includes(pin) || reverseSequential.includes(pin)) return false;
 
-  // Check for repeating digits
   if (/^(.)\1+$/.test(pin)) return false;
 
   return true;

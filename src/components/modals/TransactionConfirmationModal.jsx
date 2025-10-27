@@ -18,7 +18,7 @@ export default function TransactionConfirmationModal({
   const [isEditingAmount, setIsEditingAmount] = useState(false);
   const [editedAmount, setEditedAmount] = useState('');
 
-  // Update editedAmount when transactionData changes
+
   useEffect(() => {
     if (transactionData?.amount) {
       setEditedAmount(transactionData.amount);
@@ -70,7 +70,7 @@ export default function TransactionConfirmationModal({
     }
     setIsEditingAmount(false);
     toast.success('Amount updated');
-    // Notify parent component about the amount change
+    
     if (onAmountChange) {
       onAmountChange(editedAmount);
     }
@@ -98,9 +98,7 @@ export default function TransactionConfirmationModal({
         animate={{ opacity: 1, scale: 1 }}
         onMouseDown={(e) => e?.stopPropagation()}
       >
-        {/* Scrollable Content */}
         <div className="overflow-auto flex-1 p-6">
-          {/* Header */}
           <div className="flex items-center space-x-4 border-b-2 pb-3 mb-6">
             <button
               onClick={onReject}
@@ -114,9 +112,7 @@ export default function TransactionConfirmationModal({
             </h2>
           </div>
 
-          {/* Transaction Details Group */}
           <div className="space-y-4">
-            {/* Transaction Amount */}
             <div className="space-y-2">
           <div className="flex items-center justify-between">
             <label className="block text-sm font-semibold text-gray-900 dark:text-white">
@@ -167,21 +163,17 @@ export default function TransactionConfirmationModal({
           )}
             </div>
 
-            {/* From and To Section */}
             <div className="space-y-2">
-              {/* From Section */}
               <div className="space-y-2">
                 <label className="block text-sm font-semibold text-gray-900 dark:text-white">
                   From
                 </label>
                 <div className="flex items-center space-x-3 p-3 bg-[#E5E5E540] rounded-lg">
-                  {/* Address */}
                   <div className="flex-1">
                     <p className="text-sm font-mono text-gray-900 dark:text-white">
                       {formatAddress(getSenderAddress())}
                     </p>
                   </div>
-                  {/* Copy Icon */}
                   <button
                     onClick={() => copyToClipboard(getSenderAddress(), 'Sender address')}
                     className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
@@ -191,24 +183,20 @@ export default function TransactionConfirmationModal({
                 </div>
               </div>
 
-              {/* Arrow */}
               <div className="flex justify-center">
                 <FiArrowRight className="w-5 h-5 text-gray-400" />
               </div>
 
-              {/* To Section */}
               <div className="space-y-2">
                 <label className="block text-sm font-semibold text-gray-900 dark:text-white">
                   To
                 </label>
                 <div className="flex items-center space-x-3 p-3 bg-[#E5E5E540] rounded-lg">
-                  {/* Address */}
                   <div className="flex-1">
                     <p className="text-sm font-mono text-gray-900 dark:text-white">
                       {formatAddress(transactionData?.recipientAddress)}
                     </p>
                   </div>
-                  {/* Copy Icon */}
                   <button
                     onClick={() => copyToClipboard(transactionData?.recipientAddress, 'Recipient address')}
                     className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
@@ -218,7 +206,6 @@ export default function TransactionConfirmationModal({
                 </div>
               </div>
 
-              {/* Comments */}
               {transactionData?.comments && (
                 <div className="space-y-2">
                   <label className="block text-sm font-semibold text-gray-900 dark:text-white">
@@ -235,7 +222,6 @@ export default function TransactionConfirmationModal({
           </div>
         </div>
 
-        {/* Action Buttons - Fixed at bottom */}
         <div className="border-t border-gray-200 dark:border-gray-700 p-6">
           <div className="flex w-full justify-between gap-4">
             <button

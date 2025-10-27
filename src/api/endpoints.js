@@ -27,7 +27,7 @@ export const END_POINTS = {
         return api.post('initiate-rbt-transfer', params)
     },
     get_rbt_data: async () => {
-        // Analytics endpoint - modify this URL to point to your analytics API
+        
         const analyticsUrl = 'https://rexplorerapi.azurewebsites.net/api/Analytics/GetKPIDetails';
         let res = await fetch(analyticsUrl)
         res = res?.json()
@@ -62,6 +62,9 @@ export const END_POINTS = {
     },
     get_ft_txn_by_did: (params) => {
         return api.get('get-ft-txn-by-did', { params })
+    },
+    get_network_details: () => {
+        return api.get('getalldid')
     }
 
 }

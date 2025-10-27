@@ -13,16 +13,14 @@ export default function BackupSettings() {
   const { userDetails } = useContext(UserContext);
 
   const handleExportFavorites = () => {
-    // Check both storage locations for favorites
+   
     let favorites = [];
     
-    // Check user-specific storage (used by SendModal)
     const userFavorites = localStorage.getItem(userDetails?.username);
     if (userFavorites) {
       favorites = JSON.parse(userFavorites);
     }
     
-    // If no user-specific favorites, check global storage (used by useFavorites hook)
     if (favorites.length === 0) {
       const globalFavorites = localStorage.getItem('favorites');
       if (globalFavorites) {
@@ -50,7 +48,6 @@ export default function BackupSettings() {
       </h2>
 
       <div className="space-y-4">
-        {/* Recovery Phrase */}
         <SettingCard>
           <div className="flex items-center justify-between">
             <div className="flex items-center ">
@@ -73,7 +70,6 @@ export default function BackupSettings() {
           </div>
         </SettingCard>
 
-        {/* Favorite Addresses */}
         <SettingCard>
           <div className="flex items-center justify-between">
             <div className="flex items-center ">
@@ -96,7 +92,6 @@ export default function BackupSettings() {
           </div>
         </SettingCard>
 
-        {/* Export Wallet */}
         {/* <SettingCard>
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">
@@ -117,8 +112,7 @@ export default function BackupSettings() {
             </motion.button>
           </div>
         </SettingCard> */}
-
-        {/* Auto Backup */}
+    
         {/* <SettingCard>
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-4">

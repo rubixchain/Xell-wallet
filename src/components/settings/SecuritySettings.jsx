@@ -41,7 +41,7 @@ export default function SecuritySettings() {
   };
 
   const handleLogoutConfirm = () => {
-    // Optionally clear authentication tokens or context here
+    
     setUserDetails({})
     navigate('/login', { replace: true });
   };

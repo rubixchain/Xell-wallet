@@ -68,13 +68,15 @@ function MigrationSetPassword() {
                 return;
             }
 
+            // Set currentVersion to 5 after unified password is set
+            await indexDBUtil.setCurrentVersion(5);
+
             // Immediately trigger network migration (v3.1 -> v4.0)
             try {
                 const { migrateToNetworkStructure } = await import('../../indexDB/migration');
                 await migrateToNetworkStructure();
             } catch (migrationError) {
                 console.error('Network migration failed:', migrationError);
-                // Continue anyway - user can try again later
             }
 
             if (result.deleted && result.deleted.length > 0) {

@@ -16,10 +16,8 @@ const indexDBUtil = {
 
 
 
-    // Main database initialization
     initDB: async function () {
 
-        // Use actual IndexedDB if available
         return new Promise((resolve, reject) => {
             try {
                 const request = indexedDB.open(this.dbName, this.version);
@@ -145,36 +143,6 @@ const indexDBUtil = {
                             url: config.RUBIX_TESTNET_BASE_URL
                         }
                     ],
-                },
-                {
-                    logo: '/network/trie.png',
-                    name: 'Trie Testnet',
-                    default: true,
-                    selected: false,
-                    tokenSymbol: NETWORK_TYPES.TRIE,
-                    id: 3,
-                    rpcUrls: [
-                        {
-                            selected: true,
-                            name: 'testnet',
-                            url: config.TRIE_TESTNET_BASE_URL
-                        }
-                    ],
-                },
-                {
-                    logo: '/network/trie.png',
-                    name: 'Trie Mainnet',
-                    default: true,
-                    selected: false,
-                    tokenSymbol: NETWORK_TYPES.TRI,
-                    id: 4,
-                    rpcUrls: [
-                        {
-                            selected: true,
-                            name: 'mainnet',
-                            url: config.RUBIX_MAINNET_BASE_URL
-                        }
-                    ],
                 }
             ];
 
@@ -234,34 +202,57 @@ const indexDBUtil = {
                             url: config.RUBIX_TESTNET_BASE_URL
                         }
                     ],
-                },
+                }
+            ];
+
+            const getRequest = networkStore.get("NetworkDetails");
+
+            getRequest.onsuccess = () => {
+                const existingData = getRequest.result || { id: "NetworkDetails", networks: [] };
+                existingData.networks.push({ did, networks: availableNetworks });
+
+                const networkPutRequest = networkStore.put(existingData);
+                networkPutRequest.onerror = () => reject(networkPutRequest.error);
+                networkPutRequest.onsuccess = () => resolve();
+            };
+
+            getRequest.onerror = () => reject(getRequest.error);
+        });
+    },
+
+    storeNetworksV4: async function (db, did, selectedNetworkId) {
+        return new Promise((resolve, reject) => {
+            const networkTransaction = db.transaction([this.storeName], 'readwrite');
+            const networkStore = networkTransaction.objectStore(this.storeName);
+
+            const availableNetworks = [
                 {
-                    logo: '/network/trie.png',
-                    name: 'Trie Testnet',
+                    logo: '/network/rubix.png',
+                    name: 'Rubix Mainnet',
                     default: true,
-                    selected: false,
-                    tokenSymbol: NETWORK_TYPES.TRIE,
-                    id: 3,
-                    rpcUrls: [
-                        {
-                            selected: true,
-                            name: 'testnet',
-                            url: config.TRIE_TESTNET_BASE_URL
-                        }
-                    ],
-                },
-                {
-                    logo: '/network/trie.png',
-                    name: 'Trie Mainnet',
-                    default: true,
-                    selected: false,
-                    tokenSymbol: NETWORK_TYPES.TRI,
-                    id: 4,
+                    selected: selectedNetworkId === 1,
+                    tokenSymbol: NETWORK_TYPES.RBT,
+                    id: 1,
                     rpcUrls: [
                         {
                             selected: true,
                             name: 'mainnet',
                             url: config.RUBIX_MAINNET_BASE_URL
+                        }
+                    ],
+                },
+                {
+                    logo: '/network/rubix.png',
+                    name: 'Rubix Testnet',
+                    default: true,
+                    selected: selectedNetworkId === 2,
+                    tokenSymbol: NETWORK_TYPES.RBT,
+                    id: 2,
+                    rpcUrls: [
+                        {
+                            selected: true,
+                            name: 'testnet',
+                            url: config.RUBIX_TESTNET_BASE_URL
                         }
                     ],
                 }
@@ -519,7 +510,126 @@ const indexDBUtil = {
                 getRequest.onerror = () => reject(getRequest.error);
             });
         } catch (error) {
-           
+
+            throw error;
+        }
+    },
+
+    savePrivateKeyV4: async function (key, data) {
+        try {
+            const db = await this.initDB();
+            const result = bip39.mnemonicToSeedSync(data?.originalPhrase);
+            let privateKey = result.slice(0, 32);
+            if (!secp256k1.privateKeyVerify(privateKey)) {
+                toast.error('invalid private key');
+                return;
+            }
+            const publicKeyBuffer = secp256k1.publicKeyCreate(privateKey, true);
+            let publicKey = Buffer.from(publicKeyBuffer).toString('hex');
+            privateKey = privateKey?.toString('hex');
+            if (publicKey.length !== 66) {
+                toast.error('invalid private key');
+                return;
+            }
+            const isPrivateKeyExists = await this.checkPrivateKeyExists(privateKey);
+
+            if (isPrivateKeyExists?.status) {
+                toast.error('Account already exists');
+                return;
+            }
+
+            const customApi = axios.create({
+                baseURL: data.nodeUrl,
+                headers: { 'Content-Type': 'application/json' }
+            });
+
+            let res = await customApi.post('/request-did-for-pubkey', {
+                public_key: publicKey,
+                network: data.networkId.toString()
+            });
+            res = res.data;
+            if (!res) {
+                toast.error('Failed to create wallet');
+                return;
+            }
+
+            let registerDid = await customApi.post('/register-did', { did: res?.did });
+            registerDid = registerDid.data;
+            if (!registerDid || !registerDid?.status) {
+                toast.error('Failed to register DID');
+                return;
+            }
+
+            let signature = await generateSignature(privateKey, registerDid?.result?.hash);
+            let signatureResponse = await customApi.post('/signature-response', {
+                id: registerDid?.result?.id,
+                Signature: { Signature: signature },
+                mode: 4
+            });
+            signatureResponse = signatureResponse.data;
+
+            if (!signatureResponse || !signatureResponse?.status) {
+                toast.error('Failed to complete registration');
+                return;
+            }
+
+            await this.saveAccountNetworkBinding({
+                username: data.username,
+                did: res.did,
+                networkId: data.networkId,
+                nodeId: data.nodeId,
+                nodeUrl: data.nodeUrl,
+                swarmKey: data.swarmKey
+            });
+
+            return new Promise((resolve, reject) => {
+                const transaction = db.transaction([this.storeName], 'readwrite');
+                const store = transaction.objectStore(this.storeName);
+
+                const getRequest = store.get(key);
+                let encryptedPK = CryptoJS.AES.encrypt(privateKey, data?.pin).toString();
+                let encryptedMnemonics = CryptoJS.AES.encrypt(data?.originalPhrase, data?.pin).toString();
+
+                getRequest.onsuccess = () => {
+                    const existingData = getRequest.result;
+                    const newAccount = {
+                        privatekey: encryptedPK,
+                        publickey: publicKey,
+                        username: data?.username,
+                        did: res.did,
+                        network: data.networkId.toString(),
+                        createdAt: new Date().toISOString(),
+                        mnemonics: encryptedMnemonics
+                    };
+
+                    const objectToStore = {
+                        id: key,
+                        accounts: existingData ?
+                            [...(existingData.accounts || []), newAccount] :
+                            [newAccount]
+                    };
+
+                    const putRequest = store.put(objectToStore);
+                    putRequest.onerror = () => reject(putRequest.error);
+                    putRequest.onsuccess = async () => {
+                        await this.storeNetworksV4(db, res.did, data.networkId);
+                        resolve({
+                            status: true,
+                            data: {
+                                pin: data?.pin,
+                                username: newAccount?.username,
+                                did: newAccount?.did,
+                                network: newAccount?.network,
+                                publickey: newAccount?.publickey,
+                            }
+                        })
+                    };
+                };
+
+                getRequest.onerror = () => reject(getRequest.error);
+            });
+        } catch (error) {
+            toast.error('Failed to create account');
             throw error;
         }
     },
@@ -1321,9 +1431,9 @@ const indexDBUtil = {
     getStorageVersion: async function() {
         try {
             const version = localStorage.getItem('storageVersion');
-            return version || '3.0';
+            return version || '4.0';
         } catch (error) {
-            return '3.0';
+            return '4.0';
         }
     },
 
@@ -1358,10 +1468,10 @@ const indexDBUtil = {
 
     needsMigration: async function() {
         try {
-            const version = await this.getStorageVersion();
+            const currentVersion = await this.getCurrentVersion();
             const accounts = await this.getData();
 
-            if (parseFloat(version) < 3.1 && accounts?.data?.length > 0) {
+            if ((!currentVersion || currentVersion?.version <= 4) && accounts?.data?.length > 0) {
                 return true;
             }
             return false;
@@ -1545,6 +1655,26 @@ const indexDBUtil = {
         }
     },
 
+    hasUnifiedPassword: async function() {
+        try {
+            const db = await this.initDB();
+            return new Promise((resolve, reject) => {
+                const transaction = db.transaction([this.storeName], 'readonly');
+                const store = transaction.objectStore(this.storeName);
+                const request = store.get('UserDetails');
+
+                request.onsuccess = () => {
+                    const data = request.result;
+                    resolve(!!data?.unifiedPassword);
+                };
+
+                request.onerror = () => reject(request.error);
+            });
+        } catch (error) {
+            return false;
+        }
+    },
+
     deleteAccountsByUsername: async function(usernames) {
         try {
             const db = await this.initDB();
@@ -1697,6 +1827,31 @@ const indexDBUtil = {
         }
     },
 
+    updateAccountNetworks: async function(did, networks) {
+        try {
+            const db = await this.initDB();
+            return new Promise((resolve, reject) => {
+                const transaction = db.transaction([this.storeName], 'readwrite');
+                const store = transaction.objectStore(this.storeName);
+                const request = store.get('NetworkDetails');
+
+                request.onsuccess = () => {
+                    const data = request.result || { id: 'NetworkDetails', networks: {} };
+
+                    data.networks[did] = networks;
+
+                    const updateRequest = store.put(data);
+                    updateRequest.onsuccess = () => resolve({ status: true });
+                    updateRequest.onerror = () => reject(updateRequest.error);
+                };
+
+                request.onerror = () => reject(request.error);
+            });
+        } catch (error) {
+            throw error;
+        }
+    },
+
     storeToDBV4: async function ({ privatekey, publickey, pin, username, mnemonics }) {
         try {
             const rubixMainnetUrl = config.RUBIX_MAINNET_BASE_URL;
@@ -1779,6 +1934,326 @@ const indexDBUtil = {
                 };
 
                 getRequest.onerror = () => reject(getRequest.error);
+            });
+        } catch (error) {
+            throw error;
+        }
+    },
+
+    validateSwarmKey: async function(nodeUrl, networkSwarmKey) {
+        try {
+            // Placeholder function - returns true for now
+            return true;
+        } catch (error) {
+            return false;
+        }
+    },
+
+    addCustomNodeToNetwork: async function(networkId, customNode) {
+        // Redirect to global storage
+        return this.addCustomNodeToGlobalNetwork(networkId, customNode);
+    },
+
+    getCustomNodesForNetwork: async function(networkId) {
+        try {
+            const db = await this.initDB();
+            return new Promise((resolve, reject) => {
+                const transaction = db.transaction([this.storeName], 'readonly');
+                const store = transaction.objectStore(this.storeName);
+                const request = store.get("NetworkDetails");
+
+                request.onsuccess = () => {
+                    const data = request.result;
+                    if (!data || !data.networks || data.networks.length === 0) {
+                        resolve([]);
+                        return;
+                    }
+
+                    // Get custom nodes from the first DID entry (since custom nodes are global)
+                    const firstEntry = data.networks[0];
+                    const network = firstEntry.networks.find(net => net.id === networkId);
+
+                    if (network) {
+                        const customNodes = network.rpcUrls.filter(rpc => rpc.isCustom);
+                        resolve(customNodes);
+                    } else {
+                        resolve([]);
+                    }
+                };
+
+                request.onerror = () => reject(request.error);
+            });
+        } catch (error) {
+            return [];
+        }
+    },
+
+    // ============================================
+    // GLOBAL NETWORK STORAGE FUNCTIONS
+    // ============================================
+
+    initializeGlobalNetworks: async function() {
+        try {
+            const db = await this.initDB();
+            return new Promise((resolve, reject) => {
+                const transaction = db.transaction([this.storeName], 'readwrite');
+                const store = transaction.objectStore(this.storeName);
+                const request = store.get('GlobalNetworks');
+
+                request.onsuccess = () => {
+                    const data = request.result;
+
+                    if (!data) {
+                        const defaultNetworks = {
+                            id: 'GlobalNetworks',
+                            networks: [
+                                {
+                                    id: 1,
+                                    logo: '/network/rubix.png',
+                                    name: 'Rubix Mainnet',
+                                    default: true,
+                                    tokenSymbol: NETWORK_TYPES.RBT,
+                                    swarmKey: 'RUBIX_MAINNET_SWARM_KEY',
+                                    rpcUrls: [
+                                        {
+                                            id: 1,
+                                            url: config.RUBIX_MAINNET_BASE_URL,
+                                            isCustom: false
+                                        }
+                                    ]
+                                },
+                                {
+                                    id: 2,
+                                    logo: '/network/rubix.png',
+                                    name: 'Rubix Testnet',
+                                    default: true,
+                                    tokenSymbol: NETWORK_TYPES.RBT,
+                                    swarmKey: 'RUBIX_TESTNET_SWARM_KEY',
+                                    rpcUrls: [
+                                        {
+                                            id: 1,
+                                            url: config.RUBIX_TESTNET_BASE_URL,
+                                            isCustom: false
+                                        }
+                                    ]
+                                }
+                            ]
+                        };
+
+                        const putRequest = store.put(defaultNetworks);
+                        putRequest.onsuccess = () => resolve(defaultNetworks.networks);
+                        putRequest.onerror = () => reject(putRequest.error);
+                    } else {
+                        resolve(data.networks);
+                    }
+                };
+
+                request.onerror = () => reject(request.error);
+            });
+        } catch (error) {
+            throw error;
+        }
+    },
+
+    getGlobalNetworks: async function() {
+        try {
+            const db = await this.initDB();
+            return new Promise((resolve, reject) => {
+                const transaction = db.transaction([this.storeName], 'readonly');
+                const store = transaction.objectStore(this.storeName);
+                const request = store.get('GlobalNetworks');
+
+                request.onsuccess = () => {
+                    const data = request.result;
+                    if (!data || !data.networks) {
+                        this.initializeGlobalNetworks().then(resolve).catch(reject);
+                    } else {
+                        resolve(data.networks);
+                    }
+                };
+
+                request.onerror = () => reject(request.error);
+            });
+        } catch (error) {
+            throw error;
+        }
+    },
+
+    getGlobalNetworksForAccount: async function(username) {
+        try {
+            const globalNetworks = await this.getGlobalNetworks();
+            const bindings = await this.getAccountNetworkBindings(username);
+            const currentNetworkSettings = await this.getNetworkSetting();
+
+            const networksWithSelection = globalNetworks.map(network => {
+                const networkBindings = bindings.filter(b => b.networkId === network.id);
+                const isCurrentNetwork = currentNetworkSettings?.network === network.id;
+
+                const rpcUrlsWithSelection = network.rpcUrls.map(rpc => {
+                    const isCurrentNode = isCurrentNetwork && currentNetworkSettings?.RPCUrl === rpc.url;
+                    const isRegistered = networkBindings.some(b =>
+                        b.nodeId === rpc.id || b.nodeUrl === rpc.url
+                    );
+                    return {
+                        ...rpc,
+                        selected: isCurrentNode,
+                        registered: isRegistered
+                    };
+                });
+
+                return {
+                    ...network,
+                    selected: isCurrentNetwork,
+                    rpcUrls: rpcUrlsWithSelection
+                };
+            });
+
+            return networksWithSelection;
+        } catch (error) {
+            throw error;
+        }
+    },
+
+    addCustomNetworkGlobal: async function(network) {
+        try {
+            const db = await this.initDB();
+            return new Promise((resolve, reject) => {
+                const transaction = db.transaction([this.storeName], 'readwrite');
+                const store = transaction.objectStore(this.storeName);
+                const request = store.get('GlobalNetworks');
+
+                request.onsuccess = () => {
+                    const data = request.result || { id: 'GlobalNetworks', networks: [] };
+
+                    const maxId = data.networks.reduce((max, net) => Math.max(max, net.id), 0);
+                    const newNetwork = {
+                        ...network,
+                        id: maxId + 1,
+                        isCustom: true,
+                        default: false
+                    };
+
+                    data.networks.push(newNetwork);
+
+                    const putRequest = store.put(data);
+                    putRequest.onsuccess = () => resolve({ status: true, network: newNetwork });
+                    putRequest.onerror = () => reject(putRequest.error);
+                };
+
+                request.onerror = () => reject(request.error);
+            });
+        } catch (error) {
+            throw error;
+        }
+    },
+
+    addCustomNodeToGlobalNetwork: async function(networkId, node) {
+        try {
+            const db = await this.initDB();
+            return new Promise((resolve, reject) => {
+                const transaction = db.transaction([this.storeName], 'readwrite');
+                const store = transaction.objectStore(this.storeName);
+                const request = store.get('GlobalNetworks');
+
+                request.onsuccess = () => {
+                    const data = request.result;
+                    if (!data || !data.networks) {
+                        reject(new Error('Global networks not initialized'));
+                        return;
+                    }
+
+                    const network = data.networks.find(net => net.id === networkId);
+                    if (!network) {
+                        reject(new Error('Network not found'));
+                        return;
+                    }
+
+                    const nodeExists = network.rpcUrls.some(rpc => rpc.url === node.url);
+                    if (nodeExists) {
+                        resolve({ status: true, message: 'Node already exists' });
+                        return;
+                    }
+
+                    const maxId = network.rpcUrls.reduce((max, rpc) => Math.max(max, rpc.id || 0), 0);
+                    const newNode = {
+                        ...node,
+                        id: maxId + 1,
+                        isCustom: true
+                    };
+
+                    network.rpcUrls.push(newNode);
+
+                    const putRequest = store.put(data);
+                    putRequest.onsuccess = () => resolve({ status: true, node: newNode });
+                    putRequest.onerror = () => reject(putRequest.error);
+                };
+
+                request.onerror = () => reject(request.error);
+            });
+        } catch (error) {
+            throw error;
+        }
+    },
+
+    migrateToGlobalNetworks: async function() {
+        try {
+            const globalNetworks = await this.getGlobalNetworks();
+            if (globalNetworks && globalNetworks.length > 0) {
+                return { status: true, message: 'Global networks already exist' };
+            }
+
+            const db = await this.initDB();
+            return new Promise(async (resolve, reject) => {
+                const transaction = db.transaction([this.storeName], 'readonly');
+                const store = transaction.objectStore(this.storeName);
+                const request = store.get('NetworkDetails');
+
+                request.onsuccess = async () => {
+                    const oldData = request.result;
+
+                    if (!oldData || !oldData.networks || oldData.networks.length === 0) {
+                        await this.initializeGlobalNetworks();
+                        resolve({ status: true, message: 'Initialized with default networks' });
+                        return;
+                    }
+
+                    const allCustomNodes = new Map();
+                    const allCustomNetworks = [];
+
+                    oldData.networks.forEach(didEntry => {
+                        didEntry.networks.forEach(network => {
+                            if (network.isCustom && !network.default) {
+                                allCustomNetworks.push(network);
+                            }
+
+                            network.rpcUrls?.forEach(rpc => {
+                                if (rpc.isCustom) {
+                                    const key = `${network.id}-${rpc.url}`;
+                                    if (!allCustomNodes.has(key)) {
+                                        allCustomNodes.set(key, {
+                                            networkId: network.id,
+                                            node: rpc
+                                        });
+                                    }
+                                }
+                            });
+                        });
+                    });
+
+                    await this.initializeGlobalNetworks();
+
+                    for (const customNetwork of allCustomNetworks) {
+                        await this.addCustomNetworkGlobal(customNetwork);
+                    }
+
+                    for (const [key, { networkId, node }] of allCustomNodes) {
+                        await this.addCustomNodeToGlobalNetwork(networkId, node);
+                    }
+
+                    resolve({ status: true, message: 'Migration completed' });
+                };
+
+                request.onerror = () => reject(request.error);
             });
         } catch (error) {
             throw error;

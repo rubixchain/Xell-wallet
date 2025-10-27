@@ -43,8 +43,8 @@ export default function Dashboard() {
 
 
   useEffect(() => {
-    try {
-      (async () => {
+    (async () => {
+      try {
         if (!userDetails?.username || !userDetails?.did) {
           return
         }
@@ -54,72 +54,69 @@ export default function Dashboard() {
         // Default to network 1 if undefined (new wallet defaults to mainnet)
         const networkValue = userDetails?.network ?? 1;
         if (networkValue == 1 || networkValue == 2) {
-          const [accountinfoApiData,
-            transactionsApiData] = await Promise.all([
+          try {
+            const [accountinfoApiData, transactionsApiData] = await Promise.all([
               END_POINTS.get_account_info({ did: userDetails?.did }),
               END_POINTS.get_transactions_info({ DID: userDetails?.did })
             ])
-          let res = {}
+            let res = {}
 
-
-          if (accountinfoApiData?.status) {
-            res = { ...res, ...accountinfoApiData?.account_info[0] }
-
-
-          }
-          setAccountInfo(res)
-          setSelectedTokens([])
-          if (transactionsApiData?.status) {
-            const transactions = transactionsApiData?.TxnDetails?.filter(res => res?.Mode == 0 || res?.Mode == 1)?.map((txn) => ({
-              ...txn,
-              type: txn?.SenderDID == userDetails?.did ? "Sent" : "Received",
-            })) || []
-            setTransactionsData(transactions?.sort((a, b) => b.Epoch - a.Epoch) || [])
+            if (accountinfoApiData?.status) {
+              res = { ...res, ...accountinfoApiData?.account_info[0] }
+            }
+            setAccountInfo(res)
+            setSelectedTokens([])
+            if (transactionsApiData?.status) {
+              const transactions = transactionsApiData?.TxnDetails?.filter(res => res?.Mode == 0 || res?.Mode == 1)?.map((txn) => ({
+                ...txn,
+                type: txn?.SenderDID == userDetails?.did ? "Sent" : "Received",
+              })) || []
+              setTransactionsData(transactions?.sort((a, b) => b.Epoch - a.Epoch) || [])
+            }
+          } catch (apiError) {
+            setAccountInfo({ rbt_amount: 0 });
+            setTransactionsData([]);
           }
         }
         else {
-          const [ftinfo, fttxn] = await Promise.all([
-            END_POINTS.get_ft_info({ did: userDetails?.did }),
-            END_POINTS.get_ft_txn_by_did({
-              DID: userDetails?.did,
-              startDate: new Date("2024-12-02"),
-              endDate: new Date()
-            })
-          ])
-          let ftinfoData = ftinfo?.ft_info
-          if (networkValue === 3) {
-            ftinfoData = ftinfoData?.filter(res => res?.creator_did == "bafybmifzar4metqgkm4ivtnvabmiouyi32y2x2ikpi5h4tflrfug2ghi5q")
-          }
+          try {
+            const [ftinfo, fttxn] = await Promise.all([
+              END_POINTS.get_ft_info({ did: userDetails?.did }),
+              END_POINTS.get_ft_txn_by_did({
+                DID: userDetails?.did,
+                startDate: new Date("2024-12-02"),
+                endDate: new Date()
+              })
+            ])
+            let ftinfoData = ftinfo?.ft_info
+            if (networkValue === 3) {
+              ftinfoData = ftinfoData?.filter(res => res?.creator_did == "bafybmifzar4metqgkm4ivtnvabmiouyi32y2x2ikpi5h4tflrfug2ghi5q")
+            }
 
-          // Handle case where API returns empty array for Trie networks
-          // If no tokens found, create a default object with 0 balance
-          if (!ftinfoData || ftinfoData.length === 0) {
+            // Handle case where API returns empty array for Trie networks
+            // If no tokens found, create a default object with 0 balance
+            if (!ftinfoData || ftinfoData.length === 0) {
+              setAccountInfo({ ft_count: 0 });
+            } else {
+              setAccountInfo(ftinfoData[0]);
+            }
+            if (fttxn?.status) {
+              let transactions = fttxn?.TxnDetails?.map((txn) => ({
+                ...txn,
+                type: txn?.SenderDID == userDetails?.did ? "Sent" : "Received",
+              })) || []
+
+              setTransactionsData(transactions.sort((a, b) => b.Epoch - a.Epoch)?.slice(0, 3))
+            }
+          } catch (apiError) {
             setAccountInfo({ ft_count: 0 });
-          } else {
-            
-            setAccountInfo(ftinfoData[0]);
+            setTransactionsData([]);
           }
-          if (fttxn?.status) {
-            let transactions = fttxn?.TxnDetails?.map((txn) => ({
-              ...txn,
-              type: txn?.SenderDID == userDetails?.did ? "Sent" : "Received",
-            })) || []
-
-
-            setTransactionsData(transactions.sort((a, b) => b.Epoch - a.Epoch)?.slice(0, 3))
-          }
-
-
         }
-
-
-
-      })()
-    }
-    catch (e) {
-     
-      toast.error(e)
-    }
+      } catch (e) {
+        // Silently handle errors when API is unavailable
+      }
+    })()
   }, [userDetails, isTransactionCompleted])
 
  

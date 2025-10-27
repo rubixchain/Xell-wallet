@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
-import { FiMoreVertical, FiEdit, FiChevronDown, FiXCircle, FiTrash } from 'react-icons/fi';
+import { FiMoreVertical, FiEdit, FiChevronDown, FiXCircle, FiTrash, FiCheck, FiChevronRight } from 'react-icons/fi';
 
-export default function NetworkSelector({ networks, setIsOpen, setIsEditNetworkOpen, setEditingNetwork, setSelectedNetworkIndex, handleNetworkClick }) {
+export default function NetworkSelector({ networks, selectedNetwork, setIsOpen, setIsEditNetworkOpen, setEditingNetwork, setSelectedNetworkIndex, handleNetworkClick, setShowNodeSelector, setSelectedNetworkForNodes }) {
 
   const [searchTerm, setSearchTerm] = useState('');
   const [openDropdown, setOpenDropdown] = useState(null);
@@ -26,7 +26,7 @@ export default function NetworkSelector({ networks, setIsOpen, setIsEditNetworkO
   useEffect(() => {
     const handleClickOutside = (event) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-        // setIsOpen(false);
+        
         setOpenDropdown(null);
       }
     };
@@ -54,50 +54,71 @@ export default function NetworkSelector({ networks, setIsOpen, setIsEditNetworkO
           placeholder="Search"
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
-          // className="w-full p-2 mb-4 border rounded"
+          
           className="text-sm [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none w-full p-3 border  rounded-lg outline-none focus:ring-2 focus:ring-primary"
         />
         <h3 className="text-base font-semibold my-3">Available networks</h3>
         <ul className="mb-4 h-48 overflow-y-auto">
           {filteredNetworks?.length > 0 ? filteredNetworks?.map((network, index) => (
-            <li onClick={() => handleNetworkClick(network)} key={index} className={`flex mb-2 py-3 items-center justify-between p-2 rounded cursor-pointer relative
-             ${network.selected ? 'bg-tertiary bg-opacity-90 text-gary-900' : 'text-gray-900'}`}>
-              <div className="flex text-base items-center">
-                {network?.logo ? (
-                  <img
-                    src={network?.logo}
-                    alt={network.logo}
-                    className="mr-2 rounded-sm h-5 w-5"
-                    onError={(e) => {
-                      
-                      e.target.style.display = 'none';
-                    }}
-                 
-                  />
-                ) : (
-                  <span className="mr-2 text-gray-900 border border-secondary font-medium text-secondary h-7 text-center flex items-center justify-center w-7 rounded-full text-sm ">{network.name?.slice(0, 1)?.toUpperCase()}</span>
-                )}
-                {network.name}
-              </div>
-              {!network?.default ? <FiMoreVertical className="text-gray-500" onClick={(e) => {
-                e?.stopPropagation();
-                e?.preventDefault();
-                toggleDropdown(index)
-              }} /> : null}
-              {openDropdown === index && (
-                <div ref={dropdownRef} className={`absolute right-3 
-                ${filteredNetworks?.length - 1 !== index ? 'top-9' : 'bottom-9'}
-                 z-50 w-24 bg-white border rounded shadow-l`}>
-                  <button className="w-full text-left px-4 py-2 hover:bg-gray-100 flex items-center" onClick={(e) => {
-                    e?.stopPropagation();
-                    e?.preventDefault();
-                    handleEditClick(network, index)
-                  }}>
-                    <FiEdit className="mr-2" />
-                    Edit
-                  </button>
+            <li key={index} className="mb-2">
+              <div
+                onClick={() => {
+                  setSelectedNetworkForNodes(network);
+                  setIsOpen(false);
+                  setShowNodeSelector(true);
+                }}
+                className={`flex py-3 items-center justify-between p-2 rounded cursor-pointer relative hover:bg-gray-100
+                 ${network.selected || network.id === selectedNetwork ? 'bg-tertiary bg-opacity-90 text-gray-900' : 'text-gray-900'}`}
+              >
+                <div className="flex text-base items-center">
+                  {network?.logo ? (
+                    <img
+                      src={network?.logo}
+                      alt={network.logo}
+                      className="mr-2 rounded-sm h-5 w-5"
+                      onError={(e) => {
+                        e.target.style.display = 'none';
+                      }}
+                    />
+                  ) : (
+                    <span className="mr-2 text-gray-900 border border-secondary font-medium text-secondary h-7 text-center flex items-center justify-center w-7 rounded-full text-sm">
+                      {network.name?.slice(0, 1)?.toUpperCase()}
+                    </span>
+                  )}
+                  <span>{network.name}</span>
                 </div>
-              )}
+                <div className="flex items-center gap-2">
+                  <FiChevronRight className="w-4 h-4 text-gray-400" />
+                  {!network?.default && (
+                    <FiMoreVertical
+                      className="text-gray-500"
+                      onClick={(e) => {
+                        e?.stopPropagation();
+                        e?.preventDefault();
+                        toggleDropdown(index);
+                      }}
+                    />
+                  )}
+                  {openDropdown === index && (
+                    <div
+                      ref={dropdownRef}
+                      className={`absolute right-3 ${filteredNetworks?.length - 1 !== index ? 'top-9' : 'bottom-9'} z-50 w-24 bg-white border rounded shadow-lg`}
+                    >
+                      <button
+                        className="w-full text-left px-4 py-2 hover:bg-gray-100 flex items-center"
+                        onClick={(e) => {
+                          e?.stopPropagation();
+                          e?.preventDefault();
+                          handleEditClick(network, index);
+                        }}
+                      >
+                        <FiEdit className="mr-2" />
+                        Edit
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
             </li>
           )) :
             <p className='text-sm text-center font-medium'>No networks found</p>}

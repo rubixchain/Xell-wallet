@@ -3,7 +3,7 @@ import indexDBUtil from "../indexDB";
 import { generateSignature, isSignatureRoundRequired } from "../utils";
 import { END_POINTS } from "./endpoints";
 
-// API endpoint mapping for cleaner code
+
 const API_ENDPOINTS = {
   [WALLET_TYPES.EXECUTE_CONTRACT]: END_POINTS.execute_smart_contract,
   [WALLET_TYPES.INITIATE_TRANSFER_FT]: END_POINTS.initiate_ft_transfer,
@@ -42,13 +42,10 @@ async function generateSignatureApi(id, hash, pk) {
   }
 }
 
-// Helper function to handle API response
 async function handleApiResponse(apiResponse, pendingTabId, injectResultIntoWebpage) {
-  // injectResultIntoWebpage(pendingTabId, { ...apiResponse });
   return apiResponse
 }
 
-// Helper function to get user private key
 async function getUserPrivateKey(username, pin) {
   const userDetails = await indexDBUtil.getData('UserDetails', username, pin);
 
@@ -65,16 +62,13 @@ async function getUserPrivateKey(username, pin) {
 
 export async function handleApiCall(type, data, pendingTabId, injectResultIntoWebpage) {
   try {
-    // Get the appropriate API endpoint
     const apiEndpoint = API_ENDPOINTS[type];
     if (!apiEndpoint) {
       throw new Error(`Unsupported API type: ${type}`);
     }
 
-    // Execute API call
     const apiResponse = await apiEndpoint({ ...data.payload });
 
-    // Handle API response
     const apiSuccess = await handleApiResponse(apiResponse, pendingTabId, injectResultIntoWebpage);
     if (!apiSuccess?.status) {
       injectResultIntoWebpage(pendingTabId, apiSuccess);
@@ -82,7 +76,6 @@ export async function handleApiCall(type, data, pendingTabId, injectResultIntoWe
         status: false
       };
     }
-    // Get user private key
     const { status, privateKey, error: authError } = await getUserPrivateKey(data?.username, data?.pin);
     if (!status) {
       const errorResult = {
@@ -93,17 +86,14 @@ export async function handleApiCall(type, data, pendingTabId, injectResultIntoWe
       return errorResult;
     }
 
-    // Handle signature and get the final result
     const signatureResponse = await generateSignatureApi(
       apiResponse?.result?.id,
       apiResponse?.result?.hash,
       privateKey
     );
 
-    // Inject the final signature response
     injectResultIntoWebpage(pendingTabId, { ...signatureResponse });
 
-    // Return the final signature response for promise resolution
     const finalResult = {
       status: signatureResponse?.status || false,
       data: signatureResponse?.result || signatureResponse
@@ -112,7 +102,6 @@ export async function handleApiCall(type, data, pendingTabId, injectResultIntoWe
     return finalResult;
 
   } catch (error) {
-    // Handle unexpected errors
     const errorResult = {
       status: false,
       message: error?.message || "An unexpected error occurred"

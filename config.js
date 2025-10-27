@@ -15,7 +15,6 @@ export const config = {
     MAINNETS: [1, 4],
 };
 
-// Create a promise that resolves when config is loaded
 let configLoadedPromise = null;
 
 async function loadConfig() {
@@ -31,7 +30,6 @@ async function loadConfig() {
     }
 }
 
-// Function to get config promise
 export function getConfigPromise() {
     if (!configLoadedPromise) {
         configLoadedPromise = loadConfig();
@@ -39,7 +37,6 @@ export function getConfigPromise() {
     return configLoadedPromise;
 }
 
-// Load config immediately
 loadConfig();
 
 export const NETWORK_TYPES = {

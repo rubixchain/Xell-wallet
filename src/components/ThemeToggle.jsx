@@ -4,11 +4,9 @@ import { FiSun, FiMoon } from 'react-icons/fi';
 export default function ThemeToggle({ darkMode, setDarkMode }) {
   useEffect(() => {
     const htmlElement = document.documentElement;
-
-    // Clear existing theme classes
+    
     htmlElement.classList.remove('dark', 'custom-blue');
 
-    // Add the appropriate class based on the theme
     if (darkMode) {
       htmlElement.classList.add('dark');
     }

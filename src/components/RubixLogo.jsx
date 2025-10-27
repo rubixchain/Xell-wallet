@@ -33,15 +33,13 @@ export default function RubixLogo() {
       variants={gridVariants}
       initial="initial"
       animate="animate"
-    // whileHover={{ rotate: 180 }}
-    // transition={{ duration: 0.6 }}
+
     >
       {[...Array(9)].map((_, i) => (
         <motion.div
           key={i}
           className="bg-yellow-300 cursor-pointer "
           variants={cellVariants}
-        // whileHover={{ scale: 1.1 }}
         />
       ))}
     </motion.div>

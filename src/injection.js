@@ -1,9 +1,9 @@
-// Xell Wallet Injection Script
+
 (function () {
     'use strict';
 
     const CONFIG = {
-        TIMEOUT_DURATION: 300000, // 5 minutes
+        TIMEOUT_DURATION: 300000,
         TARGET_NAME: 'xell-extension',
         MESSAGE_TYPES: {
             WALLET_SIGN_REQUEST: 'WALLET_SIGN_REQUEST',
@@ -63,7 +63,6 @@
             if (result.error) {
                 promiseData.reject(new Error(result.error));
             } else {
-                // Include status and data in the resolved promise
                 const response = {
                     status: result?.status || false,
                     data: result.data || result
@@ -87,30 +86,25 @@
     }
 
     window.xell = {
-        // Core wallet methods
         signIn: createWalletMethod('signIn', CONFIG.MESSAGE_TYPES.WALLET_SIGN_REQUEST, {
             message: 'Sign in to connect your wallet'
         }),
 
         request: createWalletMethod('request', CONFIG.MESSAGE_TYPES.WALLET_ARBITRARY_REQUEST),
 
-        // Contract operations
         executeContract: createWalletMethod('executeContract', CONFIG.MESSAGE_TYPES.INITIATE_CONTRACT),
         deployNFT: createWalletMethod('deployNFT', CONFIG.MESSAGE_TYPES.DEPLOY_NFT),
         transferFT: createWalletMethod('transferFT', CONFIG.MESSAGE_TYPES.TRANSFER_FT),
         createFT: createWalletMethod('createFT', CONFIG.MESSAGE_TYPES.CREATE_FT),
         executeNFT: createWalletMethod('executeNFT', CONFIG.MESSAGE_TYPES.EXECUTE_NFT),
 
-        // Promise resolution (internal use)
         resolvePromise,
 
-        // Legacy compatibility
         trigger: function (data) {
             const event = new CustomEvent('xellTrigger', { detail: data });
             window.dispatchEvent(event);
         },
 
-        // Response handler
         handleResponse: function (requestId, result) {
             if (requestId && window.xell.resolvePromise) {
                 window.xell.resolvePromise(requestId, result);
@@ -119,13 +113,11 @@
     };
 
     window.addEventListener('message', function (event) {
-        // Security: Only handle messages from same window
         if (event.source !== window) {
             return;
         }
 
         const { data } = event;
-        // Only handle messages with our specific target and types
         if (data &&
             data.target === CONFIG.TARGET_NAME &&
             data.data &&

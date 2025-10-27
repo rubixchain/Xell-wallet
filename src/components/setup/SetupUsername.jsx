@@ -4,11 +4,14 @@ import { FiShield, FiUser } from 'react-icons/fi';
 import Button from '../Button';
 import { UserContext } from '../../context/userContext';
 
-export default function SetupUsername({ onSubmit, isNewAccount = false }) {
+export default function SetupUsername({ onSubmit, isNewAccount = false, description }) {
   const { userDetails } = useContext(UserContext)
   const [username, setUsername] = useState(isNewAccount ? '' : (userDetails?.username || ''));
   const [error, setError] = useState('');
 
+  const defaultDescription = isNewAccount
+    ? "This will be your username for the new account"
+    : "This will be your username for the new account";
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -37,7 +40,7 @@ export default function SetupUsername({ onSubmit, isNewAccount = false }) {
             Choose Username
           </h1>
           <p className="text-quinary text-base dark:text-gray-300">
-            This will be your username for the new account
+            {description || defaultDescription}
           </p>
         </div>
       </div>

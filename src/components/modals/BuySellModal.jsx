@@ -95,7 +95,7 @@ function SelectMode({ onSelect }) {
       className="space-y-4"
     >
       <button
-        // onClick={() => onSelect('buy')}
+       
         className="w-full p-4 bg-green-50 dark:bg-green-900/20 rounded-xl hover:bg-green-100 dark:hover:bg-green-900/30 transition-colors"
       >
         <div className="flex items-center space-x-4">

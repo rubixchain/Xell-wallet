@@ -13,8 +13,8 @@ import * as bip39 from 'bip39'
 import { routes } from '../routes/routes';
 import { UserContext } from '../context/userContext';
 import { toast } from 'react-hot-toast'
-import Network from '../components/setup/Network';
-import NetworkSelector from '../components/network/NetworkSelector';
+// import Network from '../components/setup/Network';
+import NetworkNodeSelector from '../components/network/NetworkNodeSelector';
 import { EXECUTE_API } from '../utils';
 import { WALLET_TYPES } from '../enums';
 import { config, NETWORK_TYPES } from '../../config';
@@ -38,6 +38,8 @@ export default function SetupWallet() {
 
   const handleBack = () => {
     if (step === 1) {
+      // Clear username when going back from step 1
+      setUserDetails(prev => ({ ...prev, username: '' }));
       navigate(-1);
     } else {
       setStep(prev => prev - 1);
@@ -51,17 +53,58 @@ export default function SetupWallet() {
       toast.error('Username already exists')
       return
     }
+
+    const currentVersion = await indexDBUtil.getCurrentVersion();
+    const hasUnifiedPassword = currentVersion?.version >= 5;
+
+    if (hasUnifiedPassword && isCreatingFromDashboard) {
+      // Only store username when we're sure we'll create the account
+      setUserDetails(prev => ({ ...prev, username }));
+      toast.success('Using your existing PIN');
+      navigate(routes.RECOVERY_PHARSE);
+      return;
+    }
+
+    // Don't store username in userDetails yet - just pass to next step
     setUserDetails(prev => ({ ...prev, username }));
     setStep(2);
   };
 
-  const handlePinSubmit = (pin) => {
+  const handlePinSubmit = async (pin) => {
     if (!validatePin(pin)) {
       setError('Please choose a more secure PIN');
       return;
     }
-    setUserDetails(prev => ({ ...prev, pin }));
-    setStep(3);
+
+    const currentVersion = await indexDBUtil.getCurrentVersion();
+    const hasUnifiedPassword = currentVersion?.version >= 5;
+
+    if (hasUnifiedPassword) {
+      const accounts = await indexDBUtil.getData();
+      const hasOtherAccounts = accounts?.data && accounts.data.length > 0;
+
+      if (hasOtherAccounts) {
+        const isValid = await indexDBUtil.validateUnifiedPassword(pin);
+        if (!isValid) {
+          setError('PIN does not match your existing account PIN');
+          return;
+        }
+
+        toast.success('PIN accepted. Creating new account...');
+        setUserDetails(prev => ({ ...prev, pin }));
+        if (!state?.type) {
+          navigate(routes.RECOVERY_PHARSE);
+          return;
+        }
+        navigate(routes.RECOVERY_PHARSE);
+      } else {
+        setUserDetails(prev => ({ ...prev, pin }));
+        setStep(3);
+      }
+    } else {
+      setUserDetails(prev => ({ ...prev, pin }));
+      setStep(3);
+    }
     setError('');
   };
   const handleConfirmPin = async (confirmPin) => {
@@ -74,93 +117,124 @@ export default function SetupWallet() {
       navigate(routes.RECOVERY_PHARSE)
       return
     }
-    try {
-      indexDBUtil.setCurrentVersion()
-      indexDBUtil.storeNetworkSetting({
-        network: 1,
-        RPCUrl: config?.RUBIX_MAINNET_BASE_URL,
-        name: "Rubix Mainnet",
-        tokenSymbol: NETWORK_TYPES.RBT
-      })
-      // Set network in userDetails for import case as well
-      const updatedUserDetails = { ...userDetails, network: 1, tokenSymbol: NETWORK_TYPES.RBT };
-      setUserDetails(updatedUserDetails);
-      setLoader(true)
 
-      const storageVersion = await indexDBUtil.getStorageVersion();
-      const useV4 = parseFloat(storageVersion) >= 4.0;
-
-      let res = useV4
-        ? await indexDBUtil.storeToDBV4({ ...updatedUserDetails, publickey: state.publickey, privatekey: state?.privatekey, mnemonics: state?.mnemonics })
-        : await indexDBUtil.storeToDB({ ...updatedUserDetails, publickey: state.publickey, privatekey: state?.privatekey, mnemonics: state?.mnemonics });
-
-      setLoader(false)
-      if (!res?.status) {
-        toast.error(res?.message)
-        return
+    setUserDetails(prev => ({ ...prev, confirmPin }));
+    navigate(routes.IMPORT_WALLET_NETWORK, {
+      state: {
+        publickey: state.publickey,
+        privatekey: state.privatekey,
+        mnemonics: state.mnemonics
       }
-
-      await indexDBUtil.setUnifiedPasswordForSingleUser(updatedUserDetails.pin);
-      await indexDBUtil.setStorageVersion(useV4 ? '4.0' : '3.1');
-
-      toast.success('login success')
-      setIsUserLoggedIn(true)
-      let payload = {
-        publickey: res?.data?.publickey,
-        did: res?.data?.did,
-        pin: res?.data?.pin,
-        username: res?.data?.username,
-        network: res?.data?.network || 1,  // Default to mainnet if not set
-        tokenSymbol: NETWORK_TYPES.RBT
-      }
-      // localStorage.setItem('network', res?.data?.network)
-
-      localStorage.setItem('currency', JSON.stringify({ label: '$ USD - US Dollar', value: 'USD' }))
-      localStorage.setItem("currentUser", JSON.stringify({
-        username: res?.data?.username,
-        network: res?.data?.network || 1
-      }))
-      if (websiteInitiated?.type == WALLET_TYPES.WALLET_SIGN_REQUEST) {
-        try {
-          window.close()
-          let result = await EXECUTE_API({
-            data: {
-              ...res?.data,
-              tokenSymbol: NETWORK_TYPES.RBT
-
-            },
-            type: WALLET_TYPES.WALLET_SIGN_RESPONSE
-          })
-          if (result) {
-            setWebsiteInitiated(null)
-
-          }
-          return
-        }
-        catch (e) {
-
-        }
-
-      }
-      await EXECUTE_API({
-        data: {
-          ...res?.data,
-          tokenSymbol: NETWORK_TYPES.RBT
-        },
-        type: WALLET_TYPES.WALLET_SIGN_RESPONSE
-      })
-      setUserDetails(payload);
-
-      navigate(routes.SUCCESS)
-    } catch (e) {
-      setLoader(false)
-    }
-
+    });
   };
 
   const onChangeNetwork = (network) => {
     setUserDetails(prev => ({ ...prev, network }));
   }
+
+  const handleNetworkNodeSelect = async (network, node, accountExistsInNetwork) => {
+    if (accountExistsInNetwork) {
+      // Account already exists in this network, just switch to it
+      toast.success(`Switched to existing account in ${network.name}`);
+      navigate(routes.SUCCESS);
+    } else {
+      // Account doesn't exist, create new account with selected node
+      await createAccount(network, node);
+    }
+  };
+
+  const createAccount = async (network, node) => {
+    if (!network || !node || loader) return;
+
+    try {
+      setLoader(true);
+      
+      // Store network settings
+      indexDBUtil.storeNetworkSetting({
+        network: network.id,
+        RPCUrl: node.url,
+        name: network.name,
+        tokenSymbol: network.tokenSymbol
+      });
+
+      // Create account using existing logic
+      const res = await indexDBUtil.storeToDBV4({
+        username: userDetails.username,
+        pin: userDetails.pin,
+        publickey: userDetails.publickey,
+        privatekey: userDetails.privatekey,
+        mnemonics: userDetails.mnemonics,
+        network: network.id,
+        networkId: network.id,
+        nodeId: node.id,
+        nodeUrl: node.url,
+        swarmKey: network.swarmKey
+      });
+
+      setLoader(false);
+
+      if (!res || !res?.status) {
+        toast.error('Failed to create account');
+        return;
+      }
+
+      const hasUnifiedPassword = await indexDBUtil.hasUnifiedPassword();
+      if (!hasUnifiedPassword) {
+        await indexDBUtil.setUnifiedPasswordForSingleUser(userDetails.pin);
+      }
+      await indexDBUtil.setCurrentVersion(5);
+
+      toast.success('Account created successfully');
+      setIsUserLoggedIn(true);
+
+      localStorage.setItem('currency', JSON.stringify({ label: '$ USD - US Dollar', value: 'USD' }));
+      localStorage.setItem("currentUser", JSON.stringify({
+        username: res?.data?.username,
+        network: network.id,
+      }));
+
+      if (websiteInitiated?.type == WALLET_TYPES.WALLET_SIGN_REQUEST) {
+        try {
+          window.close();
+          let result = await EXECUTE_API({
+            data: {
+              did: res?.data?.did,
+              username: res?.data?.username,
+              network: network.id,
+              pin: res?.data?.pin,
+              tokenSymbol: network.tokenSymbol
+            },
+            type: WALLET_TYPES.WALLET_SIGN_RESPONSE
+          });
+          if (result) {
+            setWebsiteInitiated(null);
+          }
+        } catch (e) {
+          console.error(e);
+        }
+        return;
+      }
+
+      await EXECUTE_API({
+        data: {
+          did: res?.data?.did,
+          username: res?.data?.username,
+          network: network.id,
+          pin: res?.data?.pin,
+          tokenSymbol: network.tokenSymbol
+        },
+        type: WALLET_TYPES.STORE_USER_DETAILS
+      });
+      setUserDetails({
+        ...res?.data,
+        tokenSymbol: network.tokenSymbol,
+      });
+      navigate(routes.SUCCESS);
+    } catch (error) {
+      setLoader(false);
+      toast.error('Failed to create account');
+    }
+  };
   const Continue = async () => {
 
     setUserDetails(prev => {
@@ -176,7 +250,7 @@ export default function SetupWallet() {
       <div className="space-y-6 flex flex-col w-full h-full justify-center">
         <BackButton onClick={handleBack} />
 
-        <SetupProgress currentStep={step} totalSteps={3} />
+        {!isCreatingFromDashboard && <SetupProgress currentStep={step} totalSteps={3} />}
 
         <AnimatePresence mode="wait">
           {step === 1 && (
@@ -197,7 +271,7 @@ export default function SetupWallet() {
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -20 }}
             >
-              <SetupPin onSubmit={handlePinSubmit} error={error} />
+              <SetupPin onSubmit={handlePinSubmit} error={error} clearPin={isCreatingFromDashboard} />
             </motion.div>
           )}
 
@@ -218,8 +292,14 @@ export default function SetupWallet() {
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -20 }}
             >
-              <Network loader={loader} Continue={Continue} onChange={onChangeNetwork} />
-
+              <NetworkNodeSelector
+                isOpen={true}
+                onClose={() => setStep(3)}
+                onSelect={handleNetworkNodeSelect}
+                currentAccount={userDetails}
+                allAccounts={[]}
+                disableCurrentNetwork={false}
+              />
             </motion.div>
           )}
         </AnimatePresence>
