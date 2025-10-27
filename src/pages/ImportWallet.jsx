@@ -107,11 +107,14 @@ const ImportWallet = () => {
       return
     }
     
-    // Step 5: Generate compressed public key from private key
-    const publicKeyBuffer = secp256k1.publicKeyCreate(privatekey, true)
+    // Step 5: Generate uncompressed public key from private key
+    // Use uncompressed format (false) to match rubixcoreplatform CLI for DID generation
+    const publicKeyBuffer = secp256k1.publicKeyCreate(privatekey, false)
     let publickey = Buffer.from(publicKeyBuffer).toString('hex');
-    privatekey = privatekey?.toString('hex')
-    if (publickey.length !== 66) {
+    privatekey = privatekey.toString('hex')
+    
+    // Uncompressed public key should be 130 hex chars (65 bytes)
+    if (publickey.length !== 130) {
       toast.error('invalid public key')
       return
     }

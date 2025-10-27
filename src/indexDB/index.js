@@ -389,14 +389,16 @@ const indexDBUtil = {
                 return;
             }
             
-            // Step 5: Generate compressed public key from private key
-            const publicKeyBuffer = secp256k1.publicKeyCreate(privateKeyBuffer, true);
+            // Step 5: Generate uncompressed public key from private key
+            // Use uncompressed format (false) to match rubixcoreplatform CLI for DID generation
+            const publicKeyBuffer = secp256k1.publicKeyCreate(privateKeyBuffer, false);
             let publicKey = Buffer.from(publicKeyBuffer).toString('hex');
             
             // Convert to hex for storage (but keep buffer for signing)
             let privateKey = privateKeyBuffer.toString('hex');
             
-            if (publicKey.length !== 66) {
+            // Uncompressed public key should be 130 hex chars (65 bytes)
+            if (publicKey.length !== 130) {
                 toast.error('invalid public key');
                 return;
             }
