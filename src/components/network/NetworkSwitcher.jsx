@@ -58,7 +58,7 @@ export default function NetworkSwitcher() {
     };
   }, []);
 
-  const handleNetworkChange = async (network, selectedRpcUrl = null) => {
+  const handleNetworkChange = async (network, selectedRpcUrl = null, accountExistsInNetwork = false) => {
     if (!network?.id || !userDetails?.did) {
       toast.error('Invalid network or user details');
       return;
@@ -71,6 +71,25 @@ export default function NetworkSwitcher() {
       currentNetworkSettings = await indexDBUtil.getNetworkSetting();
 
       const rpcUrlToUse = selectedRpcUrl || network.rpcUrls?.find(item => item?.selected);
+
+      const bindings = await indexDBUtil.getAccountNetworkBindings(userDetails.username);
+      const binding = bindings.find(b =>
+        b.networkId === network.id &&
+        (b.nodeId === rpcUrlToUse?.id || b.nodeUrl === rpcUrlToUse?.url)
+      );
+
+      if (!binding && !accountExistsInNetwork) {
+        await END_POINTS.register_did({ did: userDetails.did });
+
+        await indexDBUtil.saveAccountNetworkBinding({
+          username: userDetails.username,
+          did: userDetails.did,
+          networkId: network.id,
+          nodeId: rpcUrlToUse?.id,
+          nodeUrl: rpcUrlToUse?.url,
+          swarmKey: network.swarmKey
+        });
+      }
 
       const networkSetting = {
         network: network.id,
@@ -165,6 +184,7 @@ export default function NetworkSwitcher() {
             currentAccount={userDetails}
             allAccounts={[]}
             disableCurrentNetwork={true}
+            forceDefaultToMainnet={false}
           />
         </div>
       )}

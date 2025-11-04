@@ -94,6 +94,11 @@ export default function Header() {
 
   const handleAccountSwitch = async (account) => {
     try {
+      if (account.username === userDetails?.username && account.network === userDetails?.network) {
+        setAccountDropdownOpen(false);
+        return;
+      }
+
       const currentVersion = await indexDBUtil.getCurrentVersion();
       const hasNetworkNodeBindings = currentVersion?.version >= 5;
 
@@ -205,6 +210,15 @@ export default function Header() {
 
       if (!isAlreadyRegistered) {
         await END_POINTS.register_did({ did: accountData.data.did });
+
+        await indexDBUtil.saveAccountNetworkBinding({
+          username: selectedAccount.username,
+          did: accountData.data.did,
+          networkId: network.id,
+          nodeId: node?.id,
+          nodeUrl: node?.url,
+          swarmKey: network.swarmKey
+        });
       }
 
       const networkConfig = await indexDBUtil.getNetworkSetting();
@@ -360,6 +374,7 @@ export default function Header() {
           currentAccount={selectedAccount}
           allAccounts={allAccounts}
           disableCurrentNetwork={false}
+          forceDefaultToMainnet={true}
         />
       )}
       

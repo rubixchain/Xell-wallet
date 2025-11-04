@@ -1852,12 +1852,13 @@ const indexDBUtil = {
         }
     },
 
-    storeToDBV4: async function ({ privatekey, publickey, pin, username, mnemonics }) {
+    storeToDBV4: async function ({ privatekey, publickey, pin, username, mnemonics, networkId, nodeId, nodeUrl, swarmKey }) {
         try {
             const rubixMainnetUrl = config.RUBIX_MAINNET_BASE_URL;
             const rubixTestnetUrl = config.RUBIX_TESTNET_BASE_URL;
 
-            let res = await END_POINTS.create_wallet({ public_key: publickey, network: "1" });
+            const networkForWalletCreation = networkId ? String(networkId) : "1";
+            let res = await END_POINTS.create_wallet({ public_key: publickey, network: networkForWalletCreation });
 
             if (!res) {
                 toast.error(res?.message || 'failed to create wallet');
@@ -1883,7 +1884,7 @@ const indexDBUtil = {
                         publickey: publickey,
                         username: username,
                         did: res?.did,
-                        network: "1",
+                        network: networkForWalletCreation,
                         createdAt: new Date().toISOString(),
                         mnemonics: encryptedMnemonics
                     };
@@ -1899,30 +1900,41 @@ const indexDBUtil = {
                     putRequest.onerror = () => reject(putRequest.error);
                     putRequest.onsuccess = async () => {
                         try {
-                            await this.saveAccountNetworkBinding({
-                                username: username,
-                                did: res?.did,
-                                networkId: 1,
-                                nodeId: 1,
-                                nodeUrl: rubixMainnetUrl,
-                                swarmKey: "RUBIX_MAINNET_SWARM_KEY"
-                            });
+                            if (networkId && nodeId && nodeUrl && swarmKey) {
+                                await this.saveAccountNetworkBinding({
+                                    username: username,
+                                    did: res?.did,
+                                    networkId: networkId,
+                                    nodeId: nodeId,
+                                    nodeUrl: nodeUrl,
+                                    swarmKey: swarmKey
+                                });
+                            } else {
+                                await this.saveAccountNetworkBinding({
+                                    username: username,
+                                    did: res?.did,
+                                    networkId: 1,
+                                    nodeId: 1,
+                                    nodeUrl: rubixMainnetUrl,
+                                    swarmKey: "RUBIX_MAINNET_SWARM_KEY"
+                                });
 
-                            await this.saveAccountNetworkBinding({
-                                username: username,
-                                did: res?.did,
-                                networkId: 2,
-                                nodeId: 1,
-                                nodeUrl: rubixTestnetUrl,
-                                swarmKey: "RUBIX_TESTNET_SWARM_KEY"
-                            });
+                                await this.saveAccountNetworkBinding({
+                                    username: username,
+                                    did: res?.did,
+                                    networkId: 2,
+                                    nodeId: 1,
+                                    nodeUrl: rubixTestnetUrl,
+                                    swarmKey: "RUBIX_TESTNET_SWARM_KEY"
+                                });
+                            }
 
                             await this.storeNetworks(db, res?.did);
                             resolve({
                                 status: true, data: {
                                     username: username,
                                     did: res?.did,
-                                    network: "1",
+                                    network: networkForWalletCreation,
                                     pin: pin,
                                     publickey: publickey,
                                 }
