@@ -4,6 +4,7 @@ import react from '@vitejs/plugin-react';
 import fs from 'fs';
 import path from 'path';
 import wasm from 'vite-plugin-wasm';
+import topLevelAwait from 'vite-plugin-top-level-await';
 
 export default defineConfig(({ mode }) => {
   // Determine the environment (e.g., check if it's Chrome)
@@ -16,6 +17,7 @@ export default defineConfig(({ mode }) => {
   return {
     build: {
       outDir: 'dist',
+      target: 'esnext', // Support top-level await
       rollupOptions: {
         input: {
           index: 'index.html', // Main popup UI
@@ -35,6 +37,7 @@ export default defineConfig(({ mode }) => {
     plugins: [
       react(),
       wasm(),
+      topLevelAwait(),
       {
         // Custom plugin to copy the correct manifest.json from src to dist
         name: 'copy-manifest',

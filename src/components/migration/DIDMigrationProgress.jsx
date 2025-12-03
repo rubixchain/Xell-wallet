@@ -1,0 +1,375 @@
+import React, { useState, useEffect } from 'react';
+import { FiRefreshCw, FiCheck, FiX, FiLoader } from 'react-icons/fi';
+import indexDBUtil from '../../indexDB';
+import { generateUncompressedPublicKey, deriveKeysFromMnemonic } from '../../utils/migration';
+import { END_POINTS } from '../../api/endpoints';
+import { generateSignature } from '../../utils';
+import { config } from '../../../config';
+import axios from 'axios';
+import toast from 'react-hot-toast';
+
+const MIGRATION_STEPS = {
+    PREPARING: 'preparing',
+    GENERATING_KEYS: 'generating_keys',
+    REQUESTING_DID: 'requesting_did',
+    REGISTERING_DID: 'registering_did',
+    UPDATING_STORAGE: 'updating_storage',
+    COMPLETE: 'complete',
+    FAILED: 'failed'
+};
+
+const DIDMigrationProgress = ({ unifiedPassword, onComplete, onError }) => {
+    const [accounts, setAccounts] = useState([]);
+    const [currentAccountIndex, setCurrentAccountIndex] = useState(0);
+    const [currentStep, setCurrentStep] = useState(MIGRATION_STEPS.PREPARING);
+    const [overallProgress, setOverallProgress] = useState(0);
+    const [error, setError] = useState(null);
+    const [isRetrying, setIsRetrying] = useState(false);
+
+    useEffect(() => {
+        startMigration();
+    }, []);
+
+    const startMigration = async () => {
+        try {
+            setCurrentStep(MIGRATION_STEPS.PREPARING);
+            setError(null);
+
+            // Get all accounts that need DID migration
+            const result = await indexDBUtil.getAllDecryptedAccountsForDIDMigration(unifiedPassword);
+
+            if (!result.status) {
+                throw new Error(result.message || 'Failed to load accounts');
+            }
+
+            if (result.accounts.length === 0) {
+                // No accounts to migrate, complete immediately
+                await indexDBUtil.completeDIDMigration();
+                onComplete();
+                return;
+            }
+
+            setAccounts(result.accounts.map(acc => ({
+                ...acc,
+                migrationStatus: 'pending',
+                newDid: null,
+                newPublicKey: null
+            })));
+
+            // Start migrating first account
+            await migrateAccount(0, result.accounts);
+        } catch (err) {
+            setError(err.message);
+            setCurrentStep(MIGRATION_STEPS.FAILED);
+        }
+    };
+
+    const migrateAccount = async (index, accountsList) => {
+        const accountsToUse = accountsList || accounts;
+
+        if (index >= accountsToUse.length) {
+            // All accounts migrated successfully
+            await completeMigration();
+            return;
+        }
+
+        const account = accountsToUse[index];
+        setCurrentAccountIndex(index);
+
+        try {
+            // Step 1: Generate new keys
+            setCurrentStep(MIGRATION_STEPS.GENERATING_KEYS);
+            updateAccountStatus(index, 'migrating');
+
+            let newPublicKey;
+            let privateKeyHex;
+
+            if (account.mnemonic) {
+                // Derive from mnemonic
+                const keys = deriveKeysFromMnemonic(account.mnemonic);
+                newPublicKey = keys.uncompressedPublicKey;
+                privateKeyHex = keys.privateKey;
+            } else {
+                // Generate from existing private key
+                newPublicKey = generateUncompressedPublicKey(account.privateKey);
+                privateKeyHex = account.privateKey;
+            }
+
+            // Step 2: Request new DID from backend
+            setCurrentStep(MIGRATION_STEPS.REQUESTING_DID);
+
+            // Get the appropriate base URL for the network
+            const baseUrl = getBaseUrlForNetwork(account.network);
+            const customApi = axios.create({
+                baseURL: baseUrl,
+                headers: { 'Content-Type': 'application/json' }
+            });
+
+            let didResponse = await customApi.post('/request-did-for-pubkey', {
+                public_key: newPublicKey,
+                network: account.network
+            });
+            didResponse = didResponse.data;
+
+            if (!didResponse || !didResponse.did) {
+                throw new Error('Failed to get new DID from server');
+            }
+
+            const newDid = didResponse.did;
+
+            // Step 3: Register the new DID
+            setCurrentStep(MIGRATION_STEPS.REGISTERING_DID);
+
+            let registerResponse = await customApi.post('/register-did', { did: newDid });
+            registerResponse = registerResponse.data;
+
+            if (!registerResponse || !registerResponse.status) {
+                throw new Error('Failed to register new DID');
+            }
+
+            // Sign the registration
+            const signature = await generateSignature(privateKeyHex, registerResponse.result.hash);
+            let signatureResponse = await customApi.post('/signature-response', {
+                id: registerResponse.result.id,
+                Signature: { Signature: signature },
+                mode: 4
+            });
+            signatureResponse = signatureResponse.data;
+
+            if (!signatureResponse || !signatureResponse.status) {
+                throw new Error('Failed to complete DID registration');
+            }
+
+            // Step 4: Update local storage
+            setCurrentStep(MIGRATION_STEPS.UPDATING_STORAGE);
+
+            await indexDBUtil.updateAccountAfterDIDMigration(account.username, {
+                newDid: newDid,
+                newPublicKey: newPublicKey,
+                oldDid: account.did,
+                oldPublicKey: account.publickey
+            });
+
+            // Update local state
+            updateAccountStatus(index, 'completed', { newDid, newPublicKey });
+
+            // Update progress
+            const progress = ((index + 1) / accountsToUse.length) * 100;
+            setOverallProgress(progress);
+
+            // Move to next account
+            await migrateAccount(index + 1, accountsToUse);
+
+        } catch (err) {
+            console.error(`Migration failed for account ${account.username}:`, err);
+            updateAccountStatus(index, 'failed');
+            setError(`Failed to migrate ${account.username}: ${err.message}`);
+            setCurrentStep(MIGRATION_STEPS.FAILED);
+            // Don't continue - all or nothing
+        }
+    };
+
+    const completeMigration = async () => {
+        try {
+            setCurrentStep(MIGRATION_STEPS.COMPLETE);
+            await indexDBUtil.completeDIDMigration();
+            setOverallProgress(100);
+
+            // Notify parent
+            setTimeout(() => {
+                onComplete();
+            }, 1500);
+        } catch (err) {
+            setError('Failed to complete migration');
+            setCurrentStep(MIGRATION_STEPS.FAILED);
+        }
+    };
+
+    const updateAccountStatus = (index, status, data = {}) => {
+        setAccounts(prev => prev.map((acc, i) =>
+            i === index
+                ? { ...acc, migrationStatus: status, ...data }
+                : acc
+        ));
+    };
+
+    const getBaseUrlForNetwork = (network) => {
+        const networkId = parseInt(network);
+        switch (networkId) {
+            case 1:
+                return config.RUBIX_MAINNET_BASE_URL;
+            case 2:
+                return config.RUBIX_TESTNET_BASE_URL;
+            case 3:
+                return config.TRIE_TESTNET_BASE_URL;
+            case 4:
+                return config.TRIE_MAINNET_BASE_URL;
+            default:
+                return config.RUBIX_TESTNET_BASE_URL;
+        }
+    };
+
+    const handleRetry = async () => {
+        setIsRetrying(true);
+        setError(null);
+        await startMigration();
+        setIsRetrying(false);
+    };
+
+    const getStepLabel = () => {
+        switch (currentStep) {
+            case MIGRATION_STEPS.PREPARING:
+                return 'Preparing migration...';
+            case MIGRATION_STEPS.GENERATING_KEYS:
+                return 'Generating new keys...';
+            case MIGRATION_STEPS.REQUESTING_DID:
+                return 'Requesting new DID...';
+            case MIGRATION_STEPS.REGISTERING_DID:
+                return 'Registering DID on network...';
+            case MIGRATION_STEPS.UPDATING_STORAGE:
+                return 'Updating local storage...';
+            case MIGRATION_STEPS.COMPLETE:
+                return 'Migration complete!';
+            case MIGRATION_STEPS.FAILED:
+                return 'Migration failed';
+            default:
+                return 'Processing...';
+        }
+    };
+
+    return (
+        <div className="flex flex-col h-full">
+            {/* Header */}
+            <div className="flex items-center gap-3 mb-6">
+                <div className={`p-3 rounded-xl ${
+                    currentStep === MIGRATION_STEPS.COMPLETE
+                        ? 'bg-green-100'
+                        : currentStep === MIGRATION_STEPS.FAILED
+                            ? 'bg-red-100'
+                            : 'bg-blue-100'
+                }`}>
+                    {currentStep === MIGRATION_STEPS.COMPLETE ? (
+                        <FiCheck className="text-green-600" size={24} />
+                    ) : currentStep === MIGRATION_STEPS.FAILED ? (
+                        <FiX className="text-red-600" size={24} />
+                    ) : (
+                        <FiRefreshCw className="text-blue-600 animate-spin" size={24} />
+                    )}
+                </div>
+                <div>
+                    <h2 className="font-semibold text-xl text-senary">DID Migration</h2>
+                    <p className="text-quinary text-sm">{getStepLabel()}</p>
+                </div>
+            </div>
+
+            {/* Overall Progress */}
+            <div className="mb-6">
+                <div className="flex justify-between text-sm mb-2">
+                    <span className="text-gray-600">Overall Progress</span>
+                    <span className="font-medium">{Math.round(overallProgress)}%</span>
+                </div>
+                <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                    <div
+                        className={`h-full transition-all duration-500 ${
+                            currentStep === MIGRATION_STEPS.FAILED
+                                ? 'bg-red-500'
+                                : currentStep === MIGRATION_STEPS.COMPLETE
+                                    ? 'bg-green-500'
+                                    : 'bg-blue-500'
+                        }`}
+                        style={{ width: `${overallProgress}%` }}
+                    />
+                </div>
+            </div>
+
+            {/* Account List */}
+            <div className="flex-1 overflow-y-auto space-y-2 mb-4" style={{ maxHeight: '250px' }}>
+                {accounts.map((account, index) => (
+                    <div
+                        key={account.username}
+                        className={`flex items-center gap-3 p-3 rounded-lg border ${
+                            account.migrationStatus === 'completed'
+                                ? 'bg-green-50 border-green-200'
+                                : account.migrationStatus === 'failed'
+                                    ? 'bg-red-50 border-red-200'
+                                    : account.migrationStatus === 'migrating'
+                                        ? 'bg-blue-50 border-blue-200'
+                                        : 'bg-gray-50 border-gray-200'
+                        }`}
+                    >
+                        {/* Status icon */}
+                        <div className={`p-1.5 rounded-full ${
+                            account.migrationStatus === 'completed'
+                                ? 'bg-green-100'
+                                : account.migrationStatus === 'failed'
+                                    ? 'bg-red-100'
+                                    : account.migrationStatus === 'migrating'
+                                        ? 'bg-blue-100'
+                                        : 'bg-gray-100'
+                        }`}>
+                            {account.migrationStatus === 'completed' ? (
+                                <FiCheck className="text-green-600" size={14} />
+                            ) : account.migrationStatus === 'failed' ? (
+                                <FiX className="text-red-600" size={14} />
+                            ) : account.migrationStatus === 'migrating' ? (
+                                <FiLoader className="text-blue-600 animate-spin" size={14} />
+                            ) : (
+                                <div className="w-3.5 h-3.5 rounded-full bg-gray-300" />
+                            )}
+                        </div>
+
+                        {/* Account info */}
+                        <div className="flex-1 min-w-0">
+                            <p className="font-medium text-sm truncate">{account.username}</p>
+                            {account.migrationStatus === 'completed' && account.newDid && (
+                                <p className="text-xs text-green-600 truncate">
+                                    New: {account.newDid.slice(0, 20)}...
+                                </p>
+                            )}
+                            {account.migrationStatus === 'migrating' && (
+                                <p className="text-xs text-blue-600">
+                                    {getStepLabel()}
+                                </p>
+                            )}
+                        </div>
+                    </div>
+                ))}
+            </div>
+
+            {/* Error message */}
+            {error && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
+                    <p className="text-sm text-red-700">{error}</p>
+                </div>
+            )}
+
+            {/* Retry button for failed state */}
+            {currentStep === MIGRATION_STEPS.FAILED && (
+                <button
+                    onClick={handleRetry}
+                    disabled={isRetrying}
+                    className="w-full bg-primary hover:bg-secondary text-white font-semibold py-3 px-6 rounded-lg transition-colors disabled:bg-gray-300"
+                >
+                    {isRetrying ? (
+                        <span className="flex items-center justify-center gap-2">
+                            <span className="animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full"></span>
+                            Retrying...
+                        </span>
+                    ) : (
+                        'Retry Migration'
+                    )}
+                </button>
+            )}
+
+            {/* Success message */}
+            {currentStep === MIGRATION_STEPS.COMPLETE && (
+                <div className="text-center">
+                    <p className="text-green-600 font-medium">All accounts migrated successfully!</p>
+                    <p className="text-sm text-gray-500 mt-1">Redirecting to dashboard...</p>
+                </div>
+            )}
+        </div>
+    );
+};
+
+export default DIDMigrationProgress;

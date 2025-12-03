@@ -1314,6 +1314,532 @@ const indexDBUtil = {
         } catch (error) {
             throw error;
         }
+    },
+
+    // ==================== MIGRATION FUNCTIONS ====================
+
+    /**
+     * Check if migration is needed (version <= 4)
+     * @returns {Promise<boolean>}
+     */
+    needsMigration: async function () {
+        try {
+            const currentVersion = await this.getCurrentVersion();
+            const accounts = await this.getData();
+
+            if ((!currentVersion || !currentVersion?.version || currentVersion?.version <= 4) && accounts?.data?.length > 0) {
+                return true;
+            }
+            return false;
+        } catch (error) {
+            return false;
+        }
+    },
+
+    /**
+     * Check if DID migration is needed (version === 5)
+     * @returns {Promise<boolean>}
+     */
+    needsDIDMigration: async function () {
+        try {
+            const currentVersion = await this.getCurrentVersion();
+            const accounts = await this.getData();
+
+            if (currentVersion?.version === 5 && accounts?.data?.length > 0) {
+                return true;
+            }
+            return false;
+        } catch (error) {
+            return false;
+        }
+    },
+
+    /**
+     * Check if user has unified password set
+     * @returns {Promise<boolean>}
+     */
+    hasUnifiedPassword: async function () {
+        try {
+            const db = await this.initDB();
+            return new Promise((resolve, reject) => {
+                const transaction = db.transaction([this.storeName], 'readonly');
+                const store = transaction.objectStore(this.storeName);
+                const request = store.get('UserDetails');
+
+                request.onsuccess = () => {
+                    const data = request.result;
+                    resolve(!!data?.unifiedPassword);
+                };
+
+                request.onerror = () => reject(request.error);
+            });
+        } catch (error) {
+            return false;
+        }
+    },
+
+    /**
+     * Get all accounts with full details for migration
+     * @returns {Promise<Array>}
+     */
+    getAllAccountsForMigration: async function () {
+        try {
+            const db = await this.initDB();
+            return new Promise((resolve, reject) => {
+                const transaction = db.transaction([this.storeName], 'readonly');
+                const store = transaction.objectStore(this.storeName);
+                const request = store.get('UserDetails');
+
+                request.onsuccess = () => {
+                    const data = request.result;
+                    if (!data || !data.accounts) {
+                        resolve([]);
+                        return;
+                    }
+
+                    // Return accounts with encrypted data (for validation)
+                    const accountList = data.accounts.map(acc => ({
+                        username: acc.username,
+                        did: acc.did,
+                        network: acc.network,
+                        publickey: acc.publickey,
+                        privatekey: acc.privatekey,  // Encrypted
+                        mnemonics: acc.mnemonics,    // Encrypted
+                        createdAt: acc.createdAt
+                    }));
+
+                    resolve(accountList);
+                };
+
+                request.onerror = () => reject(request.error);
+            });
+        } catch (error) {
+            throw error;
+        }
+    },
+
+    /**
+     * Validate password for a specific account
+     * @param {string} username
+     * @param {string} password
+     * @returns {Promise<Object>} - { valid, decryptedPrivateKey, decryptedMnemonic }
+     */
+    validateAccountPassword: async function (username, password) {
+        try {
+            const db = await this.initDB();
+            return new Promise((resolve, reject) => {
+                const transaction = db.transaction([this.storeName], 'readonly');
+                const store = transaction.objectStore(this.storeName);
+                const request = store.get('UserDetails');
+
+                request.onsuccess = () => {
+                    const data = request.result;
+                    if (!data || !data.accounts) {
+                        resolve({ valid: false, message: 'No accounts found' });
+                        return;
+                    }
+
+                    const account = data.accounts.find(acc => acc.username === username);
+                    if (!account) {
+                        resolve({ valid: false, message: 'Account not found' });
+                        return;
+                    }
+
+                    try {
+                        // Decrypt private key
+                        const pkBytes = CryptoJS.AES.decrypt(account.privatekey, password);
+                        const decryptedPrivateKey = pkBytes.toString(CryptoJS.enc.Utf8);
+
+                        if (!decryptedPrivateKey || decryptedPrivateKey.length === 0) {
+                            resolve({ valid: false, message: 'Invalid password' });
+                            return;
+                        }
+
+                        // Decrypt mnemonic if exists
+                        let decryptedMnemonic = null;
+                        if (account.mnemonics) {
+                            const mnBytes = CryptoJS.AES.decrypt(account.mnemonics, password);
+                            decryptedMnemonic = mnBytes.toString(CryptoJS.enc.Utf8);
+                        }
+
+                        resolve({
+                            valid: true,
+                            decryptedPrivateKey,
+                            decryptedMnemonic,
+                            account: {
+                                username: account.username,
+                                did: account.did,
+                                network: account.network,
+                                publickey: account.publickey
+                            }
+                        });
+                    } catch (e) {
+                        resolve({ valid: false, message: 'Invalid password' });
+                    }
+                };
+
+                request.onerror = () => reject(request.error);
+            });
+        } catch (error) {
+            throw error;
+        }
+    },
+
+    /**
+     * Validate unified password
+     * @param {string} password
+     * @returns {Promise<boolean>}
+     */
+    validateUnifiedPassword: async function (password) {
+        try {
+            const db = await this.initDB();
+            return new Promise((resolve, reject) => {
+                const transaction = db.transaction([this.storeName], 'readonly');
+                const store = transaction.objectStore(this.storeName);
+                const request = store.get('UserDetails');
+
+                request.onsuccess = () => {
+                    const data = request.result;
+                    if (!data || !data.unifiedPassword) {
+                        resolve(false);
+                        return;
+                    }
+
+                    try {
+                        const bytes = CryptoJS.AES.decrypt(data.unifiedPassword, password);
+                        const decrypted = bytes.toString(CryptoJS.enc.Utf8);
+                        resolve(decrypted === password);
+                    } catch (e) {
+                        resolve(false);
+                    }
+                };
+
+                request.onerror = () => reject(request.error);
+            });
+        } catch (error) {
+            return false;
+        }
+    },
+
+    /**
+     * Set unified password and re-encrypt all accounts
+     * @param {string} newPassword - New unified password
+     * @param {Object} accountDataMap - Map of { username: { oldPassword, mnemonic (optional for imports) } }
+     * @param {Array} skipAccounts - Array of usernames to skip (delete)
+     * @returns {Promise<Object>}
+     */
+    setUnifiedPassword: async function (newPassword, accountDataMap, skipAccounts = []) {
+        try {
+            const db = await this.initDB();
+            return new Promise((resolve, reject) => {
+                const transaction = db.transaction([this.storeName], 'readwrite');
+                const store = transaction.objectStore(this.storeName);
+                const request = store.get('UserDetails');
+
+                request.onsuccess = () => {
+                    const data = request.result;
+                    if (!data || !data.accounts) {
+                        resolve({ status: false, message: 'No accounts found' });
+                        return;
+                    }
+
+                    const migratedAccounts = [];
+                    const failedAccounts = [];
+
+                    data.accounts.forEach(account => {
+                        // Skip accounts marked for deletion
+                        if (skipAccounts.includes(account.username)) {
+                            return;
+                        }
+
+                        const accountData = accountDataMap[account.username];
+                        if (!accountData) {
+                            failedAccounts.push(account.username);
+                            return;
+                        }
+
+                        try {
+                            let decryptedPrivateKey;
+                            let decryptedMnemonic;
+
+                            if (accountData.mnemonic) {
+                                // Account was imported with mnemonic
+                                // Derive private key from mnemonic
+                                const bip39 = require('bip39');
+                                const { BIP32Factory } = require('bip32');
+                                const ecc = require('tiny-secp256k1');
+                                const bip32 = BIP32Factory(ecc);
+
+                                const seed = bip39.mnemonicToSeedSync(accountData.mnemonic);
+                                const root = bip32.fromSeed(seed);
+                                const child = root.derivePath("m/0");
+                                decryptedPrivateKey = child.privateKey.toString('hex');
+                                decryptedMnemonic = accountData.mnemonic;
+                            } else {
+                                // Decrypt using old password
+                                const pkBytes = CryptoJS.AES.decrypt(account.privatekey, accountData.oldPassword);
+                                decryptedPrivateKey = pkBytes.toString(CryptoJS.enc.Utf8);
+
+                                if (account.mnemonics) {
+                                    const mnBytes = CryptoJS.AES.decrypt(account.mnemonics, accountData.oldPassword);
+                                    decryptedMnemonic = mnBytes.toString(CryptoJS.enc.Utf8);
+                                }
+                            }
+
+                            if (!decryptedPrivateKey || decryptedPrivateKey.length === 0) {
+                                failedAccounts.push(account.username);
+                                return;
+                            }
+
+                            // Re-encrypt with new unified password
+                            account.privatekey = CryptoJS.AES.encrypt(decryptedPrivateKey, newPassword).toString();
+                            if (decryptedMnemonic) {
+                                account.mnemonics = CryptoJS.AES.encrypt(decryptedMnemonic, newPassword).toString();
+                            }
+
+                            migratedAccounts.push(account);
+                        } catch (e) {
+                            failedAccounts.push(account.username);
+                        }
+                    });
+
+                    if (failedAccounts.length > 0) {
+                        resolve({
+                            status: false,
+                            message: 'Some accounts failed to migrate',
+                            failedAccounts
+                        });
+                        return;
+                    }
+
+                    // Update data with migrated accounts only
+                    data.accounts = migratedAccounts;
+                    data.unifiedPassword = CryptoJS.AES.encrypt(newPassword, newPassword).toString();
+
+                    const updateRequest = store.put(data);
+                    updateRequest.onsuccess = () => {
+                        // Set version to 5 (unified password done, DID migration pending)
+                        this.setCurrentVersion(5).then(() => {
+                            resolve({
+                                status: true,
+                                migratedAccounts: migratedAccounts.map(acc => acc.username),
+                                skippedAccounts: skipAccounts
+                            });
+                        });
+                    };
+                    updateRequest.onerror = () => reject(updateRequest.error);
+                };
+
+                request.onerror = () => reject(request.error);
+            });
+        } catch (error) {
+            throw error;
+        }
+    },
+
+    /**
+     * Update account after DID migration
+     * @param {string} username
+     * @param {Object} migrationData - { newDid, newPublicKey, oldDid, oldPublicKey }
+     * @returns {Promise<Object>}
+     */
+    updateAccountAfterDIDMigration: async function (username, migrationData) {
+        try {
+            const db = await this.initDB();
+            return new Promise((resolve, reject) => {
+                const transaction = db.transaction([this.storeName], 'readwrite');
+                const store = transaction.objectStore(this.storeName);
+                const request = store.get('UserDetails');
+
+                request.onsuccess = () => {
+                    const data = request.result;
+                    if (!data || !data.accounts) {
+                        resolve({ status: false, message: 'No accounts found' });
+                        return;
+                    }
+
+                    const accountIndex = data.accounts.findIndex(acc => acc.username === username);
+                    if (accountIndex === -1) {
+                        resolve({ status: false, message: 'Account not found' });
+                        return;
+                    }
+
+                    // Update account with new DID and public key
+                    data.accounts[accountIndex] = {
+                        ...data.accounts[accountIndex],
+                        did: migrationData.newDid,
+                        publickey: migrationData.newPublicKey,
+                        oldDid: migrationData.oldDid,
+                        oldPublicKey: migrationData.oldPublicKey,
+                        migratedAt: new Date().toISOString()
+                    };
+
+                    const updateRequest = store.put(data);
+                    updateRequest.onsuccess = () => resolve({ status: true });
+                    updateRequest.onerror = () => reject(updateRequest.error);
+                };
+
+                request.onerror = () => reject(request.error);
+            });
+        } catch (error) {
+            throw error;
+        }
+    },
+
+    /**
+     * Complete DID migration - set version to 6
+     * @returns {Promise<Object>}
+     */
+    completeDIDMigration: async function () {
+        try {
+            await this.setCurrentVersion(6);
+            return { status: true };
+        } catch (error) {
+            throw error;
+        }
+    },
+
+    /**
+     * Get decrypted account data using unified password
+     * @param {string} username
+     * @param {string} unifiedPassword
+     * @returns {Promise<Object>}
+     */
+    getDecryptedAccountData: async function (username, unifiedPassword) {
+        try {
+            // First validate unified password
+            const isValid = await this.validateUnifiedPassword(unifiedPassword);
+            if (!isValid) {
+                return { status: false, message: 'Invalid password' };
+            }
+
+            const db = await this.initDB();
+            return new Promise((resolve, reject) => {
+                const transaction = db.transaction([this.storeName], 'readonly');
+                const store = transaction.objectStore(this.storeName);
+                const request = store.get('UserDetails');
+
+                request.onsuccess = () => {
+                    const data = request.result;
+                    if (!data || !data.accounts) {
+                        resolve({ status: false, message: 'No accounts found' });
+                        return;
+                    }
+
+                    const account = data.accounts.find(acc => acc.username === username);
+                    if (!account) {
+                        resolve({ status: false, message: 'Account not found' });
+                        return;
+                    }
+
+                    try {
+                        // Decrypt private key
+                        const pkBytes = CryptoJS.AES.decrypt(account.privatekey, unifiedPassword);
+                        const decryptedPrivateKey = pkBytes.toString(CryptoJS.enc.Utf8);
+
+                        // Decrypt mnemonic
+                        let decryptedMnemonic = null;
+                        if (account.mnemonics) {
+                            const mnBytes = CryptoJS.AES.decrypt(account.mnemonics, unifiedPassword);
+                            decryptedMnemonic = mnBytes.toString(CryptoJS.enc.Utf8);
+                        }
+
+                        resolve({
+                            status: true,
+                            data: {
+                                username: account.username,
+                                did: account.did,
+                                network: account.network,
+                                publickey: account.publickey,
+                                privateKey: decryptedPrivateKey,
+                                mnemonic: decryptedMnemonic,
+                                oldDid: account.oldDid,
+                                oldPublicKey: account.oldPublicKey
+                            }
+                        });
+                    } catch (e) {
+                        resolve({ status: false, message: 'Failed to decrypt account data' });
+                    }
+                };
+
+                request.onerror = () => reject(request.error);
+            });
+        } catch (error) {
+            throw error;
+        }
+    },
+
+    /**
+     * Get all decrypted accounts for DID migration
+     * @param {string} unifiedPassword
+     * @returns {Promise<Array>}
+     */
+    getAllDecryptedAccountsForDIDMigration: async function (unifiedPassword) {
+        try {
+            // First validate unified password
+            const isValid = await this.validateUnifiedPassword(unifiedPassword);
+            if (!isValid) {
+                return { status: false, message: 'Invalid password', accounts: [] };
+            }
+
+            const db = await this.initDB();
+            return new Promise((resolve, reject) => {
+                const transaction = db.transaction([this.storeName], 'readonly');
+                const store = transaction.objectStore(this.storeName);
+                const request = store.get('UserDetails');
+
+                request.onsuccess = () => {
+                    const data = request.result;
+                    if (!data || !data.accounts) {
+                        resolve({ status: false, message: 'No accounts found', accounts: [] });
+                        return;
+                    }
+
+                    const decryptedAccounts = [];
+
+                    for (const account of data.accounts) {
+                        try {
+                            // Decrypt private key
+                            const pkBytes = CryptoJS.AES.decrypt(account.privatekey, unifiedPassword);
+                            const decryptedPrivateKey = pkBytes.toString(CryptoJS.enc.Utf8);
+
+                            // Decrypt mnemonic
+                            let decryptedMnemonic = null;
+                            if (account.mnemonics) {
+                                const mnBytes = CryptoJS.AES.decrypt(account.mnemonics, unifiedPassword);
+                                decryptedMnemonic = mnBytes.toString(CryptoJS.enc.Utf8);
+                            }
+
+                            decryptedAccounts.push({
+                                username: account.username,
+                                did: account.did,
+                                network: account.network,
+                                publickey: account.publickey,
+                                privateKey: decryptedPrivateKey,
+                                mnemonic: decryptedMnemonic
+                            });
+                        } catch (e) {
+                            // If any account fails, return error
+                            resolve({
+                                status: false,
+                                message: `Failed to decrypt account: ${account.username}`,
+                                accounts: []
+                            });
+                            return;
+                        }
+                    }
+
+                    resolve({
+                        status: true,
+                        accounts: decryptedAccounts
+                    });
+                };
+
+                request.onerror = () => reject(request.error);
+            });
+        } catch (error) {
+            throw error;
+        }
     }
 };
 
