@@ -17,11 +17,14 @@ export const UserProvider = ({ children }) => {
     const [selectedNetwork, setSelectedNetwork] = useState('mainnet');
     const [websiteInitiated, setWebsiteInitiated] = useState(null)
     const [selectedTokens, setSelectedTokens] = useState([])
+    const [isInitializing, setIsInitializing] = useState(true)
+
     useEffect(() => {
         (async () => {
-            let res = localStorage.getItem("logginTimeOut")
-            setAutoLockTime(JSON.parse(res) || 5)
-            let result = localStorage.getItem('currency')
+            try {
+                let res = localStorage.getItem("logginTimeOut")
+                setAutoLockTime(JSON.parse(res) || 5)
+                let result = localStorage.getItem('currency')
 
             let value
             if (!result) {
@@ -50,11 +53,12 @@ export const UserProvider = ({ children }) => {
                 });
             }
             if (!currentUser) {
+                setIsInitializing(false);
                 navigate(ROUTES.WELCOME, { replace: true })
                 return
             }
             currentUser = JSON.parse(currentUser)
-            
+
             let checkUser;
             // Check if running in browser extension context
             if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage) {
@@ -84,6 +88,7 @@ export const UserProvider = ({ children }) => {
             }
 
             if (!checkUser || !checkUser?.status || currentUser.username !== checkUser.userDetails?.username) {
+                setIsInitializing(false);
                 navigate(ROUTES.LOGIN, { replace: true })
                 return
             }
@@ -127,7 +132,13 @@ export const UserProvider = ({ children }) => {
                 tokenSymbol: getActivenetwork?.tokenSymbol
             })
 
+            setIsInitializing(false);
             navigate(ROUTES.DASHBOARD, { replace: true })
+            } catch (error) {
+                console.error('UserContext initialization error:', error);
+                setIsInitializing(false);
+                navigate(ROUTES.LOGIN, { replace: true })
+            }
         })()
     }, [])
     const values = {
@@ -148,7 +159,11 @@ export const UserProvider = ({ children }) => {
     }
     return (
         <UserContext.Provider value={values}>
-            {children}
+            {isInitializing ? (
+                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '600px', width: '390px' }}>
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+                </div>
+            ) : children}
         </UserContext.Provider>
     )
 }

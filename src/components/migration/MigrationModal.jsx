@@ -3,6 +3,7 @@ import { FiShield, FiLock } from 'react-icons/fi';
 import AccountMigrationCard from './AccountMigrationCard';
 import SetUnifiedPasswordStep from './SetUnifiedPasswordStep';
 import ImportMnemonicModal from './ImportMnemonicModal';
+import Card from '../Card';
 import indexDBUtil from '../../indexDB';
 import toast from 'react-hot-toast';
 import { deriveKeysFromMnemonic, matchMnemonicToAccount } from '../../utils/migration';
@@ -110,6 +111,18 @@ const MigrationModal = ({ onComplete, onLock }) => {
                 return { success: false, message: 'Account not found' };
             }
 
+            // Debug logging
+            console.log('=== Mnemonic Import Debug ===');
+            console.log('Account:', importingAccount);
+            console.log('Stored publickey:', targetAccount.publickey);
+            console.log('Stored publickey length:', targetAccount.publickey?.length);
+            console.log('Derived compressed:', keys.compressedPublicKey);
+            console.log('Derived compressed length:', keys.compressedPublicKey?.length);
+            console.log('Derived uncompressed:', keys.uncompressedPublicKey);
+            console.log('Derived uncompressed length:', keys.uncompressedPublicKey?.length);
+            console.log('Compressed match:', targetAccount.publickey === keys.compressedPublicKey);
+            console.log('Uncompressed match:', targetAccount.publickey === keys.uncompressedPublicKey);
+
             // Check if the mnemonic matches this account's public key
             // Account might have compressed (66) or we need to compare
             if (targetAccount.publickey !== keys.compressedPublicKey &&
@@ -131,6 +144,7 @@ const MigrationModal = ({ onComplete, onLock }) => {
             setImportingAccount(null);
             return { success: true };
         } catch (error) {
+            console.error('Mnemonic import error:', error);
             return { success: false, message: error.message || 'Invalid recovery phrase' };
         }
     };
@@ -203,9 +217,9 @@ const MigrationModal = ({ onComplete, onLock }) => {
 
     // Render step 1: Collect passwords
     const renderCollectPasswordsStep = () => (
-        <div className="flex flex-col h-full">
+        <div className="flex flex-col h-full pt-4">
             {/* Header */}
-            <div className="flex items-center gap-3 mb-4">
+            <div className="flex items-center gap-3 mb-6">
                 <div className="bg-yellow-100 p-3 rounded-xl">
                     <FiShield className="text-yellow-600" size={24} />
                 </div>
@@ -280,8 +294,8 @@ const MigrationModal = ({ onComplete, onLock }) => {
     );
 
     return (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-            <div className="bg-white rounded-2xl w-[390px] max-h-[600px] p-6 shadow-xl flex flex-col">
+        <Card>
+            <div className="flex flex-col h-full">
                 {currentStep === STEPS.COLLECT_PASSWORDS && renderCollectPasswordsStep()}
                 {currentStep === STEPS.SET_UNIFIED_PASSWORD && renderSetUnifiedPasswordStep()}
                 {currentStep === STEPS.COMPLETE && renderCompleteStep()}
@@ -298,7 +312,7 @@ const MigrationModal = ({ onComplete, onLock }) => {
                     }}
                 />
             )}
-        </div>
+        </Card>
     );
 };
 

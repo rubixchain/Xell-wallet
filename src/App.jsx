@@ -28,16 +28,21 @@ function App() {
 
   useEffect(() => {
     (async () => {
-      let ls = localStorage.getItem("currentUser")
-      ls = ls ? JSON.parse(ls) : null
-      if (ls) {
-        localStorage.setItem("currentUser", JSON.stringify({
-          username: ls?.username,
-          network: ls?.network
-        }))
+      try {
+        let ls = localStorage.getItem("currentUser")
+        ls = ls ? JSON.parse(ls) : null
+        if (ls) {
+          localStorage.setItem("currentUser", JSON.stringify({
+            username: ls?.username,
+            network: ls?.network
+          }))
+        }
+        await indexDBUtil.encryptData()
+        await updateVersion()
+      } catch (error) {
+        console.error('App initialization error:', error);
+        // Still allow app to render even if initialization fails
       }
-      await indexDBUtil.encryptData()
-      await updateVersion()
     })()
   }, []);
 
@@ -55,7 +60,7 @@ function App() {
               <Routes>
                 <Route path={routes.HOME} element={<Layout />}>
                   {/* Public routes */}
-                  {/* <Route index element={hasWallet ? <Navigate to={routes.DASHBOARD} /> : <Welcome />} /> */}
+                  <Route index element={<Navigate to={routes.LOGIN} replace />} />
                   <Route path={routes.WELCOME} element={<Welcome />} />
                   <Route path={routes.CREATE_WALLET} element={<CreateWallet />} />
                   <Route path={routes.IMPORT_WALLET} element={<ImportWallet />} />

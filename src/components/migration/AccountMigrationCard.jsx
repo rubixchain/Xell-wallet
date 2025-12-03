@@ -36,10 +36,25 @@ const AccountMigrationCard = ({
         }
     };
 
-    const handlePinChange = (e) => {
+    const handlePinChange = async (e) => {
         const value = e.target.value.replace(/\D/g, '').slice(0, 6);
         setPin(value);
         setError('');
+
+        // Auto-validate when 6 digits are entered
+        if (value.length === 6) {
+            setIsValidating(true);
+            try {
+                const result = await onPasswordValidate(value);
+                if (!result.success) {
+                    setError(result.message || 'Invalid PIN');
+                }
+            } catch (err) {
+                setError('Validation failed');
+            } finally {
+                setIsValidating(false);
+            }
+        }
     };
 
     const handleKeyPress = (e) => {
@@ -79,9 +94,22 @@ const AccountMigrationCard = ({
 
         if (status === 'skipped') {
             return (
-                <div className="flex items-center gap-2 text-orange-600">
-                    <FiX size={20} />
-                    <span className="font-medium">Will be removed</span>
+                <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2 text-orange-600">
+                            <FiX size={20} />
+                            <span className="font-medium">Will be removed</span>
+                        </div>
+                        <button
+                            onClick={() => onSkipToggle(false)}
+                            className="text-xs text-primary hover:text-secondary underline"
+                        >
+                            Undo
+                        </button>
+                    </div>
+                    <p className="text-xs text-orange-600">
+                        This account will be permanently deleted during migration.
+                    </p>
                 </div>
             );
         }
@@ -113,13 +141,11 @@ const AccountMigrationCard = ({
                         >
                             {showPin ? <FiEyeOff size={16} /> : <FiEye size={16} />}
                         </button>
-                        <button
-                            onClick={handleValidate}
-                            disabled={pin.length !== 6 || isValidating}
-                            className="px-2 py-1 text-xs bg-primary text-white rounded disabled:bg-gray-300"
-                        >
-                            {isValidating ? '...' : 'Verify'}
-                        </button>
+                        {isValidating && (
+                            <div className="px-2 py-1">
+                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
+                            </div>
+                        )}
                     </div>
                 </div>
 
