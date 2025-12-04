@@ -76,7 +76,7 @@ const AccountMigrationCard = ({
     const renderContent = () => {
         if (status === 'validated') {
             return (
-                <div className="flex items-center gap-2 text-green-600">
+                <div className="flex items-center gap-2 text-secondary">
                     <FiCheck size={20} />
                     <span className="font-medium">PIN Verified</span>
                 </div>
@@ -85,7 +85,7 @@ const AccountMigrationCard = ({
 
         if (status === 'imported') {
             return (
-                <div className="flex items-center gap-2 text-green-600">
+                <div className="flex items-center gap-2 text-secondary">
                     <FiCheck size={20} />
                     <span className="font-medium">Imported via Recovery Phrase</span>
                 </div>
@@ -102,7 +102,7 @@ const AccountMigrationCard = ({
                         </div>
                         <button
                             onClick={() => onSkipToggle(false)}
-                            className="text-xs text-primary hover:text-secondary underline"
+                            className="text-xs text-secondary hover:text-primary underline"
                         >
                             Undo
                         </button>
@@ -128,7 +128,7 @@ const AccountMigrationCard = ({
                         className={`w-full px-3 py-2 pr-20 border rounded-lg focus:outline-none focus:ring-2 ${
                             error
                                 ? 'border-red-300 focus:ring-red-200'
-                                : 'border-gray-200 focus:ring-primary/20'
+                                : 'border-gray-200 focus:ring-secondary/20'
                         }`}
                         maxLength={6}
                         disabled={isValidating}
@@ -143,7 +143,7 @@ const AccountMigrationCard = ({
                         </button>
                         {isValidating && (
                             <div className="px-2 py-1">
-                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
+                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-secondary"></div>
                             </div>
                         )}
                     </div>
@@ -167,7 +167,7 @@ const AccountMigrationCard = ({
 
                     <button
                         onClick={onImportClick}
-                        className="flex items-center gap-1 text-sm text-primary hover:text-secondary"
+                        className="flex items-center gap-1 text-sm text-secondary hover:text-primary"
                     >
                         <FiDownload size={14} />
                         <span>Import</span>
@@ -180,7 +180,7 @@ const AccountMigrationCard = ({
     return (
         <div className={`border rounded-xl p-4 transition-colors ${
             status === 'validated' || status === 'imported'
-                ? 'bg-green-50 border-green-200'
+                ? 'bg-tertiary border-secondary/30'
                 : status === 'skipped'
                     ? 'bg-orange-50 border-orange-200'
                     : 'bg-white border-gray-200'
@@ -189,14 +189,14 @@ const AccountMigrationCard = ({
             <div className="flex items-center gap-3 mb-3">
                 <div className={`p-2 rounded-full ${
                     status === 'validated' || status === 'imported'
-                        ? 'bg-green-100'
+                        ? 'bg-secondary/10'
                         : status === 'skipped'
                             ? 'bg-orange-100'
                             : 'bg-gray-100'
                 }`}>
                     <FiUser className={
                         status === 'validated' || status === 'imported'
-                            ? 'text-green-600'
+                            ? 'text-secondary'
                             : status === 'skipped'
                                 ? 'text-orange-600'
                                 : 'text-gray-600'
@@ -204,8 +204,8 @@ const AccountMigrationCard = ({
                 </div>
                 <div className="flex-1">
                     <p className="font-medium text-senary">{account.username}</p>
-                    <p className="text-xs text-quinary truncate" title={account.did}>
-                        {account.did ? `${account.did.slice(0, 20)}...` : 'No DID'}
+                    <p className="text-xs text-quinary" title={account.did}>
+                        {account.did ? `${account.did.slice(0, 5)}....${account.did.slice(-5)}` : 'No DID'}
                     </p>
                 </div>
             </div>

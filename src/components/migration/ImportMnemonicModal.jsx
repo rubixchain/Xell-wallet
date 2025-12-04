@@ -62,8 +62,8 @@ const ImportMnemonicModal = ({ accountName, onImport, onClose }) => {
                 {/* Header */}
                 <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center gap-2">
-                        <div className="bg-primary/10 p-2 rounded-lg">
-                            <FiDownload className="text-primary" size={20} />
+                        <div className="bg-tertiary p-2 rounded-lg">
+                            <FiDownload className="text-secondary" size={20} />
                         </div>
                         <div>
                             <h3 className="font-semibold text-lg">Import Account</h3>
@@ -93,7 +93,7 @@ const ImportMnemonicModal = ({ accountName, onImport, onClose }) => {
                         </label>
                         <button
                             onClick={handlePaste}
-                            className="text-xs text-primary hover:text-secondary"
+                            className="text-xs text-secondary hover:text-primary"
                         >
                             Paste
                         </button>
@@ -108,7 +108,7 @@ const ImportMnemonicModal = ({ accountName, onImport, onClose }) => {
                         className={`w-full h-28 p-3 border rounded-lg focus:outline-none focus:ring-2 resize-none text-sm ${
                             error
                                 ? 'border-red-300 focus:ring-red-200'
-                                : 'border-gray-200 focus:ring-primary/20'
+                                : 'border-gray-200 focus:ring-secondary/20'
                         }`}
                         disabled={isValidating}
                     />
@@ -132,7 +132,7 @@ const ImportMnemonicModal = ({ accountName, onImport, onClose }) => {
                     <button
                         onClick={handleSubmit}
                         disabled={isValidating || !mnemonic.trim()}
-                        className="flex-1 py-2 px-4 bg-primary text-white rounded-lg font-medium hover:bg-secondary disabled:bg-gray-300 disabled:cursor-not-allowed"
+                        className="flex-1 py-2 px-4 bg-secondary text-white rounded-lg font-medium hover:bg-primary disabled:bg-disabled disabled:text-gray-500 disabled:cursor-not-allowed"
                     >
                         {isValidating ? (
                             <span className="flex items-center justify-center gap-2">

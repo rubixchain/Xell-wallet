@@ -35,6 +35,17 @@ export function derivePrivateKeyFromMnemonic(mnemonic) {
 }
 
 /**
+ * Derive private key from mnemonic using OLD method (pre-BIP32)
+ * This is for accounts created before the BIP32 derivation fix
+ * @param {string} mnemonic - 24-word recovery phrase
+ * @returns {Buffer} - Private key buffer (first 32 bytes of seed)
+ */
+export function derivePrivateKeyFromMnemonicLegacy(mnemonic) {
+    const seed = bip39.mnemonicToSeedSync(mnemonic);
+    return seed.slice(0, 32);
+}
+
+/**
  * Generate compressed public key (66 hex chars) - OLD format
  * Used for matching existing accounts
  * @param {Buffer|string} privateKey - Private key as buffer or hex string
@@ -73,9 +84,9 @@ export function generateUncompressedPublicKey(privateKey) {
 }
 
 /**
- * Derive all keys from mnemonic
+ * Derive all keys from mnemonic (tries both BIP32 and legacy methods)
  * @param {string} mnemonic - 24-word recovery phrase
- * @returns {Object} - { privateKey, compressedPublicKey, uncompressedPublicKey }
+ * @returns {Object} - { privateKey, compressedPublicKey, uncompressedPublicKey, legacy versions }
  */
 export function deriveKeysFromMnemonic(mnemonic) {
     // Validate mnemonic
@@ -83,11 +94,17 @@ export function deriveKeysFromMnemonic(mnemonic) {
         throw new Error('Invalid mnemonic phrase');
     }
 
+    // NEW METHOD: BIP32 derivation (m/0)
     const privateKeyBuffer = derivePrivateKeyFromMnemonic(mnemonic);
     const privateKeyHex = privateKeyBuffer.toString('hex');
-
     const compressedPublicKey = generateCompressedPublicKey(privateKeyBuffer);
     const uncompressedPublicKey = generateUncompressedPublicKey(privateKeyBuffer);
+
+    // OLD METHOD: Legacy derivation (first 32 bytes of seed)
+    const legacyPrivateKeyBuffer = derivePrivateKeyFromMnemonicLegacy(mnemonic);
+    const legacyPrivateKeyHex = legacyPrivateKeyBuffer.toString('hex');
+    const legacyCompressedPublicKey = generateCompressedPublicKey(legacyPrivateKeyBuffer);
+    const legacyUncompressedPublicKey = generateUncompressedPublicKey(legacyPrivateKeyBuffer);
 
     // Validate key lengths
     if (compressedPublicKey.length !== 66) {
@@ -98,10 +115,16 @@ export function deriveKeysFromMnemonic(mnemonic) {
     }
 
     return {
+        // NEW BIP32 method
         privateKey: privateKeyHex,
         privateKeyBuffer,
         compressedPublicKey,
-        uncompressedPublicKey
+        uncompressedPublicKey,
+        // OLD legacy method
+        legacyPrivateKey: legacyPrivateKeyHex,
+        legacyPrivateKeyBuffer,
+        legacyCompressedPublicKey,
+        legacyUncompressedPublicKey
     };
 }
 

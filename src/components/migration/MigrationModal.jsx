@@ -116,17 +116,23 @@ const MigrationModal = ({ onComplete, onLock }) => {
             console.log('Account:', importingAccount);
             console.log('Stored publickey:', targetAccount.publickey);
             console.log('Stored publickey length:', targetAccount.publickey?.length);
-            console.log('Derived compressed:', keys.compressedPublicKey);
-            console.log('Derived compressed length:', keys.compressedPublicKey?.length);
-            console.log('Derived uncompressed:', keys.uncompressedPublicKey);
-            console.log('Derived uncompressed length:', keys.uncompressedPublicKey?.length);
-            console.log('Compressed match:', targetAccount.publickey === keys.compressedPublicKey);
-            console.log('Uncompressed match:', targetAccount.publickey === keys.uncompressedPublicKey);
+            console.log('NEW BIP32 compressed:', keys.compressedPublicKey);
+            console.log('NEW BIP32 uncompressed:', keys.uncompressedPublicKey);
+            console.log('LEGACY compressed:', keys.legacyCompressedPublicKey);
+            console.log('LEGACY uncompressed:', keys.legacyUncompressedPublicKey);
+            console.log('NEW BIP32 compressed match:', targetAccount.publickey === keys.compressedPublicKey);
+            console.log('NEW BIP32 uncompressed match:', targetAccount.publickey === keys.uncompressedPublicKey);
+            console.log('LEGACY compressed match:', targetAccount.publickey === keys.legacyCompressedPublicKey);
+            console.log('LEGACY uncompressed match:', targetAccount.publickey === keys.legacyUncompressedPublicKey);
 
             // Check if the mnemonic matches this account's public key
-            // Account might have compressed (66) or we need to compare
-            if (targetAccount.publickey !== keys.compressedPublicKey &&
-                targetAccount.publickey !== keys.uncompressedPublicKey) {
+            // Try all possible derivation methods (new BIP32 and legacy)
+            const isNewBIP32Match = targetAccount.publickey === keys.compressedPublicKey ||
+                                     targetAccount.publickey === keys.uncompressedPublicKey;
+            const isLegacyMatch = targetAccount.publickey === keys.legacyCompressedPublicKey ||
+                                  targetAccount.publickey === keys.legacyUncompressedPublicKey;
+
+            if (!isNewBIP32Match && !isLegacyMatch) {
                 return { success: false, message: 'Recovery phrase does not match this account' };
             }
 
@@ -220,8 +226,8 @@ const MigrationModal = ({ onComplete, onLock }) => {
         <div className="flex flex-col h-full pt-4">
             {/* Header */}
             <div className="flex items-center gap-3 mb-6">
-                <div className="bg-yellow-100 p-3 rounded-xl">
-                    <FiShield className="text-yellow-600" size={24} />
+                <div className="bg-tertiary p-3 rounded-xl">
+                    <FiShield className="text-primary" size={24} />
                 </div>
                 <div>
                     <h2 className="font-semibold text-xl text-senary">Wallet Migration Required</h2>
@@ -230,8 +236,8 @@ const MigrationModal = ({ onComplete, onLock }) => {
             </div>
 
             {/* Info box */}
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mb-4">
-                <p className="text-sm text-blue-800">
+            <div className="bg-tertiary border border-secondary/20 rounded-lg p-3 mb-4">
+                <p className="text-sm text-senary">
                     We're upgrading your wallet security. Please verify each account below by entering its current PIN,
                     importing with recovery phrase, or skip accounts you no longer need.
                 </p>
@@ -261,7 +267,7 @@ const MigrationModal = ({ onComplete, onLock }) => {
             <button
                 onClick={handleContinue}
                 disabled={!canProceed()}
-                className="w-full bg-primary hover:bg-secondary text-white font-semibold py-3 px-6 rounded-lg transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed"
+                className="w-full bg-secondary hover:bg-primary text-white font-semibold py-3 px-6 rounded-lg transition-colors disabled:bg-disabled disabled:cursor-not-allowed disabled:text-gray-500"
             >
                 Continue
             </button>

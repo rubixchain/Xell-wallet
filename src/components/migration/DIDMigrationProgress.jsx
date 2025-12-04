@@ -85,14 +85,40 @@ const DIDMigrationProgress = ({ unifiedPassword, onComplete, onError }) => {
             let privateKeyHex;
 
             if (account.mnemonic) {
-                // Derive from mnemonic
+                // Derive from mnemonic - try new method first, fallback to legacy
                 const keys = deriveKeysFromMnemonic(account.mnemonic);
-                newPublicKey = keys.uncompressedPublicKey;
-                privateKeyHex = keys.privateKey;
+
+                // Check if current public key matches new or legacy key
+                const currentPubKey = account.publickey;
+                const matchesNew = currentPubKey === keys.compressedPublicKey;
+                const matchesLegacy = currentPubKey === keys.legacyCompressedPublicKey;
+
+                if (matchesLegacy && !matchesNew) {
+                    // Use legacy keys for this account
+                    newPublicKey = keys.legacyUncompressedPublicKey;
+                    privateKeyHex = keys.legacyPrivateKey;
+                } else {
+                    // Use new BIP32 keys
+                    newPublicKey = keys.uncompressedPublicKey;
+                    privateKeyHex = keys.privateKey;
+                }
             } else {
                 // Generate from existing private key
                 newPublicKey = generateUncompressedPublicKey(account.privateKey);
                 privateKeyHex = account.privateKey;
+            }
+
+            // Validate private key format
+            if (!privateKeyHex || typeof privateKeyHex !== 'string') {
+                throw new Error('invalid private key, expected hex or 32 bytes, got ' + typeof privateKeyHex);
+            }
+
+            // Ensure privateKeyHex is a clean hex string without spaces or '0x' prefix
+            privateKeyHex = privateKeyHex.trim().toLowerCase().replace(/^0x/, '');
+
+            // Validate hex format and length (should be 64 characters for 32 bytes)
+            if (!/^[0-9a-f]{64}$/i.test(privateKeyHex)) {
+                throw new Error(`invalid private key format: expected 64 hex characters, got ${privateKeyHex.length} characters`);
             }
 
             // Step 2: Request new DID from backend
