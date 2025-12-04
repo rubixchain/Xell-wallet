@@ -1690,10 +1690,12 @@ const indexDBUtil = {
             return new Promise((resolve, reject) => {
                 const transaction = db.transaction([this.storeName], 'readwrite');
                 const store = transaction.objectStore(this.storeName);
-                const request = store.get('UserDetails');
 
-                request.onsuccess = () => {
-                    const data = request.result;
+                // Get UserDetails first
+                const userDetailsRequest = store.get('UserDetails');
+
+                userDetailsRequest.onsuccess = () => {
+                    const data = userDetailsRequest.result;
                     if (!data || !data.accounts) {
                         resolve({ status: false, message: 'No accounts found' });
                         return;
@@ -1715,12 +1717,48 @@ const indexDBUtil = {
                         migratedAt: new Date().toISOString()
                     };
 
-                    const updateRequest = store.put(data);
-                    updateRequest.onsuccess = () => resolve({ status: true });
-                    updateRequest.onerror = () => reject(updateRequest.error);
+                    const updateUserDetailsRequest = store.put(data);
+
+                    updateUserDetailsRequest.onsuccess = () => {
+                        // Now update NetworkDetails to point to new DID
+                        const networkDetailsRequest = store.get('NetworkDetails');
+
+                        networkDetailsRequest.onsuccess = () => {
+                            const networkData = networkDetailsRequest.result;
+                            if (networkData && networkData.networks) {
+                                // Find the network entry for the old DID
+                                const oldDidIndex = networkData.networks.findIndex(
+                                    entry => entry.did === migrationData.oldDid
+                                );
+
+                                if (oldDidIndex !== -1) {
+                                    // Update the DID reference in NetworkDetails
+                                    networkData.networks[oldDidIndex].did = migrationData.newDid;
+
+                                    const updateNetworkRequest = store.put(networkData);
+                                    updateNetworkRequest.onsuccess = () => resolve({ status: true });
+                                    updateNetworkRequest.onerror = () => reject(updateNetworkRequest.error);
+                                } else {
+                                    // Old DID not found in networks, but account update succeeded
+                                    resolve({ status: true });
+                                }
+                            } else {
+                                // No network data, but account update succeeded
+                                resolve({ status: true });
+                            }
+                        };
+
+                        networkDetailsRequest.onerror = () => {
+                            // Network update failed, but account update succeeded
+                            console.warn('Failed to update NetworkDetails, but account updated successfully');
+                            resolve({ status: true });
+                        };
+                    };
+
+                    updateUserDetailsRequest.onerror = () => reject(updateUserDetailsRequest.error);
                 };
 
-                request.onerror = () => reject(request.error);
+                userDetailsRequest.onerror = () => reject(userDetailsRequest.error);
             });
         } catch (error) {
             throw error;
