@@ -5,6 +5,7 @@ import { BIP32Factory } from 'bip32';
 import * as ecc from 'tiny-secp256k1';
 import secp256k1 from 'secp256k1';
 import { generateSignature } from "../utils";
+import { generateCompressedPublicKey } from "../utils/migration";
 import CryptoJS from 'crypto-js';
 import { config, NETWORK_TYPES } from "../../config";
 import axios from "axios";
@@ -1564,17 +1565,53 @@ const indexDBUtil = {
 
                             if (accountData.mnemonic) {
                                 // Account was imported with mnemonic
-                                // Derive private key from mnemonic
-                                const bip39 = require('bip39');
-                                const { BIP32Factory } = require('bip32');
-                                const ecc = require('tiny-secp256k1');
-                                const bip32 = BIP32Factory(ecc);
+                                // Derive private key from mnemonic using both methods
+                                console.log('=== Unified Password Migration - Mnemonic Import Debug ===');
+                                console.log('Account:', account.username);
+                                console.log('Stored publickey:', account.publickey);
 
+                                // Use already imported modules (at top of file)
                                 const seed = bip39.mnemonicToSeedSync(accountData.mnemonic);
+
+                                // NEW BIP32 method (m/0 derivation)
                                 const root = bip32.fromSeed(seed);
                                 const child = root.derivePath("m/0");
-                                decryptedPrivateKey = child.privateKey.toString('hex');
+                                const newPrivateKeyBuffer = child.privateKey; // Keep as Buffer
+                                const newPrivateKey = newPrivateKeyBuffer.toString('hex');
+
+                                // LEGACY method (first 32 bytes of seed)
+                                const legacyPrivateKeyBuffer = seed.slice(0, 32); // Keep as Buffer
+                                const legacyPrivateKey = legacyPrivateKeyBuffer.toString('hex');
+
+                                // Generate public keys directly from Buffer objects (avoid Buffer.from conversion issues)
+                                const newPublicKeyCompressed = Buffer.from(
+                                    secp256k1.publicKeyCreate(Uint8Array.from(newPrivateKeyBuffer), true)
+                                ).toString('hex');
+                                const legacyPublicKeyCompressed = Buffer.from(
+                                    secp256k1.publicKeyCreate(Uint8Array.from(legacyPrivateKeyBuffer), true)
+                                ).toString('hex');
+
+                                console.log('NEW BIP32 compressed public key:', newPublicKeyCompressed);
+                                console.log('LEGACY compressed public key:', legacyPublicKeyCompressed);
+                                console.log('NEW matches?', account.publickey === newPublicKeyCompressed);
+                                console.log('LEGACY matches?', account.publickey === legacyPublicKeyCompressed);
+
+                                // Check which method matches the account's public key
+                                if (account.publickey === legacyPublicKeyCompressed) {
+                                    console.log('✓ Using LEGACY key');
+                                    decryptedPrivateKey = legacyPrivateKey;
+                                } else if (account.publickey === newPublicKeyCompressed) {
+                                    console.log('✓ Using NEW BIP32 key');
+                                    decryptedPrivateKey = newPrivateKey;
+                                } else {
+                                    console.error('✗ NO MATCH! Neither key matches the stored public key');
+                                    console.log('This will cause migration to fail');
+                                    // Still try with new key as fallback
+                                    decryptedPrivateKey = newPrivateKey;
+                                }
+
                                 decryptedMnemonic = accountData.mnemonic;
+                                console.log('Decrypted private key length:', decryptedPrivateKey?.length);
                             } else {
                                 // Decrypt using old password
                                 const pkBytes = CryptoJS.AES.decrypt(account.privatekey, accountData.oldPassword);
@@ -1599,6 +1636,10 @@ const indexDBUtil = {
 
                             migratedAccounts.push(account);
                         } catch (e) {
+                            console.error('❌ Migration failed for account:', account.username);
+                            console.error('Error message:', e.message);
+                            console.error('Error details:', e);
+                            console.error('Stack trace:', e.stack);
                             failedAccounts.push(account.username);
                         }
                     });
