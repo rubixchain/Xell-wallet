@@ -264,22 +264,22 @@ const DIDMigrationProgress = ({ unifiedPassword, onComplete, onError }) => {
     };
 
     return (
-        <div className="flex flex-col h-full">
+        <div className="flex flex-col h-full pt-4 pb-6">
             {/* Header */}
             <div className="flex items-center gap-3 mb-6">
                 <div className={`p-3 rounded-xl ${
                     currentStep === MIGRATION_STEPS.COMPLETE
-                        ? 'bg-green-100'
+                        ? 'bg-tertiary'
                         : currentStep === MIGRATION_STEPS.FAILED
                             ? 'bg-red-100'
-                            : 'bg-blue-100'
+                            : 'bg-tertiary'
                 }`}>
                     {currentStep === MIGRATION_STEPS.COMPLETE ? (
-                        <FiCheck className="text-green-600" size={24} />
+                        <FiCheck className="text-secondary" size={24} />
                     ) : currentStep === MIGRATION_STEPS.FAILED ? (
                         <FiX className="text-red-600" size={24} />
                     ) : (
-                        <FiRefreshCw className="text-blue-600 animate-spin" size={24} />
+                        <FiRefreshCw className="text-primary animate-spin" size={24} />
                     )}
                 </div>
                 <div>
@@ -291,8 +291,8 @@ const DIDMigrationProgress = ({ unifiedPassword, onComplete, onError }) => {
             {/* Overall Progress */}
             <div className="mb-6">
                 <div className="flex justify-between text-sm mb-2">
-                    <span className="text-gray-600">Overall Progress</span>
-                    <span className="font-medium">{Math.round(overallProgress)}%</span>
+                    <span className="text-quinary">Overall Progress</span>
+                    <span className="font-medium text-senary">{Math.round(overallProgress)}%</span>
                 </div>
                 <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
                     <div
@@ -300,8 +300,8 @@ const DIDMigrationProgress = ({ unifiedPassword, onComplete, onError }) => {
                             currentStep === MIGRATION_STEPS.FAILED
                                 ? 'bg-red-500'
                                 : currentStep === MIGRATION_STEPS.COMPLETE
-                                    ? 'bg-green-500'
-                                    : 'bg-blue-500'
+                                    ? 'bg-secondary'
+                                    : 'bg-primary'
                         }`}
                         style={{ width: `${overallProgress}%` }}
                     />
@@ -315,30 +315,30 @@ const DIDMigrationProgress = ({ unifiedPassword, onComplete, onError }) => {
                         key={account.username}
                         className={`flex items-center gap-3 p-3 rounded-lg border ${
                             account.migrationStatus === 'completed'
-                                ? 'bg-green-50 border-green-200'
+                                ? 'bg-tertiary border-secondary/30'
                                 : account.migrationStatus === 'failed'
                                     ? 'bg-red-50 border-red-200'
                                     : account.migrationStatus === 'migrating'
-                                        ? 'bg-blue-50 border-blue-200'
+                                        ? 'bg-tertiary/50 border-secondary/20'
                                         : 'bg-gray-50 border-gray-200'
                         }`}
                     >
                         {/* Status icon */}
                         <div className={`p-1.5 rounded-full ${
                             account.migrationStatus === 'completed'
-                                ? 'bg-green-100'
+                                ? 'bg-secondary/10'
                                 : account.migrationStatus === 'failed'
                                     ? 'bg-red-100'
                                     : account.migrationStatus === 'migrating'
-                                        ? 'bg-blue-100'
+                                        ? 'bg-primary/10'
                                         : 'bg-gray-100'
                         }`}>
                             {account.migrationStatus === 'completed' ? (
-                                <FiCheck className="text-green-600" size={14} />
+                                <FiCheck className="text-secondary" size={14} />
                             ) : account.migrationStatus === 'failed' ? (
                                 <FiX className="text-red-600" size={14} />
                             ) : account.migrationStatus === 'migrating' ? (
-                                <FiLoader className="text-blue-600 animate-spin" size={14} />
+                                <FiLoader className="text-primary animate-spin" size={14} />
                             ) : (
                                 <div className="w-3.5 h-3.5 rounded-full bg-gray-300" />
                             )}
@@ -346,14 +346,14 @@ const DIDMigrationProgress = ({ unifiedPassword, onComplete, onError }) => {
 
                         {/* Account info */}
                         <div className="flex-1 min-w-0">
-                            <p className="font-medium text-sm truncate">{account.username}</p>
+                            <p className="font-medium text-sm text-senary truncate">{account.username}</p>
                             {account.migrationStatus === 'completed' && account.newDid && (
-                                <p className="text-xs text-green-600 truncate">
-                                    New: {account.newDid.slice(0, 20)}...
+                                <p className="text-xs text-secondary truncate">
+                                    New: {account.newDid.slice(0, 5)}....{account.newDid.slice(-5)}
                                 </p>
                             )}
                             {account.migrationStatus === 'migrating' && (
-                                <p className="text-xs text-blue-600">
+                                <p className="text-xs text-primary">
                                     {getStepLabel()}
                                 </p>
                             )}
@@ -374,7 +374,7 @@ const DIDMigrationProgress = ({ unifiedPassword, onComplete, onError }) => {
                 <button
                     onClick={handleRetry}
                     disabled={isRetrying}
-                    className="w-full bg-primary hover:bg-secondary text-white font-semibold py-3 px-6 rounded-lg transition-colors disabled:bg-gray-300"
+                    className="w-full bg-secondary hover:bg-primary text-white font-semibold py-3 px-6 rounded-lg transition-colors disabled:bg-disabled disabled:text-gray-500"
                 >
                     {isRetrying ? (
                         <span className="flex items-center justify-center gap-2">
@@ -390,8 +390,8 @@ const DIDMigrationProgress = ({ unifiedPassword, onComplete, onError }) => {
             {/* Success message */}
             {currentStep === MIGRATION_STEPS.COMPLETE && (
                 <div className="text-center">
-                    <p className="text-green-600 font-medium">All accounts migrated successfully!</p>
-                    <p className="text-sm text-gray-500 mt-1">Redirecting to dashboard...</p>
+                    <p className="text-secondary font-medium">All accounts migrated successfully!</p>
+                    <p className="text-sm text-quinary mt-1">Redirecting to dashboard...</p>
                 </div>
             )}
         </div>
