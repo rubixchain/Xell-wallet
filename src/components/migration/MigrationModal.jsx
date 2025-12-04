@@ -266,7 +266,7 @@ const MigrationModal = ({ onComplete, onLock }) => {
                         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
                     </div>
                 ) : (
-                    accounts.map(account => (
+                    accounts.map((account, index) => (
                         <AccountMigrationCard
                             key={account.username}
                             account={account}
@@ -274,6 +274,7 @@ const MigrationModal = ({ onComplete, onLock }) => {
                             onPasswordValidate={(password) => handlePasswordValidation(account.username, password)}
                             onSkipToggle={(isSkipped) => handleSkipToggle(account.username, isSkipped)}
                             onImportClick={() => handleImportClick(account.username)}
+                            autoFocus={index === 0}
                         />
                     ))
                 )}

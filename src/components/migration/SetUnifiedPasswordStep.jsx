@@ -120,6 +120,7 @@ const SetUnifiedPasswordStep = ({ onSubmit, onBack, isProcessing }) => {
                             onChange={handlePinChange}
                             length={6}
                             error={errors.pin || (pin.length === 6 && isPinWeak(pin) ? 'Weak PIN' : null)}
+                            autoFocus={true}
                         />
                     </div>
 
@@ -133,6 +134,7 @@ const SetUnifiedPasswordStep = ({ onSubmit, onBack, isProcessing }) => {
                             onChange={handleConfirmPinChange}
                             length={6}
                             error={errors.confirmPin}
+                            autoFocus={false}
                         />
                     </div>
 

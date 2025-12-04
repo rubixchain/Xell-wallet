@@ -1,13 +1,15 @@
 import { useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
 
-export default function PinInput({ value, onChange, length = 6, error, onComplete }) {
+export default function PinInput({ value, onChange, length = 6, error, onComplete, autoFocus = true }) {
   const inputRefs = useRef([]);
 
   useEffect(() => {
-    // Focus first input on mount
-    inputRefs.current[0]?.focus();
-  }, []);
+    // Focus first input on mount only if autoFocus is enabled
+    if (autoFocus) {
+      inputRefs.current[0]?.focus();
+    }
+  }, [autoFocus]);
 
   const handleInput = (index, e) => {
     const newValue = e.target.value;

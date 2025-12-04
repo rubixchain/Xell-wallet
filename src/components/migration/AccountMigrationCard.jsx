@@ -7,7 +7,8 @@ const AccountMigrationCard = ({
     state,
     onPasswordValidate,
     onSkipToggle,
-    onImportClick
+    onImportClick,
+    autoFocus = false
 }) => {
     const [pin, setPin] = useState('');
     const [isValidating, setIsValidating] = useState(false);
@@ -118,6 +119,7 @@ const AccountMigrationCard = ({
                             onChange={handlePinChange}
                             length={6}
                             error={error}
+                            autoFocus={autoFocus}
                         />
                     </div>
                     {isValidating && (

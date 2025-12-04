@@ -226,9 +226,31 @@ function Login() {
     };
 
     // Handle migration modal lock (after unified password is set)
-    const handleMigrationLock = () => {
+    const handleMigrationLock = async () => {
         setShowMigrationModal(false);
         setPin('');
+
+        // Reload account list to reflect deleted accounts
+        const res = await indexDBUtil.getData();
+        if (res?.status) {
+            setUsers(res?.data);
+
+            // Update selected user if it was deleted
+            const currentUser = localStorage.getItem("currentUser");
+            if (currentUser) {
+                const parsedUser = JSON.parse(currentUser);
+                const userStillExists = res?.data.find(u => u.username === parsedUser.username);
+                if (userStillExists) {
+                    setSelectedUser(parsedUser);
+                } else {
+                    // Select first available account
+                    setSelectedUser(res?.data[0]);
+                }
+            } else {
+                setSelectedUser(res?.data[0]);
+            }
+        }
+
         // Reset state to show login screen
         // User will now login with unified password, which triggers DID migration
     };
