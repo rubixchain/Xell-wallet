@@ -204,6 +204,22 @@ const MigrationModal = ({ onComplete, onLock }) => {
             const result = await indexDBUtil.setUnifiedPassword(newPassword, accountDataMap, skipAccounts);
 
             if (result.status) {
+                // Check if current user in localStorage was skipped
+                const currentUserStr = localStorage.getItem('currentUser');
+                if (currentUserStr) {
+                    const currentUser = JSON.parse(currentUserStr);
+                    if (skipAccounts.includes(currentUser.username)) {
+                        // Current user was deleted, switch to first migrated account
+                        const firstMigratedUsername = result.migratedAccounts[0];
+                        if (firstMigratedUsername) {
+                            localStorage.setItem('currentUser', JSON.stringify({
+                                username: firstMigratedUsername,
+                                pin: newPassword
+                            }));
+                        }
+                    }
+                }
+
                 toast.success('Password unified successfully!');
                 setCurrentStep(STEPS.COMPLETE);
 

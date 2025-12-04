@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { FiUser, FiCheck, FiX, FiDownload, FiEye, FiEyeOff } from 'react-icons/fi';
+import { FiUser, FiCheck, FiX, FiDownload } from 'react-icons/fi';
+import PinInput from '../setup/PinInput';
 
 const AccountMigrationCard = ({
     account,
@@ -9,7 +10,6 @@ const AccountMigrationCard = ({
     onImportClick
 }) => {
     const [pin, setPin] = useState('');
-    const [showPin, setShowPin] = useState(false);
     const [isValidating, setIsValidating] = useState(false);
     const [error, setError] = useState('');
 
@@ -36,8 +36,7 @@ const AccountMigrationCard = ({
         }
     };
 
-    const handlePinChange = async (e) => {
-        const value = e.target.value.replace(/\D/g, '').slice(0, 6);
+    const handlePinChange = async (value) => {
         setPin(value);
         setError('');
 
@@ -54,12 +53,6 @@ const AccountMigrationCard = ({
             } finally {
                 setIsValidating(false);
             }
-        }
-    };
-
-    const handleKeyPress = (e) => {
-        if (e.key === 'Enter' && pin.length === 6) {
-            handleValidate();
         }
     };
 
@@ -117,41 +110,22 @@ const AccountMigrationCard = ({
         // Pending status - show input form
         return (
             <div className="space-y-3">
-                {/* PIN Input */}
+                {/* PIN Input - Smaller size for migration modal */}
                 <div className="relative">
-                    <input
-                        type={showPin ? 'text' : 'password'}
-                        value={pin}
-                        onChange={handlePinChange}
-                        onKeyPress={handleKeyPress}
-                        placeholder="Enter 6-digit PIN"
-                        className={`w-full px-3 py-2 pr-20 border rounded-lg focus:outline-none focus:ring-2 ${
-                            error
-                                ? 'border-red-300 focus:ring-red-200'
-                                : 'border-gray-200 focus:ring-secondary/20'
-                        }`}
-                        maxLength={6}
-                        disabled={isValidating}
-                    />
-                    <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
-                        <button
-                            type="button"
-                            onClick={() => setShowPin(!showPin)}
-                            className="p-1 text-gray-400 hover:text-gray-600"
-                        >
-                            {showPin ? <FiEyeOff size={16} /> : <FiEye size={16} />}
-                        </button>
-                        {isValidating && (
-                            <div className="px-2 py-1">
-                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-secondary"></div>
-                            </div>
-                        )}
+                    <div className="migration-pin-input">
+                        <PinInput
+                            value={pin}
+                            onChange={handlePinChange}
+                            length={6}
+                            error={error}
+                        />
                     </div>
+                    {isValidating && (
+                        <div className="flex justify-center mt-2">
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-secondary"></div>
+                        </div>
+                    )}
                 </div>
-
-                {error && (
-                    <p className="text-red-500 text-xs">{error}</p>
-                )}
 
                 {/* Skip and Import options */}
                 <div className="flex items-center justify-between">
