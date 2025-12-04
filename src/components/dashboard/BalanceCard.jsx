@@ -59,17 +59,17 @@ export default function BalanceCard({ accountInfo, setIsTransactionCompleted }) 
     JPY: '¥',
     INR: '₹'
   };
-  useEffect(() => {
-    (async () => {
-      if (!tickerData?.price) {
-        return
-      }
-      setIsLoading(true)
-      let res = await convertCurrency(tickerData?.price, "USD", currency?.value)
-      setConversionPrice(res)
-      setIsLoading(false)
-    })()
-  }, [tickerData?.price, currency])
+  // useEffect(() => {
+  //   (async () => {
+  //     if (!tickerData?.price) {
+  //       return
+  //     }
+  //     setIsLoading(true)
+  //     let res = await convertCurrency(tickerData?.price, "USD", currency?.value)
+  //     setConversionPrice(res)
+  //     setIsLoading(false)
+  //   })()
+  // }, [tickerData?.price, currency])
 
   // Reset and recalculate when accountInfo or network changes
   useEffect(() => {
@@ -88,130 +88,130 @@ export default function BalanceCard({ accountInfo, setIsTransactionCompleted }) 
       setTimeout(() => setIsLoading(false), 100);
     }
   }, [accountInfo?.rbt_amount, accountInfo?.ft_count, userDetails?.network]);
-  useEffect(() => {
-    if (!isUserLoggedIn) {
-      return;
-    }
+  // useEffect(() => {
+  //   if (!isUserLoggedIn) {
+  //     return;
+  //   }
 
-    let pingInterval;
+  //   let pingInterval;
 
-    const connect = () => {
-      if (socketRef.current?.readyState === WebSocket.OPEN) {
-        socketRef.current.close();
-      }
+  //   const connect = () => {
+  //     if (socketRef.current?.readyState === WebSocket.OPEN) {
+  //       socketRef.current.close();
+  //     }
 
-      // Create WebSocket with the same configuration as Python
-      const ws = new WebSocket("wss://wbs-api.mexc.com/ws");
+  //     // Create WebSocket with the same configuration as Python
+  //     const ws = new WebSocket("wss://wbs-api.mexc.com/ws");
 
-      // Match Python's ping_interval and ping_timeout settings
-      ws.onopen = () => {
-       
-        // Use exact same subscription message as Python
-        const subscribeMessage = {
-          "method": "SUBSCRIPTION",
-          "params": [
-            "spot@public.miniTicker.v3.api.pb@RBTUSDT@UTC+8"
-          ]
-        };
-        ws.send(JSON.stringify(subscribeMessage));
+  //     // Match Python's ping_interval and ping_timeout settings
+  //     ws.onopen = () => {
 
-        // Set ping interval to match Python's 20 seconds
-        if (pingInterval) {
-          clearInterval(pingInterval);
-        }
-        pingInterval = setInterval(() => {
-          if (ws.readyState === WebSocket.OPEN) {
-            ws.send(JSON.stringify({ "ping": Date.now() }));
-          }
-        }, 20000);
-      };
+  //       // Use exact same subscription message as Python
+  //       const subscribeMessage = {
+  //         "method": "SUBSCRIPTION",
+  //         "params": [
+  //           "spot@public.miniTicker.v3.api.pb@RBTUSDT@UTC+8"
+  //         ]
+  //       };
+  //       ws.send(JSON.stringify(subscribeMessage));
 
-      ws.onmessage = async (event) => {
-        try {
+  //       // Set ping interval to match Python's 20 seconds
+  //       if (pingInterval) {
+  //         clearInterval(pingInterval);
+  //       }
+  //       pingInterval = setInterval(() => {
+  //         if (ws.readyState === WebSocket.OPEN) {
+  //           ws.send(JSON.stringify({ "ping": Date.now() }));
+  //         }
+  //       }, 20000);
+  //     };
 
-          let data;
-          if (event.data instanceof Blob) {
-            // First try as text in case it's a JSON message
-            try {
-              const text = await event.data.text();
-              // Find the line that contains the price data
-              const lines = text.split('\n');
+  //     ws.onmessage = async (event) => {
+  //       try {
 
-              // Look for price in the last line which contains the actual data
-              const priceLine = lines[2] || ''; // Get the last line or empty string
+  //         let data;
+  //         if (event.data instanceof Blob) {
+  //           // First try as text in case it's a JSON message
+  //           try {
+  //             const text = await event.data.text();
+  //             // Find the line that contains the price data
+  //             const lines = text.split('\n');
 
-              // Extract numbers using a more flexible regex
-              const numbers = priceLine.match(/\d+\.\d+/g) || [];
-              if (numbers.length > 0) {
-                // First number in the sequence is usually the price
-                const price = numbers[0];
-                // Second number is the change
-                const change = numbers.length > 1 ? numbers[1] : '0';
+  //             // Look for price in the last line which contains the actual data
+  //             const priceLine = lines[2] || ''; // Get the last line or empty string
 
-                data = {
-                  d: {
-                    s: 'RBTUSDT',
-                    price: parseFloat(price),
-                    r: parseFloat(change)
-                  },
-                  c: 'spot@public.miniTicker.v3.api.pb@RBTUSDT@UTC+5:30'
-                };
-              }
-            } catch (err) {
-            
-            }
-          } else {
-            
-            data = JSON.parse(event.data);
-          }
-          if (data?.d?.price) {
-            // Only update if we don't already have valid data or if this is newer data
-            if (!tickerData?.price || !tickerData?.r) {
-              setTickerData({
-                ...data?.d,
-                price: data?.d?.price
-              });
-            }
-          }
+  //             // Extract numbers using a more flexible regex
+  //             const numbers = priceLine.match(/\d+\.\d+/g) || [];
+  //             if (numbers.length > 0) {
+  //               // First number in the sequence is usually the price
+  //               const price = numbers[0];
+  //               // Second number is the change
+  //               const change = numbers.length > 1 ? numbers[1] : '0';
 
-        } catch (err) {
-          console.warn('WebSocket message parsing error:', err);
-        }
-      };
+  //               data = {
+  //                 d: {
+  //                   s: 'RBTUSDT',
+  //                   price: parseFloat(price),
+  //                   r: parseFloat(change)
+  //                 },
+  //                 c: 'spot@public.miniTicker.v3.api.pb@RBTUSDT@UTC+5:30'
+  //               };
+  //             }
+  //           } catch (err) {
 
-      ws.onerror = (error) => {
-        console.warn('WebSocket error:', error);
-      };
+  //           }
+  //         } else {
 
-      ws.onclose = () => {
-        // Clear ping interval
-        if (pingInterval) {
-          clearInterval(pingInterval);
-        }
+  //           data = JSON.parse(event.data);
+  //         }
+  //         if (data?.d?.price) {
+  //           // Only update if we don't already have valid data or if this is newer data
+  //           if (!tickerData?.price || !tickerData?.r) {
+  //             setTickerData({
+  //               ...data?.d,
+  //               price: data?.d?.price
+  //             });
+  //           }
+  //         }
 
-        // Attempt to reconnect if user is still logged in
-        if (isUserLoggedIn) {
-          setTimeout(connect, 5000);
-        }
-      };
+  //       } catch (err) {
+  //         console.warn('WebSocket message parsing error:', err);
+  //       }
+  //     };
 
-      // Assign the WebSocket to ref after all handlers are set up
-      socketRef.current = ws;
-    };
+  //     ws.onerror = (error) => {
+  //       console.warn('WebSocket error:', error);
+  //     };
 
-    // Initial connection
-    connect();
+  //     ws.onclose = () => {
+  //       // Clear ping interval
+  //       if (pingInterval) {
+  //         clearInterval(pingInterval);
+  //       }
 
-    // Cleanup on unmount or when user logs out
-    return () => {
-      if (pingInterval) {
-        clearInterval(pingInterval);
-      }
-      if (socketRef.current?.readyState === WebSocket.OPEN) {
-        socketRef.current.close();
-      }
-    };
-  }, []);
+  //       // Attempt to reconnect if user is still logged in
+  //       if (isUserLoggedIn) {
+  //         setTimeout(connect, 5000);
+  //       }
+  //     };
+
+  //     // Assign the WebSocket to ref after all handlers are set up
+  //     socketRef.current = ws;
+  //   };
+
+  //   // Initial connection
+  //   connect();
+
+  //   // Cleanup on unmount or when user logs out
+  //   return () => {
+  //     if (pingInterval) {
+  //       clearInterval(pingInterval);
+  //     }
+  //     if (socketRef.current?.readyState === WebSocket.OPEN) {
+  //       socketRef.current.close();
+  //     }
+  //   };
+  // }, []);
 
   // Function to fetch current ticker data via REST API
   const fetchCurrentTickerData = async () => {
@@ -373,7 +373,7 @@ export default function BalanceCard({ accountInfo, setIsTransactionCompleted }) 
                 return `${amount || 0} ${userDetails?.tokenSymbol || 'RBT'}`;
               })()}
             </motion.div>
-            {(() => {
+            {/* {(() => {
               const networkValue = userDetails?.network ?? (isUserLoggedIn ? 1 : null);
               return (Number(networkValue) === 1 || Number(networkValue) === 2);
             })() && (isLoading ? (<motion.div variants={itemVariants} className="w-24 h-6 bg-gray-700/30 rounded animate-pulse" />) : (
@@ -384,21 +384,21 @@ export default function BalanceCard({ accountInfo, setIsTransactionCompleted }) 
                     ? (accountInfo?.rbt_amount || 0)
                     : (accountInfo?.ft_count || 0);
                   const usdValue = tokenAmount * (conversionPrice || 0);
-                 
+
                   return usdValue.toFixed(2);
                 })()}
               </motion.div>
-            ))}
+            ))} */}
           </>
         )}
       </motion.div>
-      {(() => {
+      {/* {(() => {
         // Show 24hr change for Rubix networks (1 and 2)
         // If network is undefined/null, check if we're logged in - if yes, default to showing (network 1)
         const networkValue = userDetails?.network ?? (isUserLoggedIn ? 1 : null);
         // Convert to number for comparison to handle both string and number types
         const shouldShow24hr = (Number(networkValue) === 1 || Number(networkValue) === 2);
-       
+
         return shouldShow24hr;
       })() ? (<motion.div
         variants={itemVariants}
@@ -429,7 +429,7 @@ export default function BalanceCard({ accountInfo, setIsTransactionCompleted }) 
             </>
           )}
         </div>
-      </motion.div>) : null}
+      </motion.div>) : null} */}
     </motion.div >
   );
 }
