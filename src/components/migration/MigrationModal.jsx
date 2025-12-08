@@ -6,7 +6,7 @@ import ImportMnemonicModal from './ImportMnemonicModal';
 import Card from '../Card';
 import indexDBUtil from '../../indexDB';
 import toast from 'react-hot-toast';
-import { deriveKeysFromMnemonic, matchMnemonicToAccount } from '../../utils/migration';
+import { deriveKeysFromMnemonic } from '../../utils/migration';
 
 // Migration steps
 const STEPS = {
@@ -15,7 +15,7 @@ const STEPS = {
     COMPLETE: 3
 };
 
-const MigrationModal = ({ onComplete, onLock }) => {
+const MigrationModal = ({ onLock }) => {
     const [currentStep, setCurrentStep] = useState(STEPS.COLLECT_PASSWORDS);
     const [accounts, setAccounts] = useState([]);
     const [accountStates, setAccountStates] = useState({});
@@ -111,20 +111,6 @@ const MigrationModal = ({ onComplete, onLock }) => {
                 return { success: false, message: 'Account not found' };
             }
 
-            // Debug logging
-            console.log('=== Mnemonic Import Debug ===');
-            console.log('Account:', importingAccount);
-            console.log('Stored publickey:', targetAccount.publickey);
-            console.log('Stored publickey length:', targetAccount.publickey?.length);
-            console.log('NEW BIP32 compressed:', keys.compressedPublicKey);
-            console.log('NEW BIP32 uncompressed:', keys.uncompressedPublicKey);
-            console.log('LEGACY compressed:', keys.legacyCompressedPublicKey);
-            console.log('LEGACY uncompressed:', keys.legacyUncompressedPublicKey);
-            console.log('NEW BIP32 compressed match:', targetAccount.publickey === keys.compressedPublicKey);
-            console.log('NEW BIP32 uncompressed match:', targetAccount.publickey === keys.uncompressedPublicKey);
-            console.log('LEGACY compressed match:', targetAccount.publickey === keys.legacyCompressedPublicKey);
-            console.log('LEGACY uncompressed match:', targetAccount.publickey === keys.legacyUncompressedPublicKey);
-
             // Check if the mnemonic matches this account's public key
             // Try all possible derivation methods (new BIP32 and legacy)
             const isNewBIP32Match = targetAccount.publickey === keys.compressedPublicKey ||
@@ -150,7 +136,6 @@ const MigrationModal = ({ onComplete, onLock }) => {
             setImportingAccount(null);
             return { success: true };
         } catch (error) {
-            console.error('Mnemonic import error:', error);
             return { success: false, message: error.message || 'Invalid recovery phrase' };
         }
     };

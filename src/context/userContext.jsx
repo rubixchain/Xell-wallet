@@ -83,7 +83,7 @@ export const UserProvider = ({ children }) => {
                         };
                     }
                 } catch (error) {
-                    console.error('Error fetching user details:', error);
+                    // Error fetching user details
                 }
             }
 
@@ -135,7 +135,6 @@ export const UserProvider = ({ children }) => {
             setIsInitializing(false);
             navigate(ROUTES.DASHBOARD, { replace: true })
             } catch (error) {
-                console.error('UserContext initialization error:', error);
                 setIsInitializing(false);
                 navigate(ROUTES.LOGIN, { replace: true })
             }

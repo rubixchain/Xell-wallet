@@ -187,7 +187,6 @@ const DIDMigrationProgress = ({ unifiedPassword, onComplete, onError }) => {
             await migrateAccount(index + 1, accountsToUse);
 
         } catch (err) {
-            console.error(`Migration failed for account ${account.username}:`, err);
             updateAccountStatus(index, 'failed');
             setError(`Failed to migrate ${account.username}: ${err.message}`);
             setCurrentStep(MIGRATION_STEPS.FAILED);

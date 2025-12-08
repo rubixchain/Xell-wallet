@@ -16,8 +16,7 @@ getConfigPromise().then(() => {
       <App />
     </StrictMode>,
   )
-}).catch((error) => {
-  console.error('Config load error:', error);
+}).catch(() => {
   createRoot(document.getElementById('root')).render(
     <StrictMode>
       <App />

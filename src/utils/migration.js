@@ -147,7 +147,6 @@ export function matchMnemonicToAccount(mnemonic, accounts) {
 
         return matchedAccount || null;
     } catch (error) {
-        console.error('Error matching mnemonic to account:', error);
         return null;
     }
 }

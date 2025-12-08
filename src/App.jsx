@@ -40,7 +40,6 @@ function App() {
         await indexDBUtil.encryptData()
         await updateVersion()
       } catch (error) {
-        console.error('App initialization error:', error);
         // Still allow app to render even if initialization fails
       }
     })()

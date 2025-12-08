@@ -124,12 +124,6 @@ export async function setupTestData() {
             store.put(networkDetails);
 
             transaction.oncomplete = () => {
-                console.log('✅ Test data created successfully!');
-                console.log('📋 Test Accounts:');
-                TEST_ACCOUNTS.forEach(acc => {
-                    console.log(`   - ${acc.username} (PIN: ${acc.pin})`);
-                });
-                console.log('\n🔄 Close and reopen the extension to see migration modal');
                 resolve(true);
             };
 
@@ -145,7 +139,6 @@ export async function clearTestData() {
     return new Promise((resolve, reject) => {
         const request = indexedDB.deleteDatabase('WalletDB');
         request.onsuccess = () => {
-            console.log('✅ Database cleared!');
             localStorage.removeItem('currentUser');
             localStorage.removeItem('storageVersion');
             resolve(true);
@@ -173,19 +166,6 @@ export async function checkMigrationState() {
                 const version = versionReq.result?.value || 'not set';
                 const hasUnifiedPassword = !!userReq.result?.unifiedPassword;
                 const accountCount = userReq.result?.accounts?.length || 0;
-
-                console.log('📊 Migration State:');
-                console.log(`   Version: ${version}`);
-                console.log(`   Has Unified Password: ${hasUnifiedPassword}`);
-                console.log(`   Account Count: ${accountCount}`);
-
-                if (version <= 4) {
-                    console.log('   ➡️ Needs: Unified Password Migration');
-                } else if (version === 5) {
-                    console.log('   ➡️ Needs: DID Migration');
-                } else {
-                    console.log('   ✅ Fully Migrated');
-                }
 
                 resolve({ version, hasUnifiedPassword, accountCount });
             };

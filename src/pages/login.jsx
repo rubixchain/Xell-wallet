@@ -79,35 +79,24 @@ function Login() {
     // Check migration status on component mount
     const checkMigrationStatus = async () => {
         try {
-            console.log('Login: Checking migration status...');
             setIsCheckingMigration(true);
 
             // Check if unified password migration is needed (version <= 4)
-            console.log('Login: Calling needsMigration...');
             const needsPasswordMigration = await indexDBUtil.needsMigration();
-            console.log('Login: needsMigration result:', needsPasswordMigration);
 
             if (needsPasswordMigration) {
-                console.log('Login: Password migration needed, showing modal');
                 setShowMigrationModal(true);
                 setIsCheckingMigration(false);
                 return;
             }
 
             // Check if DID migration is needed (version === 5)
-            console.log('Login: Calling needsDIDMigration...');
-            const needsDIDMigration = await indexDBUtil.needsDIDMigration();
-            console.log('Login: needsDIDMigration result:', needsDIDMigration);
+            // User needs to enter unified password first, then DID migration starts
+            // This will be handled after login with unified password
+            await indexDBUtil.needsDIDMigration();
 
-            if (needsDIDMigration) {
-                // User needs to enter unified password first, then DID migration starts
-                // This will be handled after login with unified password
-            }
-
-            console.log('Login: Migration check complete, setting isCheckingMigration to false');
             setIsCheckingMigration(false);
         } catch (error) {
-            console.error('Login: Error checking migration status:', error);
             setIsCheckingMigration(false);
         }
     };
@@ -291,7 +280,6 @@ function Login() {
     if (showMigrationModal) {
         return (
             <MigrationModal
-                onComplete={() => setShowMigrationModal(false)}
                 onLock={handleMigrationLock}
             />
         );
