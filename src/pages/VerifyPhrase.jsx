@@ -52,8 +52,8 @@ export default function VerifyPhrase() {
         return
       }
       setLoader(true)
-      indexDBUtil.setCurrentVersion()
-      indexDBUtil.storeNetworkSetting({
+      await indexDBUtil.setCurrentVersion(5)
+      await indexDBUtil.storeNetworkSetting({
         network: userDetails?.network,
         RPCUrl: config?.RUBIX_MAINNET_BASE_URL,
         name: "Rubix Mainnet",

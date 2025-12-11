@@ -47,8 +47,8 @@ export default function RecoveryPhrase() {
   const onSkip = async () => {
     try {
       setLoader(true)
-      indexDBUtil.setCurrentVersion()
-      indexDBUtil.storeNetworkSetting({
+      await indexDBUtil.setCurrentVersion(5)
+      await indexDBUtil.storeNetworkSetting({
         network: userDetails?.network || 1,
         RPCUrl: config?.RUBIX_MAINNET_BASE_URL,
         name: "Rubix Mainnet",
