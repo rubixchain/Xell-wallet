@@ -1,12 +1,35 @@
 import toast from "react-hot-toast";
 import * as bip39 from 'bip39';
 import { END_POINTS } from "../api/endpoints";
-import bip32 from 'bip32';
+import { BIP32Factory } from 'bip32';
+import * as ecc from 'tiny-secp256k1';
 import secp256k1 from 'secp256k1';
 import { generateSignature } from "../utils";
 import CryptoJS from 'crypto-js';
 import { config, NETWORK_TYPES } from "../../config";
 import axios from "axios";
+
+// Initialize BIP32 with tiny-secp256k1
+const bip32 = BIP32Factory(ecc);
+
+// Helper function to convert hex string to Uint8Array (browser-compatible)
+function hexToUint8Array(hexString) {
+    if (hexString.length % 2 !== 0) {
+        throw new Error('Invalid hex string');
+    }
+    const bytes = new Uint8Array(hexString.length / 2);
+    for (let i = 0; i < hexString.length; i += 2) {
+        bytes[i / 2] = parseInt(hexString.substr(i, 2), 16);
+    }
+    return bytes;
+}
+
+// Helper function to convert Uint8Array to hex string (browser-compatible)
+function uint8ArrayToHex(uint8Array) {
+    return Array.from(uint8Array)
+        .map(byte => byte.toString(16).padStart(2, '0'))
+        .join('');
+}
 
 const indexDBUtil = {
     dbName: 'WalletDB',
@@ -90,9 +113,9 @@ const indexDBUtil = {
                         resolve({ status: false, message: 'Recovery key verified successfully' });
                         return;
                     }
-                    const privateKeyBuffer = Buffer.from(key, 'hex');
-                    const publicKeyBuffer = secp256k1.publicKeyCreate(privateKeyBuffer, true);
-                    const publicKeyHex = Buffer.from(publicKeyBuffer).toString('hex');
+                    const privateKeyUint8 = hexToUint8Array(key);
+                    const publicKeyUint8 = secp256k1.publicKeyCreate(privateKeyUint8, false);
+                    const publicKeyHex = uint8ArrayToHex(publicKeyUint8);
 
                     // Compare new seed with existing account seeds
                     const exists = data.accounts.some(account => {
@@ -367,19 +390,32 @@ const indexDBUtil = {
     savePrivateKey: async function (key, data) {
         try {
             const db = await this.initDB();
-            const result = bip39.mnemonicToSeedSync(data?.originalPhrase);
-            let privateKey = result.slice(0, 32);
-            if (!secp256k1.privateKeyVerify(privateKey)) {
+            // BIP32 key derivation - correct implementation
+            const seed = bip39.mnemonicToSeedSync(data?.originalPhrase);
+            const root = bip32.fromSeed(seed);
+            const child = root.derivePath("m/0");
+            let privateKeyUint8 = child.privateKey;
+            if (!secp256k1.privateKeyVerify(privateKeyUint8)) {
                 toast.error('invalid private key');
                 return;
             }
-            const publicKeyBuffer = secp256k1.publicKeyCreate(privateKey, true);
-            let publicKey = Buffer.from(publicKeyBuffer).toString('hex');
-            privateKey = privateKey?.toString('hex');
-            if (publicKey.length !== 66) {
-                toast.error('invalid private key');
+            // Use uncompressed public key (130 chars) to match Go/Python backend
+            const publicKeyUint8 = secp256k1.publicKeyCreate(privateKeyUint8, false);
+            let publicKey = uint8ArrayToHex(publicKeyUint8);
+            let privateKey = uint8ArrayToHex(privateKeyUint8);
+            if (publicKey.length !== 130) {
+                toast.error('invalid public key');
                 return;
             }
+
+            // Debug logging - remove in production
+            console.log('=== BIP32 Key Generation (Create Wallet) ===');
+            console.log('Mnemonic:', data?.originalPhrase);
+            console.log('Private Key:', privateKey);
+            console.log('Public Key:', publicKey);
+            console.log('Public Key Length:', publicKey.length);
+            console.log('============================================');
+
             const isPrivateKeyExists = await this.checkPrivateKeyExists(privateKey);
 
             if (isPrivateKeyExists?.status) {

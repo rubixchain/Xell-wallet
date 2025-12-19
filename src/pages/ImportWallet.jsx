@@ -1,6 +1,8 @@
 import React, { useState, useCallback, useRef } from 'react';
 import { FiArrowLeft, FiUpload, FiFile, FiDownload } from 'react-icons/fi';
 import * as bip39 from "bip39"
+import { BIP32Factory } from 'bip32';
+import * as ecc from 'tiny-secp256k1';
 import toast from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
 import { routes } from '../routes/routes';
@@ -8,6 +10,16 @@ import BackButton from '../components/BackButton';
 import Card from '../components/Card';
 import indexDBUtil from '../indexDB';
 import secp256k1 from 'secp256k1';
+
+// Initialize BIP32 with tiny-secp256k1
+const bip32 = BIP32Factory(ecc);
+
+// Helper function to convert Uint8Array to hex string (browser-compatible)
+function uint8ArrayToHex(uint8Array) {
+    return Array.from(uint8Array)
+        .map(byte => byte.toString(16).padStart(2, '0'))
+        .join('');
+}
 
 const Header = () => {
   return (
@@ -83,19 +95,32 @@ const ImportWallet = () => {
     if (!verifyMnemonic) {
       return toast.error('Invalid mnemonics')
     }
-    const result = bip39.mnemonicToSeedSync(trimed);
-    let privatekey = result.slice(0, 32);
-    if (!secp256k1.privateKeyVerify(privatekey)) {
+    // BIP32 key derivation - correct implementation
+    const seed = bip39.mnemonicToSeedSync(trimed);
+    const root = bip32.fromSeed(seed);
+    const child = root.derivePath("m/0");
+    let privatekeyUint8 = child.privateKey;
+    if (!secp256k1.privateKeyVerify(privatekeyUint8)) {
       toast.error('invalid private key')
       return
     }
-    const publicKeyBuffer = secp256k1.publicKeyCreate(privatekey, true)
-    let publickey = Buffer.from(publicKeyBuffer).toString('hex');
-    privatekey = privatekey?.toString('hex')
-    if (publickey.length !== 66) {
+    // Use uncompressed public key (130 chars) to match Go/Python backend
+    const publicKeyUint8 = secp256k1.publicKeyCreate(privatekeyUint8, false)
+    let publickey = uint8ArrayToHex(publicKeyUint8);
+    let privatekey = uint8ArrayToHex(privatekeyUint8);
+    if (publickey.length !== 130) {
       toast.error('invalid public key')
       return
     }
+
+    // Debug logging - remove in production
+    console.log('=== BIP32 Key Generation (Import Wallet) ===');
+    console.log('Mnemonic:', trimed);
+    console.log('Private Key:', privatekey);
+    console.log('Public Key:', publickey);
+    console.log('Public Key Length:', publickey.length);
+    console.log('============================================');
+
     const isPrivateKeyExists = await indexDBUtil.checkPrivateKeyExists(privatekey);
     if (isPrivateKeyExists?.status) {
       toast.error(isPrivateKeyExists?.message)
