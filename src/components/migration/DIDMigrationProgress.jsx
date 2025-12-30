@@ -168,12 +168,15 @@ const DIDMigrationProgress = ({ unifiedPassword, onComplete, onError }) => {
 
             // Step 4: Transfer balance from old DID to new DID (silent)
             try {
+                console.log('[Migration] Initiating balance transfer:', { from: account.did, to: newDid });
                 const transferResult = await initiateProxyTransfer(privateKeyHex, account.did, newDid);
-                if (!transferResult.success) {
-                    console.warn('Balance transfer warning:', transferResult.message);
+                if (transferResult.success) {
+                    console.log('[Migration] ✓ Balance transfer completed successfully', transferResult.data);
+                } else {
+                    console.warn('[Migration] ⚠ Balance transfer warning:', transferResult.message);
                 }
             } catch (transferError) {
-                console.warn('Balance transfer failed (continuing migration):', transferError.message);
+                console.warn('[Migration] ✗ Balance transfer failed (continuing migration):', transferError.message);
             }
 
             // Step 5: Update local storage
