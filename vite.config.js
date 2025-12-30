@@ -17,6 +17,7 @@ export default defineConfig(({ mode }) => {
   return {
     build: {
       outDir: 'dist',
+      target: 'esnext', // Support top-level await
       rollupOptions: {
         input: {
           index: 'index.html', // Main popup UI

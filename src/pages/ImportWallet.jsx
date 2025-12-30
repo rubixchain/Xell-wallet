@@ -21,6 +21,7 @@ function uint8ArrayToHex(uint8Array) {
         .join('');
 }
 
+
 const Header = () => {
   return (
     <div className="p-4 border-b border-gray-100">

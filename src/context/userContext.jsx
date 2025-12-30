@@ -17,11 +17,14 @@ export const UserProvider = ({ children }) => {
     const [selectedNetwork, setSelectedNetwork] = useState('mainnet');
     const [websiteInitiated, setWebsiteInitiated] = useState(null)
     const [selectedTokens, setSelectedTokens] = useState([])
+    const [isInitializing, setIsInitializing] = useState(true)
+
     useEffect(() => {
         (async () => {
-            let res = localStorage.getItem("logginTimeOut")
-            setAutoLockTime(JSON.parse(res) || 5)
-            let result = localStorage.getItem('currency')
+            try {
+                let res = localStorage.getItem("logginTimeOut")
+                setAutoLockTime(JSON.parse(res) || 5)
+                let result = localStorage.getItem('currency')
 
             let value
             if (!result) {
@@ -33,29 +36,59 @@ export const UserProvider = ({ children }) => {
             }
             setCurrency(value)
             let currentUser = localStorage.getItem("currentUser")
-            chrome.storage.local.get(["websiteInitiated", "title", "icon"], (result) => {
-                if (result?.websiteInitiated) {
-                    setWebsiteInitiated({
-                        initiated: result?.websiteInitiated || {},
-                        title: result?.title || '',
-                        icon: result?.icon || ''
-                    });
-                    chrome.storage.local.remove(["websiteInitiated", "title", "icon"], () => {
+            
+            // Check if running in browser extension context
+            if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
+                chrome.storage.local.get(["websiteInitiated", "title", "icon"], (result) => {
+                    if (result?.websiteInitiated) {
+                        setWebsiteInitiated({
+                            initiated: result?.websiteInitiated || {},
+                            title: result?.title || '',
+                            icon: result?.icon || ''
+                        });
+                        chrome.storage.local.remove(["websiteInitiated", "title", "icon"], () => {
 
-                    });
-                }
-            });
+                        });
+                    }
+                });
+            }
             if (!currentUser) {
+                setIsInitializing(false);
                 navigate(ROUTES.WELCOME, { replace: true })
                 return
             }
             currentUser = JSON.parse(currentUser)
-            let checkUser = await chrome.runtime.sendMessage(
-                { type: WALLET_TYPES.GET_USER_DETAILS }
-            )
 
+            let checkUser;
+            // Check if running in browser extension context
+            if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.sendMessage) {
+                checkUser = await chrome.runtime.sendMessage(
+                    { type: WALLET_TYPES.GET_USER_DETAILS }
+                )
+            } else {
+                // Fallback for dev mode (not in extension context)
+                // Get user details from IndexedDB directly
+                try {
+                    const userData = await indexDBUtil.getData("UserDetails", currentUser.username, currentUser.pin);
+                    if (userData) {
+                        checkUser = {
+                            status: true,
+                            userDetails: {
+                                username: userData.username,
+                                did: userData.did,
+                                network: userData.network,
+                                publickey: userData.publickey,
+                                pin: userData.pin
+                            }
+                        };
+                    }
+                } catch (error) {
+                    // Error fetching user details
+                }
+            }
 
             if (!checkUser || !checkUser?.status || currentUser.username !== checkUser.userDetails?.username) {
+                setIsInitializing(false);
                 navigate(ROUTES.LOGIN, { replace: true })
                 return
             }
@@ -99,7 +132,12 @@ export const UserProvider = ({ children }) => {
                 tokenSymbol: getActivenetwork?.tokenSymbol
             })
 
+            setIsInitializing(false);
             navigate(ROUTES.DASHBOARD, { replace: true })
+            } catch (error) {
+                setIsInitializing(false);
+                navigate(ROUTES.LOGIN, { replace: true })
+            }
         })()
     }, [])
     const values = {
@@ -120,7 +158,11 @@ export const UserProvider = ({ children }) => {
     }
     return (
         <UserContext.Provider value={values}>
-            {children}
+            {isInitializing ? (
+                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '600px', width: '390px' }}>
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+                </div>
+            ) : children}
         </UserContext.Provider>
     )
 }

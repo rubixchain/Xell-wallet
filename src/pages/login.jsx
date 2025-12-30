@@ -12,6 +12,7 @@ import { ROUTES } from '../utils/constants';
 import { EXECUTE_API } from '../utils';
 import { WALLET_TYPES } from '../enums';
 import { ENUMS } from '../enums';
+import { MigrationModal, DIDMigrationProgress } from '../components/migration';
 
 
 // Logo Component
@@ -38,6 +39,12 @@ function Login() {
     const navigate = useNavigate()
     const popupRef = useRef(null)
 
+    // Migration states
+    const [showMigrationModal, setShowMigrationModal] = useState(false);
+    const [showDIDMigration, setShowDIDMigration] = useState(false);
+    const [unifiedPassword, setUnifiedPassword] = useState('');
+    const [isCheckingMigration, setIsCheckingMigration] = useState(true);
+
     useEffect(() => {
         function handleClickOutside(event) {
             if (popupRef.current && !popupRef.current.contains(event.target)) {
@@ -52,6 +59,9 @@ function Login() {
 
     useEffect(() => {
         (async () => {
+            // Check if migration is needed
+            await checkMigrationStatus();
+
             let res = await indexDBUtil.getData()
             if (res?.status) {
                 setUsers(res?.data)
@@ -61,81 +71,232 @@ function Login() {
                 setSelectedUser(JSON.parse(currentUser))
                 return
             }
-            // if (userDetails?.username) {
-            //     setSelectedUser(userDetails)
-            //     return
-            // }
             setSelectedUser(res?.data[0])
         })()
 
     }, [userDetails])
 
+    // Check migration status on component mount
+    const checkMigrationStatus = async () => {
+        try {
+            setIsCheckingMigration(true);
+
+            // Check if unified password migration is needed (version <= 4)
+            const needsPasswordMigration = await indexDBUtil.needsMigration();
+
+            if (needsPasswordMigration) {
+                setShowMigrationModal(true);
+                setIsCheckingMigration(false);
+                return;
+            }
+
+            // Check if DID migration is needed (version === 5)
+            // User needs to enter unified password first, then DID migration starts
+            // This will be handled after login with unified password
+            await indexDBUtil.needsDIDMigration();
+
+            setIsCheckingMigration(false);
+        } catch (error) {
+            setIsCheckingMigration(false);
+        }
+    };
 
     const handlePinComplete = (enteredPin) => {
         setPin(enteredPin);
     };
 
-
     const handleUnlock = async () => {
         if (pin.length === 6) {
-            let res = await indexDBUtil.validateAndGetAccount(selectedUser?.username, pin)
-            if (!res?.status) {
-                toast.error(res?.message)
-                setAttempts(prev => prev - 1)
-                if (attempts == 1) {
-                    navigate(ROUTES.WELCOME, { replace: true })
-                }
-                return
-            }
-            let getActivenetwork = await indexDBUtil.getNetworksByDID(res?.data?.did) || []
-            getActivenetwork = getActivenetwork?.find(item => item?.selected)
-            if (getActivenetwork) {
-                getActivenetwork = {
-                    network: getActivenetwork?.id,
-                    RPCUrl: getActivenetwork?.rpcUrls?.find(item => item?.selected)?.url,
-                    name: getActivenetwork?.name,
-                    tokenSymbol: getActivenetwork?.tokenSymbol
-                }
-            }
-            toast.success('login success')
-            indexDBUtil.setCurrentVersion()
-            indexDBUtil.storeNetworkSetting({
-                network: getActivenetwork?.network,
-                RPCUrl: getActivenetwork?.RPCUrl,
-                name: getActivenetwork?.name,
-                tokenSymbol: getActivenetwork?.tokenSymbol
-            })
-            localStorage.setItem('currency', JSON.stringify({ label: '$ USD - US Dollar', value: 'USD' }))
-            localStorage.setItem("currentUser", JSON.stringify({
-                username: res?.data?.username,
-                network: res?.data?.network
-            }))
-            await EXECUTE_API({
-                data: {
-                    ...res?.data,
-                    tokenSymbol: getActivenetwork?.tokenSymbol
+            // Check if we need to use unified password validation
+            const hasUnified = await indexDBUtil.hasUnifiedPassword();
 
-                },
-                type: WALLET_TYPES.STORE_USER_DETAILS
-            });
-            setIsUserLoggedIn(true)
-            setUserDetails({
-                ...res?.data,
-                did: res?.data?.did,
-                username: res?.data?.username,
-                network: res?.data?.network,
-                pin: res?.data?.pin,
-                tokenSymbol: getActivenetwork?.tokenSymbol
-            })
-            
-            localStorage.setItem("currentUser", JSON.stringify({
-                username: res?.data?.username,
-                network: res?.data?.network
-            }))
-            localStorage.setItem(ENUMS.INITIAL_ACTIVE_TIME, JSON.stringify(Date.now()))
-            navigate(routes.DASHBOARD, { replace: true })
+            if (hasUnified) {
+                // Validate using unified password
+                const isValid = await indexDBUtil.validateUnifiedPassword(pin);
+                if (!isValid) {
+                    toast.error('Invalid password');
+                    setAttempts(prev => prev - 1);
+                    if (attempts == 1) {
+                        navigate(ROUTES.WELCOME, { replace: true });
+                    }
+                    return;
+                }
+
+                // Check if DID migration is pending (version === 5)
+                const needsDIDMigration = await indexDBUtil.needsDIDMigration();
+                if (needsDIDMigration) {
+                    setUnifiedPassword(pin);
+                    setShowDIDMigration(true);
+                    return;
+                }
+
+                // Normal login with unified password - get first account's data
+                const accounts = await indexDBUtil.getAllAccountsForMigration();
+                if (accounts.length === 0) {
+                    toast.error('No accounts found');
+                    return;
+                }
+
+                // Use selected user or first account
+                const targetUsername = selectedUser?.username || accounts[0].username;
+                const res = await indexDBUtil.getDecryptedAccountData(targetUsername, pin);
+
+                if (!res.status) {
+                    toast.error(res.message || 'Failed to get account data');
+                    return;
+                }
+
+                await completeLogin(res.data, pin);
+            } else {
+                // Original login flow (before migration)
+                let res = await indexDBUtil.validateAndGetAccount(selectedUser?.username, pin)
+                if (!res?.status) {
+                    toast.error(res?.message)
+                    setAttempts(prev => prev - 1)
+                    if (attempts == 1) {
+                        navigate(ROUTES.WELCOME, { replace: true })
+                    }
+                    return
+                }
+
+                await completeLogin(res.data, pin);
+            }
         }
     };
+
+    const completeLogin = async (userData, pinValue) => {
+        let getActivenetwork = await indexDBUtil.getNetworksByDID(userData?.did) || []
+        getActivenetwork = getActivenetwork?.find(item => item?.selected)
+        if (getActivenetwork) {
+            getActivenetwork = {
+                network: getActivenetwork?.id,
+                RPCUrl: getActivenetwork?.rpcUrls?.find(item => item?.selected)?.url,
+                name: getActivenetwork?.name,
+                tokenSymbol: getActivenetwork?.tokenSymbol
+            }
+        }
+        toast.success('Login successful')
+        indexDBUtil.storeNetworkSetting({
+            network: getActivenetwork?.network,
+            RPCUrl: getActivenetwork?.RPCUrl,
+            name: getActivenetwork?.name,
+            tokenSymbol: getActivenetwork?.tokenSymbol
+        })
+        localStorage.setItem('currency', JSON.stringify({ label: '$ USD - US Dollar', value: 'USD' }))
+        localStorage.setItem("currentUser", JSON.stringify({
+            username: userData?.username,
+            network: userData?.network
+        }))
+        await EXECUTE_API({
+            data: {
+                ...userData,
+                pin: pinValue,
+                tokenSymbol: getActivenetwork?.tokenSymbol
+
+            },
+            type: WALLET_TYPES.STORE_USER_DETAILS
+        });
+        setIsUserLoggedIn(true)
+        setUserDetails({
+            ...userData,
+            did: userData?.did,
+            username: userData?.username,
+            network: userData?.network,
+            pin: pinValue,
+            tokenSymbol: getActivenetwork?.tokenSymbol
+        })
+
+        localStorage.setItem("currentUser", JSON.stringify({
+            username: userData?.username,
+            network: userData?.network
+        }))
+        localStorage.setItem(ENUMS.INITIAL_ACTIVE_TIME, JSON.stringify(Date.now()))
+        navigate(routes.DASHBOARD, { replace: true })
+    };
+
+    // Handle migration modal lock (after unified password is set)
+    const handleMigrationLock = async () => {
+        setShowMigrationModal(false);
+        setPin('');
+
+        // Reload account list to reflect deleted accounts
+        const res = await indexDBUtil.getData();
+        if (res?.status) {
+            setUsers(res?.data);
+
+            // Update selected user if it was deleted
+            const currentUser = localStorage.getItem("currentUser");
+            if (currentUser) {
+                const parsedUser = JSON.parse(currentUser);
+                const userStillExists = res?.data.find(u => u.username === parsedUser.username);
+                if (userStillExists) {
+                    setSelectedUser(parsedUser);
+                } else {
+                    // Select first available account
+                    setSelectedUser(res?.data[0]);
+                }
+            } else {
+                setSelectedUser(res?.data[0]);
+            }
+        }
+
+        // Reset state to show login screen
+        // User will now login with unified password, which triggers DID migration
+    };
+
+    // Handle DID migration complete
+    const handleDIDMigrationComplete = async () => {
+        setShowDIDMigration(false);
+
+        // Now complete the login
+        if (unifiedPassword && selectedUser?.username) {
+            const res = await indexDBUtil.getDecryptedAccountData(selectedUser.username, unifiedPassword);
+            if (res.status) {
+                await completeLogin(res.data, unifiedPassword);
+            }
+        }
+    };
+
+    // Handle DID migration error
+    const handleDIDMigrationError = (error) => {
+        toast.error(error);
+        setShowDIDMigration(false);
+        setUnifiedPassword('');
+    };
+
+    // Show loading while checking migration
+    if (isCheckingMigration) {
+        return (
+            <Card>
+                <div className="flex w-full h-full flex-col justify-center items-center">
+                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+                    <p className="mt-4 text-quinary">Loading...</p>
+                </div>
+            </Card>
+        );
+    }
+
+    // Show unified password migration modal
+    if (showMigrationModal) {
+        return (
+            <MigrationModal
+                onLock={handleMigrationLock}
+            />
+        );
+    }
+
+    // Show DID migration progress
+    if (showDIDMigration) {
+        return (
+            <Card>
+                <DIDMigrationProgress
+                    unifiedPassword={unifiedPassword}
+                    onComplete={handleDIDMigrationComplete}
+                    onError={handleDIDMigrationError}
+                />
+            </Card>
+        );
+    }
 
     return (
         <Card>
