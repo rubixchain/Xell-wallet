@@ -113,14 +113,6 @@ const ImportWallet = () => {
       return
     }
 
-    // Debug logging - remove in production
-    console.log('=== BIP32 Key Generation (Import Wallet) ===');
-    console.log('Mnemonic:', trimed);
-    console.log('Private Key:', privatekey);
-    console.log('Public Key:', publickey);
-    console.log('Public Key Length:', publickey.length);
-    console.log('============================================');
-
     const isPrivateKeyExists = await indexDBUtil.checkPrivateKeyExists(privatekey);
     if (isPrivateKeyExists?.status) {
       toast.error(isPrivateKeyExists?.message)

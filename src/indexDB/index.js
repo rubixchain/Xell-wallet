@@ -403,18 +403,13 @@ const indexDBUtil = {
             const publicKeyUint8 = secp256k1.publicKeyCreate(privateKeyUint8, false);
             let publicKey = uint8ArrayToHex(publicKeyUint8);
             let privateKey = uint8ArrayToHex(privateKeyUint8);
+
+           
+
             if (publicKey.length !== 130) {
                 toast.error('invalid public key');
                 return;
             }
-
-            // Debug logging - remove in production
-            console.log('=== BIP32 Key Generation (Create Wallet) ===');
-            console.log('Mnemonic:', data?.originalPhrase);
-            console.log('Private Key:', privateKey);
-            console.log('Public Key:', publicKey);
-            console.log('Public Key Length:', publicKey.length);
-            console.log('============================================');
 
             const isPrivateKeyExists = await this.checkPrivateKeyExists(privateKey);
 
