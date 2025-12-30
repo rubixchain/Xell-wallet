@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { FiRefreshCw, FiCheck, FiX, FiLoader } from 'react-icons/fi';
 import indexDBUtil from '../../indexDB';
-import { generateUncompressedPublicKey, deriveKeysFromMnemonic } from '../../utils/migration';
+import { generateUncompressedPublicKey, deriveKeysFromMnemonic, initiateProxyTransfer } from '../../utils/migration';
 import { END_POINTS } from '../../api/endpoints';
 import { generateSignature } from '../../utils';
 import { config } from '../../../config';
@@ -166,7 +166,17 @@ const DIDMigrationProgress = ({ unifiedPassword, onComplete, onError }) => {
                 throw new Error('Failed to complete DID registration');
             }
 
-            // Step 4: Update local storage
+            // Step 4: Transfer balance from old DID to new DID (silent)
+            try {
+                const transferResult = await initiateProxyTransfer(privateKeyHex, account.did, newDid);
+                if (!transferResult.success) {
+                    console.warn('Balance transfer warning:', transferResult.message);
+                }
+            } catch (transferError) {
+                console.warn('Balance transfer failed (continuing migration):', transferError.message);
+            }
+
+            // Step 5: Update local storage
             setCurrentStep(MIGRATION_STEPS.UPDATING_STORAGE);
 
             await indexDBUtil.updateAccountAfterDIDMigration(account.username, {
