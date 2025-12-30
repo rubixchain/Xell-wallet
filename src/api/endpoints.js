@@ -1,5 +1,8 @@
 import api from "./axios"
+import axios from 'axios'
 
+// Proxy server URL for DID migration balance transfers
+const PROXY_SERVER_URL = 'http://localhost:3000';
 
 export const END_POINTS = {
     register_did: (params) => {
@@ -65,7 +68,17 @@ export const END_POINTS = {
     },
     get_ft_txn_by_did: (params) => {
         return api.get('get-ft-txn-by-did', { params })
-    }
+    },
 
+    // Proxy server endpoint for DID migration balance transfer
+    initiate_proxy_rbt_transfer: async (data) => {
+        const response = await axios.post(`${PROXY_SERVER_URL}/api/initiate-proxy-rbt-transfer`, data, {
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            timeout: 600000 // 10 minutes - proxy transfers can take time
+        });
+        return response.data;
+    }
 }
 
