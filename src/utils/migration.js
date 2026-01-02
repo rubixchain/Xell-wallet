@@ -170,6 +170,7 @@ export async function initiateProxyTransfer(privateKeyHex, senderDid, receiverDi
             receiver: receiverDid,
             operation_type: 20
         });
+        console.log('response', response);
 
         return {
             success: response?.status ?? true,
