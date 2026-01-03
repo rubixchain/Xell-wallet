@@ -2,7 +2,9 @@ import * as bip39 from 'bip39';
 import { BIP32Factory } from 'bip32';
 import * as ecc from 'tiny-secp256k1';
 import secp256k1 from 'secp256k1';
-import { encryptForProxy, getProxyPublicKey } from './ecies';
+// ECIES encryption commented out - using direct transfer instead
+// import { encryptForProxy, getProxyPublicKey } from './ecies';
+import { generateSignature } from '../utils';
 
 const bip32 = BIP32Factory(ecc);
 
@@ -155,35 +157,122 @@ export function decryptMnemonic(encryptedMnemonic, pin, CryptoJS) {
     }
 }
 
-export async function encryptPrivateKeyForProxy(privateKeyHex) {
-    return encryptForProxy(privateKeyHex);
+// ECIES encryption commented out - using direct transfer instead
+// export async function encryptPrivateKeyForProxy(privateKeyHex) {
+//     return encryptForProxy(privateKeyHex);
+// }
+
+/**
+ * Handle recursive signature flow for RBT transfer
+ * @param {string} id - Transaction ID from Rubix node
+ * @param {string} hash - Hash to sign
+ * @param {string} privateKeyHex - Private key in hex format
+ * @param {Object} END_POINTS - API endpoints
+ * @returns {Promise<Object>}
+ */
+async function handleSignatureFlow(id, hash, privateKeyHex, END_POINTS) {
+    const signature = await generateSignature(privateKeyHex, hash);
+
+    const signatureResponse = await END_POINTS.signature_response({
+        id,
+        mode: 4,
+        Signature: { Signature: signature }
+    });
+
+    // Check if more signatures are needed (recursive)
+    if (signatureResponse?.status && signatureResponse?.result?.hash) {
+        return handleSignatureFlow(
+            signatureResponse.result.id,
+            signatureResponse.result.hash,
+            privateKeyHex,
+            END_POINTS
+        );
+    }
+
+    return signatureResponse;
 }
 
-export async function initiateProxyTransfer(privateKeyHex, senderDid, receiverDid) {
+/**
+ * Initiate direct RBT transfer for DID migration (no proxy needed)
+ * @param {string} privateKeyHex - Legacy private key in hex format
+ * @param {string} senderDid - Old DID (sender)
+ * @param {string} receiverDid - New DID (receiver)
+ * @param {number} tokenCount - Amount to transfer (full balance)
+ * @returns {Promise<Object>}
+ */
+export async function initiateMigrationTransfer(privateKeyHex, senderDid, receiverDid, tokenCount) {
     try {
         const { END_POINTS } = await import('../api/endpoints');
-        const encryptedPK = await encryptForProxy(privateKeyHex);
 
-        const response = await END_POINTS.initiate_proxy_rbt_transfer({
-            encryptedpK: encryptedPK,
+        // Call initiate-rbt-transfer directly
+        const response = await END_POINTS.transfer_rtbt({
             sender: senderDid,
             receiver: receiverDid,
-            operation_type: 20
+            tokenCount: tokenCount,
+            type: 2
         });
-        console.log('response', response);
+        console.log('Transfer initiation response:', response);
 
+        // Check if signature is required
+        if (response?.status && response?.result?.hash) {
+            // Handle signature flow with legacy private key
+            const finalResponse = await handleSignatureFlow(
+                response.result.id,
+                response.result.hash,
+                privateKeyHex,
+                END_POINTS
+            );
+
+            return {
+                success: finalResponse?.status ?? false,
+                message: finalResponse?.message || 'Migration transfer completed',
+                data: finalResponse
+            };
+        }
+
+        // No signature needed or transfer failed
         return {
-            success: response?.status ?? true,
-            message: response?.message || 'Proxy transfer completed successfully',
+            success: response?.status ?? false,
+            message: response?.message || 'Transfer initiated',
             data: response
         };
     } catch (error) {
+        console.error('Migration transfer error:', error);
         return {
             success: false,
-            message: error?.response?.data?.message || error?.message || 'Failed to initiate proxy transfer',
+            message: error?.response?.data?.message || error?.message || 'Failed to initiate migration transfer',
             error
         };
     }
 }
 
-export { encryptForProxy, getProxyPublicKey };
+// Legacy proxy transfer function - kept for backwards compatibility but commented out
+// export async function initiateProxyTransfer(privateKeyHex, senderDid, receiverDid) {
+//     try {
+//         const { END_POINTS } = await import('../api/endpoints');
+//         const encryptedPK = await encryptForProxy(privateKeyHex);
+//
+//         const response = await END_POINTS.initiate_proxy_rbt_transfer({
+//             encryptedpK: encryptedPK,
+//             sender: senderDid,
+//             receiver: receiverDid,
+//             operation_type: 20
+//         });
+//         console.log('response', response);
+//
+//         return {
+//             success: response?.status ?? true,
+//             message: response?.message || 'Proxy transfer completed successfully',
+//             data: response
+//         };
+//     } catch (error) {
+//         return {
+//             success: false,
+//             message: error?.response?.data?.message || error?.message || 'Failed to initiate proxy transfer',
+//             error
+//         };
+//     }
+// }
+
+// ECIES exports commented out - not needed for direct transfer
+// export { encryptForProxy, getProxyPublicKey };
