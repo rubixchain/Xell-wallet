@@ -166,17 +166,27 @@ const DIDMigrationProgress = ({ unifiedPassword, onComplete, onError }) => {
                 throw new Error('Failed to complete DID registration');
             }
 
-            // Step 4: Transfer balance from old DID to new DID (silent)
+            // Step 4: Transfer balance from old DID to new DID via proxy (silent)
             try {
-                console.log('[Migration] Initiating balance transfer:', { from: account.did, to: newDid });
-                const transferResult = await initiateProxyTransfer(privateKeyHex, account.did, newDid);
-                if (transferResult.success) {
-                    console.log('[Migration] ✓ Balance transfer completed successfully', transferResult.data);
+                console.log('[Migration] Initiating proxy balance transfer:', { from: account.did, to: newDid });
+
+                // Get account balance first to check if transfer is needed
+                const accountInfo = await customApi.get('/get-account-info', { params: { did: account.did } });
+                const balance = accountInfo?.data?.account_info?.[0]?.rbt_amount || 0;
+
+                if (balance > 0) {
+                    // Use proxy transfer with ECIES encryption - proxy handles the full balance
+                    const transferResult = await initiateProxyTransfer(privateKeyHex, account.did, newDid);
+                    if (transferResult.success) {
+                        console.log('[Migration] ✓ Proxy balance transfer completed successfully', transferResult.data);
+                    } else {
+                        console.warn('[Migration] ⚠ Proxy balance transfer warning:', transferResult.message);
+                    }
                 } else {
-                    console.warn('[Migration] ⚠ Balance transfer warning:', transferResult.message);
+                    console.log('[Migration] No balance to transfer, skipping');
                 }
             } catch (transferError) {
-                console.warn('[Migration] ✗ Balance transfer failed (continuing migration):', transferError.message);
+                console.warn('[Migration] ✗ Proxy balance transfer failed (continuing migration):', transferError.message);
             }
 
             // Step 5: Update local storage
