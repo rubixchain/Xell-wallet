@@ -12,7 +12,7 @@ import { ROUTES } from '../utils/constants';
 import { EXECUTE_API } from '../utils';
 import { WALLET_TYPES } from '../enums';
 import { ENUMS } from '../enums';
-import { MigrationModal, DIDMigrationProgress } from '../components/migration';
+import { MigrationModal, DIDMigrationProgress, SingleAccountDIDMigration } from '../components/migration';
 
 
 // Logo Component
@@ -42,8 +42,10 @@ function Login() {
     // Migration states
     const [showMigrationModal, setShowMigrationModal] = useState(false);
     const [showDIDMigration, setShowDIDMigration] = useState(false);
+    const [showSingleAccountMigration, setShowSingleAccountMigration] = useState(false);
     const [unifiedPassword, setUnifiedPassword] = useState('');
     const [isCheckingMigration, setIsCheckingMigration] = useState(true);
+    const [accountToMigrate, setAccountToMigrate] = useState(null);
 
     useEffect(() => {
         function handleClickOutside(event) {
@@ -122,23 +124,24 @@ function Login() {
                     return;
                 }
 
-                // Check if DID migration is pending (version === 5)
-                const needsDIDMigration = await indexDBUtil.needsDIDMigration();
-                if (needsDIDMigration) {
-                    setUnifiedPassword(pin);
-                    setShowDIDMigration(true);
-                    return;
-                }
-
-                // Normal login with unified password - get first account's data
+                // Get the target username
                 const accounts = await indexDBUtil.getAllAccountsForMigration();
                 if (accounts.length === 0) {
                     toast.error('No accounts found');
                     return;
                 }
-
-                // Use selected user or first account
                 const targetUsername = selectedUser?.username || accounts[0].username;
+
+                // Check if THIS SPECIFIC ACCOUNT needs DID migration (on-demand migration)
+                const accountNeedsMigration = await indexDBUtil.accountNeedsDIDMigration(targetUsername);
+                if (accountNeedsMigration) {
+                    setUnifiedPassword(pin);
+                    setAccountToMigrate(targetUsername);
+                    setShowSingleAccountMigration(true);
+                    return;
+                }
+
+                // Account already migrated or no migration needed - proceed to login
                 const res = await indexDBUtil.getDecryptedAccountData(targetUsername, pin);
 
                 if (!res.status) {
@@ -244,7 +247,7 @@ function Login() {
         // User will now login with unified password, which triggers DID migration
     };
 
-    // Handle DID migration complete
+    // Handle DID migration complete (bulk - legacy)
     const handleDIDMigrationComplete = async () => {
         setShowDIDMigration(false);
 
@@ -257,10 +260,37 @@ function Login() {
         }
     };
 
-    // Handle DID migration error
+    // Handle DID migration error (bulk - legacy)
     const handleDIDMigrationError = (error) => {
         toast.error(error);
         setShowDIDMigration(false);
+        setUnifiedPassword('');
+    };
+
+    // Handle single account DID migration complete
+    const handleSingleAccountMigrationComplete = async () => {
+        setShowSingleAccountMigration(false);
+
+        // Now complete the login with the migrated account
+        if (unifiedPassword && accountToMigrate) {
+            const res = await indexDBUtil.getDecryptedAccountData(accountToMigrate, unifiedPassword);
+            if (res.status) {
+                await completeLogin(res.data, unifiedPassword);
+            } else {
+                toast.error(res.message || 'Failed to get account data after migration');
+            }
+        }
+
+        // Clear migration state
+        setAccountToMigrate(null);
+        setUnifiedPassword('');
+    };
+
+    // Handle single account DID migration error
+    const handleSingleAccountMigrationError = (error) => {
+        toast.error(error);
+        setShowSingleAccountMigration(false);
+        setAccountToMigrate(null);
         setUnifiedPassword('');
     };
 
@@ -285,7 +315,7 @@ function Login() {
         );
     }
 
-    // Show DID migration progress
+    // Show DID migration progress (bulk - legacy)
     if (showDIDMigration) {
         return (
             <Card>
@@ -293,6 +323,20 @@ function Login() {
                     unifiedPassword={unifiedPassword}
                     onComplete={handleDIDMigrationComplete}
                     onError={handleDIDMigrationError}
+                />
+            </Card>
+        );
+    }
+
+    // Show single account DID migration (on-demand)
+    if (showSingleAccountMigration && accountToMigrate) {
+        return (
+            <Card>
+                <SingleAccountDIDMigration
+                    username={accountToMigrate}
+                    unifiedPassword={unifiedPassword}
+                    onComplete={handleSingleAccountMigrationComplete}
+                    onError={handleSingleAccountMigrationError}
                 />
             </Card>
         );

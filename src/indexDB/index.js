@@ -1364,6 +1364,154 @@ const indexDBUtil = {
     },
 
     /**
+     * Check if a specific account needs DID migration
+     * @param {string} username - The username to check
+     * @returns {Promise<boolean>}
+     */
+    accountNeedsDIDMigration: async function (username) {
+        try {
+            const currentVersion = await this.getCurrentVersion();
+            // Only check if we're in version 5 (unified password done, DID migration pending)
+            if (currentVersion?.version !== 5) {
+                return false;
+            }
+
+            const db = await this.initDB();
+            return new Promise((resolve, reject) => {
+                const transaction = db.transaction([this.storeName], 'readonly');
+                const store = transaction.objectStore(this.storeName);
+                const request = store.get('UserDetails');
+
+                request.onsuccess = () => {
+                    const data = request.result;
+                    if (!data || !data.accounts) {
+                        resolve(false);
+                        return;
+                    }
+
+                    const account = data.accounts.find(acc => acc.username === username);
+                    if (!account) {
+                        resolve(false);
+                        return;
+                    }
+
+                    // Account needs migration if it doesn't have migratedAt field
+                    resolve(!account.migratedAt);
+                };
+
+                request.onerror = () => reject(request.error);
+            });
+        } catch (error) {
+            return false;
+        }
+    },
+
+    /**
+     * Check if all accounts have been migrated
+     * @returns {Promise<boolean>}
+     */
+    checkAllAccountsMigrated: async function () {
+        try {
+            const db = await this.initDB();
+            return new Promise((resolve, reject) => {
+                const transaction = db.transaction([this.storeName], 'readonly');
+                const store = transaction.objectStore(this.storeName);
+                const request = store.get('UserDetails');
+
+                request.onsuccess = () => {
+                    const data = request.result;
+                    if (!data || !data.accounts || data.accounts.length === 0) {
+                        resolve(true); // No accounts means nothing to migrate
+                        return;
+                    }
+
+                    // Check if all accounts have migratedAt field
+                    const allMigrated = data.accounts.every(acc => !!acc.migratedAt);
+                    resolve(allMigrated);
+                };
+
+                request.onerror = () => reject(request.error);
+            });
+        } catch (error) {
+            return false;
+        }
+    },
+
+    /**
+     * Get decrypted account data for single account DID migration
+     * @param {string} username
+     * @param {string} unifiedPassword
+     * @returns {Promise<Object>}
+     */
+    getDecryptedAccountForDIDMigration: async function (username, unifiedPassword) {
+        try {
+            // First validate unified password
+            const isValid = await this.validateUnifiedPassword(unifiedPassword);
+            if (!isValid) {
+                return { status: false, message: 'Invalid password' };
+            }
+
+            const db = await this.initDB();
+            return new Promise((resolve, reject) => {
+                const transaction = db.transaction([this.storeName], 'readonly');
+                const store = transaction.objectStore(this.storeName);
+                const request = store.get('UserDetails');
+
+                request.onsuccess = () => {
+                    const data = request.result;
+                    if (!data || !data.accounts) {
+                        resolve({ status: false, message: 'No accounts found' });
+                        return;
+                    }
+
+                    const account = data.accounts.find(acc => acc.username === username);
+                    if (!account) {
+                        resolve({ status: false, message: 'Account not found' });
+                        return;
+                    }
+
+                    // Check if already migrated
+                    if (account.migratedAt) {
+                        resolve({ status: false, message: 'Account already migrated', alreadyMigrated: true });
+                        return;
+                    }
+
+                    try {
+                        // Decrypt private key
+                        const pkBytes = CryptoJS.AES.decrypt(account.privatekey, unifiedPassword);
+                        const decryptedPrivateKey = pkBytes.toString(CryptoJS.enc.Utf8);
+
+                        // Decrypt mnemonic
+                        let decryptedMnemonic = null;
+                        if (account.mnemonics) {
+                            const mnBytes = CryptoJS.AES.decrypt(account.mnemonics, unifiedPassword);
+                            decryptedMnemonic = mnBytes.toString(CryptoJS.enc.Utf8);
+                        }
+
+                        resolve({
+                            status: true,
+                            account: {
+                                username: account.username,
+                                did: account.did,
+                                network: account.network,
+                                publickey: account.publickey,
+                                privateKey: decryptedPrivateKey,
+                                mnemonic: decryptedMnemonic
+                            }
+                        });
+                    } catch (e) {
+                        resolve({ status: false, message: 'Failed to decrypt account data' });
+                    }
+                };
+
+                request.onerror = () => reject(request.error);
+            });
+        } catch (error) {
+            throw error;
+        }
+    },
+
+    /**
      * Check if user has unified password set
      * @returns {Promise<boolean>}
      */
