@@ -10,15 +10,14 @@ import SetupProgress from '../components/setup/SetupProgress';
 import BackButton from '../components/BackButton';
 import { validatePin } from '../utils/validation';
 import indexDBUtil from '../indexDB';
-import * as bip39 from 'bip39'
 import { routes } from '../routes/routes';
 import { UserContext } from '../context/userContext';
 import { toast } from 'react-hot-toast'
 import Network from '../components/setup/Network';
-import NetworkSelector from '../components/network/NetworkSelector';
 import { EXECUTE_API } from '../utils';
 import { WALLET_TYPES } from '../enums';
 import { config, NETWORK_TYPES } from '../../config';
+import { LegacyBalanceTransfer } from '../components/migration';
 
 export default function SetupWallet() {
   const { setUserDetails, userDetails, setIsUserLoggedIn, websiteInitiated, setWebsiteInitiated } = useContext(UserContext)
@@ -27,6 +26,7 @@ export default function SetupWallet() {
   const [error, setError] = useState('');
   const [hasUnifiedPassword, setHasUnifiedPassword] = useState(false);
   const [isCheckingUnified, setIsCheckingUnified] = useState(true);
+  const [legacyTransferData, setLegacyTransferData] = useState(null);
   const navigate = useNavigate()
   const location = useLocation()
   const state = location?.state
@@ -137,16 +137,12 @@ export default function SetupWallet() {
       setUserDetails(payload);
 
       if (state?.legacyDid) {
-        navigate(routes.DASHBOARD, {
-          state: {
-            triggerLegacyMigration: true,
-            username: res?.data?.username,
-            pin: res?.data?.pin,
-            legacyDid: state.legacyDid,
-            legacyPrivateKey: state.legacyPrivateKey,
-            newDid: res?.data?.did
-          }
+        setLegacyTransferData({
+          legacyDid: state.legacyDid,
+          legacyPrivateKey: state.legacyPrivateKey,
+          newDid: res?.data?.did
         });
+        setStep('legacy_transfer');
       } else {
         navigate(routes.SUCCESS);
       }
@@ -154,6 +150,15 @@ export default function SetupWallet() {
       setLoader(false);
       toast.error('Failed to import wallet');
     }
+  };
+
+  const handleLegacyTransferComplete = () => {
+    toast.success('Balance transferred successfully');
+    navigate(routes.DASHBOARD);
+  };
+
+  const handleLegacyTransferSkip = () => {
+    navigate(routes.DASHBOARD);
   };
 
   const handlePinSubmit = (pin) => {
@@ -245,16 +250,12 @@ export default function SetupWallet() {
       setUserDetails(payload);
 
       if (state?.legacyDid) {
-        navigate(routes.DASHBOARD, {
-          state: {
-            triggerLegacyMigration: true,
-            username: res?.data?.username,
-            pin: res?.data?.pin,
-            legacyDid: state.legacyDid,
-            legacyPrivateKey: state.legacyPrivateKey,
-            newDid: res?.data?.did
-          }
+        setLegacyTransferData({
+          legacyDid: state.legacyDid,
+          legacyPrivateKey: state.legacyPrivateKey,
+          newDid: res?.data?.did
         });
+        setStep('legacy_transfer');
       } else {
         navigate(routes.SUCCESS);
       }
@@ -343,16 +344,12 @@ export default function SetupWallet() {
       setUserDetails(payload);
 
       if (state?.legacyDid) {
-        navigate(routes.DASHBOARD, {
-          state: {
-            triggerLegacyMigration: true,
-            username: res?.data?.username,
-            pin: res?.data?.pin,
-            legacyDid: state.legacyDid,
-            legacyPrivateKey: state.legacyPrivateKey,
-            newDid: res?.data?.did
-          }
+        setLegacyTransferData({
+          legacyDid: state.legacyDid,
+          legacyPrivateKey: state.legacyPrivateKey,
+          newDid: res?.data?.did
         });
+        setStep('legacy_transfer');
       } else {
         navigate(routes.SUCCESS);
       }
@@ -448,6 +445,23 @@ export default function SetupWallet() {
               exit={{ opacity: 0, x: -20 }}
             >
               <Network loader={loader} Continue={Continue} onChange={onChangeNetwork} />
+            </motion.div>
+          )}
+
+          {step === 'legacy_transfer' && legacyTransferData && (
+            <motion.div
+              key="legacy-transfer"
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+            >
+              <LegacyBalanceTransfer
+                legacyDid={legacyTransferData.legacyDid}
+                legacyPrivateKey={legacyTransferData.legacyPrivateKey}
+                newDid={legacyTransferData.newDid}
+                onComplete={handleLegacyTransferComplete}
+                onSkip={handleLegacyTransferSkip}
+              />
             </motion.div>
           )}
         </AnimatePresence>

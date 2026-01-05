@@ -4,7 +4,6 @@ import ActionButtons from '../components/dashboard/ActionButtons';
 import RecentTransactions from '../components/dashboard/RecentTransactions';
 import Navigation from '../components/dashboard/Navigation';
 import ContentContainer from '../components/layout/ContentContainer';
-import Card from '../components/Card';
 import { END_POINTS } from '../api/endpoints';
 import { useEffect, useState } from 'react';
 import { useContext } from 'react';
@@ -14,8 +13,6 @@ import toast from 'react-hot-toast';
 import { FiList, FiClock } from 'react-icons/fi';
 import History from './History';
 import { NETWORK_TYPES } from "../../config.js"
-import { useLocation } from 'react-router-dom';
-import { LegacyBalanceTransfer } from '../components/migration';
 
 const Tabs = ({ activeTab, setActiveTab }) => (
   <div className="flex justify-between my-4 border-b border-gray-300">
@@ -41,9 +38,6 @@ export default function Dashboard() {
   const { transactionsData, setTransactionsData } = useContext(TransactionsContext)
   const [isTransactionCompleted, setIsTransactionCompleted] = useState(false)
   const [activeTab, setActiveTab] = useState('Tokens');
-  const [showLegacyTransfer, setShowLegacyTransfer] = useState(false);
-  const [legacyTransferData, setLegacyTransferData] = useState(null);
-  const location = useLocation();
 
   useEffect(() => {
     if (!userDetails?.username || !userDetails?.did) {
@@ -54,29 +48,6 @@ export default function Dashboard() {
       }
     }
   }, []);
-
-  useEffect(() => {
-    if (location.state?.triggerLegacyMigration && location.state?.legacyDid) {
-      setLegacyTransferData({
-        legacyDid: location.state.legacyDid,
-        legacyPrivateKey: location.state.legacyPrivateKey,
-        newDid: location.state.newDid
-      });
-      setShowLegacyTransfer(true);
-      window.history.replaceState({}, document.title);
-    }
-  }, [location.state]);
-
-  const handleLegacyTransferComplete = () => {
-    setShowLegacyTransfer(false);
-    setLegacyTransferData(null);
-    toast.success('Balance transferred successfully');
-  };
-
-  const handleLegacyTransferSkip = () => {
-    setShowLegacyTransfer(false);
-    setLegacyTransferData(null);
-  };
 
   useEffect(() => {
     try {
@@ -192,19 +163,6 @@ export default function Dashboard() {
         </div>
       </main>
 
-      {showLegacyTransfer && legacyTransferData && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center">
-          <Card>
-            <LegacyBalanceTransfer
-              legacyDid={legacyTransferData.legacyDid}
-              legacyPrivateKey={legacyTransferData.legacyPrivateKey}
-              newDid={legacyTransferData.newDid}
-              onComplete={handleLegacyTransferComplete}
-              onSkip={handleLegacyTransferSkip}
-            />
-          </Card>
-        </div>
-      )}
     </div>
   );
 }
