@@ -388,27 +388,28 @@ const indexDBUtil = {
             }
 
             // Define networks to create accounts on with their base URLs
+            // For testing: Only registering in RUBIX_TESTNET (1 network)
             const networks = [
-                {
-                    id: "1",
-                    name: "RUBIX_MAINNET",
-                    baseUrl: config.RUBIX_MAINNET_BASE_URL
-                },
+                // {
+                //     id: "1",
+                //     name: "RUBIX_MAINNET",
+                //     baseUrl: config.RUBIX_MAINNET_BASE_URL
+                // },
                 {
                     id: "2",
                     name: "RUBIX_TESTNET",
                     baseUrl: config.RUBIX_TESTNET_BASE_URL
                 },
-                {
-                    id: "3",
-                    name: "TRIE_TESTNET",
-                    baseUrl: config.TRIE_TESTNET_BASE_URL
-                },
-                {
-                    id: "4",
-                    name: "TRIE_MAINNET",
-                    baseUrl: config.TRIE_MAINNET_BASE_URL
-                }
+                // {
+                //     id: "3",
+                //     name: "TRIE_TESTNET",
+                //     baseUrl: config.TRIE_TESTNET_BASE_URL
+                // },
+                // {
+                //     id: "4",
+                //     name: "TRIE_MAINNET",
+                //     baseUrl: config.TRIE_MAINNET_BASE_URL
+                // }
             ];
 
             // Create accounts on all networks in parallel using custom axios instance
