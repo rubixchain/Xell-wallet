@@ -308,6 +308,20 @@ const indexDBUtil = {
 
     storeToDB: async function ({ privatekey, publickey, pin, username, mnemonics }) {
         try {
+            // Check if unified password system is already set up
+            const hasUnified = await this.hasUnifiedPassword();
+            let encryptionPassword = pin;
+
+            if (hasUnified) {
+                // Validate that provided PIN matches unified password
+                const isValidUnified = await this.validateUnifiedPassword(pin);
+                if (!isValidUnified) {
+                    toast.error('PIN must match your existing wallet password');
+                    return { status: false, message: 'PIN must match your existing wallet password' };
+                }
+                encryptionPassword = pin;
+            }
+
             let res = await END_POINTS.create_wallet({ public_key: publickey, network: "1" });
 
             if (!res) {
@@ -338,8 +352,8 @@ const indexDBUtil = {
                 // First get existing data
                 const getRequest = store.get("UserDetails");
 
-                let encryptedPK = CryptoJS.AES.encrypt(privatekey, pin).toString();
-                let encryptedMnemonics = CryptoJS.AES.encrypt(mnemonics, pin).toString();
+                let encryptedPK = CryptoJS.AES.encrypt(privatekey, encryptionPassword).toString();
+                let encryptedMnemonics = CryptoJS.AES.encrypt(mnemonics, encryptionPassword).toString();
 
                 getRequest.onsuccess = async () => {
                     const existingData = getRequest.result;
@@ -350,7 +364,8 @@ const indexDBUtil = {
                         did: res?.did,
                         network: res?.network || "1",
                         createdAt: new Date().toISOString(),
-                        mnemonics: encryptedMnemonics
+                        mnemonics: encryptedMnemonics,
+                        migratedAt: new Date().toISOString()
                     };
 
                     const objectToStore = {
@@ -359,6 +374,14 @@ const indexDBUtil = {
                             [...(existingData.accounts || []), newAccount] :
                             [newAccount]
                     };
+
+                    // If no unified password exists, create one (new user)
+                    if (!hasUnified) {
+                        objectToStore.unifiedPassword = CryptoJS.AES.encrypt(encryptionPassword, encryptionPassword).toString();
+                    } else {
+                        // Preserve existing unified password
+                        objectToStore.unifiedPassword = existingData?.unifiedPassword;
+                    }
 
                     const putRequest = store.put(objectToStore);
                     putRequest.onerror = () => reject(putRequest.error);
@@ -383,7 +406,7 @@ const indexDBUtil = {
                 getRequest.onerror = () => reject(getRequest.error);
             });
         } catch (error) {
-           
+
             throw error;
         }
     },
@@ -416,6 +439,21 @@ const indexDBUtil = {
             if (isPrivateKeyExists?.status) {
                 toast.error('Account already exists');
                 return;
+            }
+
+            // Check if unified password system is already set up
+            const hasUnified = await this.hasUnifiedPassword();
+            let encryptionPassword = data?.pin;
+
+            if (hasUnified) {
+                // Validate that provided PIN matches unified password
+                const isValidUnified = await this.validateUnifiedPassword(data?.pin);
+                if (!isValidUnified) {
+                    toast.error('PIN must match your existing wallet password');
+                    return { status: false, message: 'PIN must match your existing wallet password' };
+                }
+                // Use unified password for encryption
+                encryptionPassword = data?.pin;
             }
 
             // Define networks to create accounts on with their base URLs
@@ -453,14 +491,14 @@ const indexDBUtil = {
                     let res = await customApi.post('/request-did-for-pubkey', { public_key: publicKey, network: network.id });
                     res = res.data;
                     if (!res) {
-                       
+
                         return null;
                     }
 
                     let registerDid = await customApi.post('/register-did', { did: res?.did });
                     registerDid = registerDid.data;
                     if (!registerDid || !registerDid?.status) {
-                       
+
                         return null;
                     }
 
@@ -473,7 +511,7 @@ const indexDBUtil = {
                     signatureResponse = signatureResponse.data;
 
                     if (!signatureResponse || !signatureResponse?.status) {
-                        
+
                         return null;
                     }
 
@@ -484,7 +522,7 @@ const indexDBUtil = {
                         baseUrl: network.baseUrl
                     };
                 } catch (error) {
-                   
+
                     return null;
                 }
             });
@@ -505,8 +543,8 @@ const indexDBUtil = {
 
                 // First get existing data
                 const getRequest = store.get(key);
-                let encryptedPK = CryptoJS.AES.encrypt(privateKey, data?.pin).toString();
-                let encryptedMnemonics = CryptoJS.AES.encrypt(data?.originalPhrase, data?.pin).toString();
+                let encryptedPK = CryptoJS.AES.encrypt(privateKey, encryptionPassword).toString();
+                let encryptedMnemonics = CryptoJS.AES.encrypt(data?.originalPhrase, encryptionPassword).toString();
 
                 getRequest.onsuccess = () => {
                     const existingData = getRequest.result;
@@ -517,7 +555,8 @@ const indexDBUtil = {
                         did: successfulAccounts[0].did,
                         network: successfulAccounts[0].network,
                         createdAt: new Date().toISOString(),
-                        mnemonics: encryptedMnemonics
+                        mnemonics: encryptedMnemonics,
+                        migratedAt: new Date().toISOString()
                     };
 
                     const objectToStore = {
@@ -526,6 +565,14 @@ const indexDBUtil = {
                             [...(existingData.accounts || []), newAccount] :
                             [newAccount]
                     };
+
+                    // If no unified password exists, create one (new user)
+                    if (!hasUnified) {
+                        objectToStore.unifiedPassword = CryptoJS.AES.encrypt(encryptionPassword, encryptionPassword).toString();
+                    } else {
+                        // Preserve existing unified password
+                        objectToStore.unifiedPassword = existingData?.unifiedPassword;
+                    }
 
                     const putRequest = store.put(objectToStore);
                     putRequest.onerror = () => reject(putRequest.error);
@@ -550,7 +597,7 @@ const indexDBUtil = {
                 getRequest.onerror = () => reject(getRequest.error);
             });
         } catch (error) {
-           
+
             throw error;
         }
     },
