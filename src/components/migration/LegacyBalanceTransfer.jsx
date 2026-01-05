@@ -3,8 +3,8 @@ import { FiRefreshCw, FiCheck, FiX, FiLoader } from 'react-icons/fi';
 import { initiateProxyTransfer } from '../../utils/migration';
 import { END_POINTS } from '../../api/endpoints';
 
-const STEPS = {
-    CHECKING: 'checking',
+const MIGRATION_STEPS = {
+    CHECKING_BALANCE: 'checking_balance',
     TRANSFERRING: 'transferring',
     COMPLETE: 'complete',
     NO_BALANCE: 'no_balance',
@@ -12,8 +12,8 @@ const STEPS = {
 };
 
 const LegacyBalanceTransfer = ({ legacyDid, legacyPrivateKey, newDid, onComplete, onSkip }) => {
-    const [currentStep, setCurrentStep] = useState(STEPS.CHECKING);
-    const [progress, setProgress] = useState(10);
+    const [currentStep, setCurrentStep] = useState(MIGRATION_STEPS.CHECKING_BALANCE);
+    const [progress, setProgress] = useState(0);
     const [error, setError] = useState(null);
     const [balance, setBalance] = useState(0);
     const [isRetrying, setIsRetrying] = useState(false);
@@ -24,37 +24,37 @@ const LegacyBalanceTransfer = ({ legacyDid, legacyPrivateKey, newDid, onComplete
 
     const startTransfer = async () => {
         try {
-            setCurrentStep(STEPS.CHECKING);
+            setCurrentStep(MIGRATION_STEPS.CHECKING_BALANCE);
             setError(null);
-            setProgress(20);
+            setProgress(30);
 
             const accountInfo = await END_POINTS.get_account_info({ did: legacyDid });
             const legacyBalance = accountInfo?.account_info?.[0]?.rbt_amount || 0;
             setBalance(legacyBalance);
 
             if (legacyBalance <= 0) {
-                setCurrentStep(STEPS.NO_BALANCE);
+                setCurrentStep(MIGRATION_STEPS.NO_BALANCE);
                 setProgress(100);
                 setTimeout(() => onSkip(), 1500);
                 return;
             }
 
-            setCurrentStep(STEPS.TRANSFERRING);
-            setProgress(50);
+            setCurrentStep(MIGRATION_STEPS.TRANSFERRING);
+            setProgress(60);
 
             const result = await initiateProxyTransfer(legacyPrivateKey, legacyDid, newDid);
 
             if (result.success) {
                 setProgress(100);
-                setCurrentStep(STEPS.COMPLETE);
+                setCurrentStep(MIGRATION_STEPS.COMPLETE);
                 setTimeout(() => onComplete(), 1500);
             } else {
                 setError(result.message);
-                setCurrentStep(STEPS.FAILED);
+                setCurrentStep(MIGRATION_STEPS.FAILED);
             }
         } catch (err) {
             setError(err.message);
-            setCurrentStep(STEPS.FAILED);
+            setCurrentStep(MIGRATION_STEPS.FAILED);
         }
     };
 
@@ -67,31 +67,41 @@ const LegacyBalanceTransfer = ({ legacyDid, legacyPrivateKey, newDid, onComplete
 
     const getStepLabel = () => {
         switch (currentStep) {
-            case STEPS.CHECKING:
+            case MIGRATION_STEPS.CHECKING_BALANCE:
                 return 'Checking legacy balance...';
-            case STEPS.TRANSFERRING:
+            case MIGRATION_STEPS.TRANSFERRING:
                 return 'Transferring balance...';
-            case STEPS.COMPLETE:
+            case MIGRATION_STEPS.COMPLETE:
                 return 'Transfer complete!';
-            case STEPS.NO_BALANCE:
+            case MIGRATION_STEPS.NO_BALANCE:
                 return 'No balance to transfer';
-            case STEPS.FAILED:
+            case MIGRATION_STEPS.FAILED:
                 return 'Transfer failed';
             default:
                 return 'Processing...';
         }
     };
 
+    const allSteps = [
+        { step: MIGRATION_STEPS.CHECKING_BALANCE, label: 'Check legacy balance' },
+        { step: MIGRATION_STEPS.TRANSFERRING, label: 'Transfer to new wallet' }
+    ];
+
+    const stepOrder = [MIGRATION_STEPS.CHECKING_BALANCE, MIGRATION_STEPS.TRANSFERRING, MIGRATION_STEPS.COMPLETE];
+
     return (
         <div className="flex flex-col h-full pt-4 pb-6">
             <div className="flex items-center gap-3 mb-6">
                 <div className={`p-3 rounded-xl ${
-                    currentStep === STEPS.COMPLETE ? 'bg-tertiary' :
-                    currentStep === STEPS.FAILED ? 'bg-red-100' : 'bg-tertiary'
+                    currentStep === MIGRATION_STEPS.COMPLETE || currentStep === MIGRATION_STEPS.NO_BALANCE
+                        ? 'bg-tertiary'
+                        : currentStep === MIGRATION_STEPS.FAILED
+                            ? 'bg-red-100'
+                            : 'bg-tertiary'
                 }`}>
-                    {currentStep === STEPS.COMPLETE || currentStep === STEPS.NO_BALANCE ? (
+                    {currentStep === MIGRATION_STEPS.COMPLETE || currentStep === MIGRATION_STEPS.NO_BALANCE ? (
                         <FiCheck className="text-secondary" size={24} />
-                    ) : currentStep === STEPS.FAILED ? (
+                    ) : currentStep === MIGRATION_STEPS.FAILED ? (
                         <FiX className="text-red-600" size={24} />
                     ) : (
                         <FiRefreshCw className="text-primary animate-spin" size={24} />
@@ -116,8 +126,11 @@ const LegacyBalanceTransfer = ({ legacyDid, legacyPrivateKey, newDid, onComplete
                 <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
                     <div
                         className={`h-full transition-all duration-500 ${
-                            currentStep === STEPS.FAILED ? 'bg-red-500' :
-                            currentStep === STEPS.COMPLETE ? 'bg-secondary' : 'bg-primary'
+                            currentStep === MIGRATION_STEPS.FAILED
+                                ? 'bg-red-500'
+                                : currentStep === MIGRATION_STEPS.COMPLETE || currentStep === MIGRATION_STEPS.NO_BALANCE
+                                    ? 'bg-secondary'
+                                    : 'bg-primary'
                         }`}
                         style={{ width: `${progress}%` }}
                     />
@@ -125,14 +138,10 @@ const LegacyBalanceTransfer = ({ legacyDid, legacyPrivateKey, newDid, onComplete
             </div>
 
             <div className="flex-1 space-y-2 mb-4">
-                {[
-                    { step: STEPS.CHECKING, label: 'Check legacy balance' },
-                    { step: STEPS.TRANSFERRING, label: 'Transfer to new wallet' }
-                ].map(({ step, label }, index) => {
-                    const stepOrder = [STEPS.CHECKING, STEPS.TRANSFERRING, STEPS.COMPLETE];
+                {allSteps.map(({ step, label }, index) => {
                     const currentIndex = stepOrder.indexOf(currentStep);
                     const stepIndex = stepOrder.indexOf(step);
-                    const isComplete = currentIndex > stepIndex || currentStep === STEPS.COMPLETE || currentStep === STEPS.NO_BALANCE;
+                    const isComplete = currentIndex > stepIndex || currentStep === MIGRATION_STEPS.COMPLETE || currentStep === MIGRATION_STEPS.NO_BALANCE;
                     const isCurrent = step === currentStep;
 
                     return (
@@ -159,7 +168,7 @@ const LegacyBalanceTransfer = ({ legacyDid, legacyPrivateKey, newDid, onComplete
                 })}
             </div>
 
-            {balance > 0 && currentStep === STEPS.TRANSFERRING && (
+            {balance > 0 && (currentStep === MIGRATION_STEPS.TRANSFERRING || currentStep === MIGRATION_STEPS.COMPLETE) && (
                 <div className="bg-tertiary border border-secondary/30 rounded-lg p-3 mb-4">
                     <p className="text-xs text-quinary mb-1">Transferring</p>
                     <p className="text-lg text-secondary font-semibold">{balance} RBT</p>
@@ -172,7 +181,7 @@ const LegacyBalanceTransfer = ({ legacyDid, legacyPrivateKey, newDid, onComplete
                 </div>
             )}
 
-            {currentStep === STEPS.FAILED && (
+            {currentStep === MIGRATION_STEPS.FAILED && (
                 <button
                     onClick={handleRetry}
                     disabled={isRetrying}
@@ -189,14 +198,14 @@ const LegacyBalanceTransfer = ({ legacyDid, legacyPrivateKey, newDid, onComplete
                 </button>
             )}
 
-            {currentStep === STEPS.COMPLETE && (
+            {currentStep === MIGRATION_STEPS.COMPLETE && (
                 <div className="text-center">
                     <p className="text-secondary font-medium">Balance transferred successfully!</p>
                     <p className="text-sm text-quinary mt-1">Continuing to wallet...</p>
                 </div>
             )}
 
-            {currentStep === STEPS.NO_BALANCE && (
+            {currentStep === MIGRATION_STEPS.NO_BALANCE && (
                 <div className="text-center">
                     <p className="text-quinary">No balance found. Continuing...</p>
                 </div>

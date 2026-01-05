@@ -388,9 +388,9 @@ export default function SetupWallet() {
   return (
     <Card>
       <div className="space-y-6 flex flex-col w-full h-full justify-center">
-        <BackButton onClick={handleBack} />
+        {step !== 'legacy_transfer' && <BackButton onClick={handleBack} />}
 
-        <SetupProgress currentStep={step} totalSteps={totalSteps} />
+        {step !== 'legacy_transfer' && <SetupProgress currentStep={step} totalSteps={totalSteps} />}
 
         <AnimatePresence mode="wait">
           {step === 1 && (
