@@ -67,7 +67,89 @@ export default function SetupWallet() {
       return
     }
     setUserDetails(prev => ({ ...prev, username }));
+
+    if (state?.fromDashboard && userDetails?.pin) {
+      if (state?.type === 'import') {
+        await handleImportFromDashboard(username);
+        return;
+      }
+      setUserDetails(prev => ({ ...prev, username, network: 1 }));
+      navigate(routes.RECOVERY_PHARSE);
+      return;
+    }
+
     setStep(2);
+  };
+
+  const handleImportFromDashboard = async (username) => {
+    try {
+      setLoader(true);
+      await indexDBUtil.setCurrentVersion(5);
+      await indexDBUtil.storeNetworkSetting({
+        network: 1,
+        RPCUrl: config?.RUBIX_MAINNET_BASE_URL,
+        name: "Rubix Mainnet",
+        tokenSymbol: NETWORK_TYPES.RBT
+      });
+      const updatedUserDetails = { ...userDetails, username, network: 1, tokenSymbol: NETWORK_TYPES.RBT };
+      setUserDetails(updatedUserDetails);
+
+      const storeData = {
+        ...updatedUserDetails,
+        publickey: state.publickey,
+        privatekey: state?.privatekey,
+        mnemonics: state?.mnemonics
+      };
+
+      if (state?.isLegacyImport) {
+        storeData.needsLegacyMigration = true;
+      }
+
+      let res = await indexDBUtil.storeToDB(storeData);
+      setLoader(false);
+
+      if (!res?.status) {
+        toast.error(res?.message);
+        return;
+      }
+
+      toast.success('Account imported successfully');
+      setIsUserLoggedIn(true);
+
+      const payload = {
+        publickey: res?.data?.publickey,
+        did: res?.data?.did,
+        pin: res?.data?.pin,
+        username: res?.data?.username,
+        network: res?.data?.network || 1,
+        tokenSymbol: NETWORK_TYPES.RBT,
+        needsLegacyMigration: state?.isLegacyImport || false
+      };
+
+      localStorage.setItem('currency', JSON.stringify({ label: '$ USD - US Dollar', value: 'USD' }));
+      localStorage.setItem("currentUser", JSON.stringify({
+        username: res?.data?.username,
+        network: res?.data?.network || 1
+      }));
+
+      sessionStorage.removeItem('previousUserDetails');
+
+      await EXECUTE_API({
+        data: { ...res?.data, tokenSymbol: NETWORK_TYPES.RBT },
+        type: WALLET_TYPES.STORE_USER_DETAILS
+      });
+
+      setUserDetails(payload);
+
+      if (state?.isLegacyImport) {
+        navigate(routes.DASHBOARD, { state: { triggerLegacyMigration: true, username: res?.data?.username } });
+      } else {
+        navigate(routes.SUCCESS);
+      }
+    } catch (e) {
+      setLoader(false);
+      toast.error('Failed to import wallet');
+    }
   };
 
   const handlePinSubmit = (pin) => {
@@ -106,7 +188,19 @@ export default function SetupWallet() {
       const updatedUserDetails = { ...userDetails, pin, network: 1, tokenSymbol: NETWORK_TYPES.RBT };
       setUserDetails(updatedUserDetails);
       setLoader(true);
-      let res = await indexDBUtil.storeToDB({ ...updatedUserDetails, publickey: state.publickey, privatekey: state?.privatekey, mnemonics: state?.mnemonics });
+
+      const storeData = {
+        ...updatedUserDetails,
+        publickey: state.publickey,
+        privatekey: state?.privatekey,
+        mnemonics: state?.mnemonics
+      };
+
+      if (state?.isLegacyImport) {
+        storeData.needsLegacyMigration = true;
+      }
+
+      let res = await indexDBUtil.storeToDB(storeData);
       setLoader(false);
       if (!res?.status) {
         toast.error(res?.message);
@@ -121,7 +215,8 @@ export default function SetupWallet() {
         pin: res?.data?.pin,
         username: res?.data?.username,
         network: res?.data?.network || 1,
-        tokenSymbol: NETWORK_TYPES.RBT
+        tokenSymbol: NETWORK_TYPES.RBT,
+        needsLegacyMigration: state?.isLegacyImport || false
       };
 
       localStorage.setItem('currency', JSON.stringify({ label: '$ USD - US Dollar', value: 'USD' }));
@@ -149,7 +244,12 @@ export default function SetupWallet() {
         type: WALLET_TYPES.WALLET_SIGN_RESPONSE
       });
       setUserDetails(payload);
-      navigate(routes.SUCCESS);
+
+      if (state?.isLegacyImport) {
+        navigate(routes.DASHBOARD, { state: { triggerLegacyMigration: true, username: res?.data?.username } });
+      } else {
+        navigate(routes.SUCCESS);
+      }
     } catch (e) {
       setLoader(false);
     }
@@ -172,34 +272,46 @@ export default function SetupWallet() {
         name: "Rubix Mainnet",
         tokenSymbol: NETWORK_TYPES.RBT
       })
-      // Set network in userDetails for import case as well
       const updatedUserDetails = { ...userDetails, network: 1, tokenSymbol: NETWORK_TYPES.RBT };
       setUserDetails(updatedUserDetails);
       setLoader(true)
-      let res = await indexDBUtil.storeToDB({ ...updatedUserDetails, publickey: state.publickey, privatekey: state?.privatekey, mnemonics: state?.mnemonics })
+
+      const storeData = {
+        ...updatedUserDetails,
+        publickey: state.publickey,
+        privatekey: state?.privatekey,
+        mnemonics: state?.mnemonics
+      };
+
+      if (state?.isLegacyImport) {
+        storeData.needsLegacyMigration = true;
+      }
+
+      let res = await indexDBUtil.storeToDB(storeData)
       setLoader(false)
       if (!res?.status) {
         toast.error(res?.message)
         return
       }
 
-      toast.success('login success')
+      toast.success('Account imported successfully')
       setIsUserLoggedIn(true)
       let payload = {
         publickey: res?.data?.publickey,
         did: res?.data?.did,
         pin: res?.data?.pin,
         username: res?.data?.username,
-        network: res?.data?.network || 1,  // Default to mainnet if not set
-        tokenSymbol: NETWORK_TYPES.RBT
+        network: res?.data?.network || 1,
+        tokenSymbol: NETWORK_TYPES.RBT,
+        needsLegacyMigration: state?.isLegacyImport || false
       }
-      // localStorage.setItem('network', res?.data?.network)
 
       localStorage.setItem('currency', JSON.stringify({ label: '$ USD - US Dollar', value: 'USD' }))
       localStorage.setItem("currentUser", JSON.stringify({
         username: res?.data?.username,
         network: res?.data?.network || 1
       }))
+
       if (websiteInitiated?.type == WALLET_TYPES.WALLET_SIGN_REQUEST) {
         try {
           window.close()
@@ -207,21 +319,16 @@ export default function SetupWallet() {
             data: {
               ...res?.data,
               tokenSymbol: NETWORK_TYPES.RBT
-
             },
             type: WALLET_TYPES.WALLET_SIGN_RESPONSE
           })
           if (result) {
             setWebsiteInitiated(null)
-
           }
           return
-        }
-        catch (e) {
-
-        }
-
+        } catch (e) {}
       }
+
       await EXECUTE_API({
         data: {
           ...res?.data,
@@ -231,11 +338,14 @@ export default function SetupWallet() {
       })
       setUserDetails(payload);
 
-      navigate(routes.SUCCESS)
+      if (state?.isLegacyImport) {
+        navigate(routes.DASHBOARD, { state: { triggerLegacyMigration: true, username: res?.data?.username } });
+      } else {
+        navigate(routes.SUCCESS);
+      }
     } catch (e) {
       setLoader(false)
     }
-
   };
 
   const onChangeNetwork = (network) => {
@@ -251,7 +361,7 @@ export default function SetupWallet() {
     return
   }
 
-  const totalSteps = hasUnifiedPassword ? 2 : 3;
+  const totalSteps = (state?.fromDashboard && userDetails?.pin) ? 1 : (hasUnifiedPassword ? 2 : 3);
 
   if (isCheckingUnified) {
     return (

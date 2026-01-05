@@ -1,25 +1,14 @@
 import React, { useState, useCallback, useRef } from 'react';
 import { FiArrowLeft, FiUpload, FiFile, FiDownload } from 'react-icons/fi';
 import * as bip39 from "bip39"
-import { BIP32Factory } from 'bip32';
-import * as ecc from 'tiny-secp256k1';
 import toast from 'react-hot-toast';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { routes } from '../routes/routes';
 import BackButton from '../components/BackButton';
 import Card from '../components/Card';
 import indexDBUtil from '../indexDB';
-import secp256k1 from 'secp256k1';
-
-// Initialize BIP32 with tiny-secp256k1
-const bip32 = BIP32Factory(ecc);
-
-// Helper function to convert Uint8Array to hex string (browser-compatible)
-function uint8ArrayToHex(uint8Array) {
-    return Array.from(uint8Array)
-        .map(byte => byte.toString(16).padStart(2, '0'))
-        .join('');
-}
+import { deriveKeysFromMnemonic } from '../utils/migration';
+import { END_POINTS } from '../api/endpoints';
 
 
 const Header = () => {
@@ -42,6 +31,8 @@ const ImportWallet = () => {
   const [recoveryPhrase, setRecoveryPhrase] = useState('');
   const inputRef = useRef(null);
   const navigate = useNavigate()
+  const location = useLocation()
+  const fromDashboard = location.state?.fromDashboard || false;
 
   const handleDrop = useCallback((e) => {
     e.preventDefault();
@@ -96,31 +87,61 @@ const ImportWallet = () => {
     if (!verifyMnemonic) {
       return toast.error('Invalid mnemonics')
     }
-    // BIP32 key derivation - correct implementation
-    const seed = bip39.mnemonicToSeedSync(trimed);
-    const root = bip32.fromSeed(seed);
-    const child = root.derivePath("m/0");
-    let privatekeyUint8 = child.privateKey;
-    if (!secp256k1.privateKeyVerify(privatekeyUint8)) {
-      toast.error('invalid private key')
-      return
-    }
-    // Use uncompressed public key (130 chars) to match Go/Python backend
-    const publicKeyUint8 = secp256k1.publicKeyCreate(privatekeyUint8, false)
-    let publickey = uint8ArrayToHex(publicKeyUint8);
-    let privatekey = uint8ArrayToHex(privatekeyUint8);
-    if (publickey.length !== 130) {
-      toast.error('invalid public key')
-      return
-    }
 
-    const isPrivateKeyExists = await indexDBUtil.checkPrivateKeyExists(privatekey);
-    if (isPrivateKeyExists?.status) {
-      toast.error(isPrivateKeyExists?.message)
-      return
+    try {
+      const keys = deriveKeysFromMnemonic(trimed);
+
+      const newPrivateKey = keys.privateKey;
+      const newPublicKey = keys.uncompressedPublicKey;
+      const legacyPrivateKey = keys.legacyPrivateKey;
+      const legacyPublicKey = keys.legacyUncompressedPublicKey;
+
+      const isNewKeyExists = await indexDBUtil.checkPrivateKeyExists(newPrivateKey);
+      const isLegacyKeyExists = await indexDBUtil.checkPrivateKeyExists(legacyPrivateKey);
+
+      if (isNewKeyExists?.status || isLegacyKeyExists?.status) {
+        toast.error('This wallet already exists in your accounts')
+        return
+      }
+
+      let publickey = newPublicKey;
+      let privatekey = newPrivateKey;
+      let isLegacyImport = false;
+
+      try {
+        const legacyDIDResponse = await END_POINTS.create_wallet({
+          public_key: legacyPublicKey,
+          network: "1"
+        });
+
+        if (legacyDIDResponse?.data?.did) {
+          publickey = legacyPublicKey;
+          privatekey = legacyPrivateKey;
+          isLegacyImport = true;
+        }
+      } catch (e) {
+        // No legacy DID found, use new keys
+      }
+
+      if (publickey.length !== 130) {
+        toast.error('Invalid public key')
+        return
+      }
+
+      toast.success('Phrase verified successfully')
+      navigate(routes.SETUP_WALLET, {
+        state: {
+          type: 'import',
+          publickey,
+          privatekey,
+          mnemonics: trimed,
+          fromDashboard,
+          isLegacyImport
+        }
+      })
+    } catch (error) {
+      toast.error('Failed to derive keys from mnemonic')
     }
-    toast.success('Phrase verified successfully')
-    navigate(routes.SETUP_WALLET, { state: { type: 'import', publickey, privatekey, mnemonics: trimed } })
   };
 
   const handleRecoveryContinue = async () => {
@@ -130,7 +151,7 @@ const ImportWallet = () => {
       return
     }
     toast.success(res.message)
-    navigate(routes.SETUP_WALLET, { state: { type: 'import', publickey: fileContent?.publickey, privatekey: fileContent?.privatekey, } })
+    navigate(routes.SETUP_WALLET, { state: { type: 'import', publickey: fileContent?.publickey, privatekey: fileContent?.privatekey, fromDashboard } })
   }
 
   const renderStepOne = () => (

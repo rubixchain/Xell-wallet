@@ -1,4 +1,4 @@
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useState } from 'react';
 import { FiShield } from 'react-icons/fi';
 import BackButton from '../components/BackButton';
@@ -8,6 +8,9 @@ import { routes } from '../routes/routes';
 
 export default function CreateWallet() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const fromDashboard = location.state?.fromDashboard || false;
+
   const [checkboxes, setCheckboxes] = useState({
     responsible: false,
     secure: false,
@@ -25,7 +28,7 @@ export default function CreateWallet() {
 
   const handleContinue = () => {
     if (allChecked) {
-      navigate(routes.SETUP_WALLET, { state: { allChecked } });
+      navigate(routes.SETUP_WALLET, { state: { allChecked, fromDashboard } });
     }
   };
 

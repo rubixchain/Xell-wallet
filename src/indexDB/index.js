@@ -306,7 +306,7 @@ const indexDBUtil = {
         });
     },
 
-    storeToDB: async function ({ privatekey, publickey, pin, username, mnemonics }) {
+    storeToDB: async function ({ privatekey, publickey, pin, username, mnemonics, needsLegacyMigration = false }) {
         try {
             // Check if unified password system is already set up
             const hasUnified = await this.hasUnifiedPassword();
@@ -364,9 +364,12 @@ const indexDBUtil = {
                         did: res?.did,
                         network: res?.network || "1",
                         createdAt: new Date().toISOString(),
-                        mnemonics: encryptedMnemonics,
-                        migratedAt: new Date().toISOString()
+                        mnemonics: encryptedMnemonics
                     };
+
+                    if (!needsLegacyMigration) {
+                        newAccount.migratedAt = new Date().toISOString();
+                    }
 
                     const objectToStore = {
                         id: "UserDetails",
@@ -1418,8 +1421,8 @@ const indexDBUtil = {
     accountNeedsDIDMigration: async function (username) {
         try {
             const currentVersion = await this.getCurrentVersion();
-            // Only check if we're in version 5 (unified password done, DID migration pending)
-            if (currentVersion?.version !== 5) {
+            // Check if we're in version 5 or higher (unified password done)
+            if (currentVersion?.version < 5) {
                 return false;
             }
 
