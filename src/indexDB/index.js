@@ -1445,12 +1445,6 @@ const indexDBUtil = {
      */
     getDecryptedAccountForDIDMigration: async function (username, unifiedPassword) {
         try {
-            // First validate unified password
-            const isValid = await this.validateUnifiedPassword(unifiedPassword);
-            if (!isValid) {
-                return { status: false, message: 'Invalid password' };
-            }
-
             const db = await this.initDB();
             return new Promise((resolve, reject) => {
                 const transaction = db.transaction([this.storeName], 'readonly');
@@ -1864,11 +1858,6 @@ const indexDBUtil = {
                         migratedAt: new Date().toISOString()
                     };
 
-                    // Remove unifiedPassword field from root level
-                    if (data.unifiedPassword) {
-                        delete data.unifiedPassword;
-                    }
-
                     const updateUserDetailsRequest = store.put(data);
 
                     updateUserDetailsRequest.onsuccess = () => {
@@ -1917,13 +1906,35 @@ const indexDBUtil = {
     },
 
     /**
-     * Complete DID migration - set version to 6
+     * Complete DID migration - set version to 6 and remove unifiedPassword
      * @returns {Promise<Object>}
      */
     completeDIDMigration: async function () {
         try {
+            // Set version to 6
             await this.setCurrentVersion(6);
-            return { status: true };
+
+            // Remove unifiedPassword from UserDetails
+            const db = await this.initDB();
+            return new Promise((resolve, reject) => {
+                const transaction = db.transaction([this.storeName], 'readwrite');
+                const store = transaction.objectStore(this.storeName);
+                const request = store.get('UserDetails');
+
+                request.onsuccess = () => {
+                    const data = request.result;
+                    if (data && data.unifiedPassword) {
+                        delete data.unifiedPassword;
+                        const updateRequest = store.put(data);
+                        updateRequest.onsuccess = () => resolve({ status: true });
+                        updateRequest.onerror = () => reject(updateRequest.error);
+                    } else {
+                        resolve({ status: true });
+                    }
+                };
+
+                request.onerror = () => reject(request.error);
+            });
         } catch (error) {
             throw error;
         }
@@ -1937,12 +1948,6 @@ const indexDBUtil = {
      */
     getDecryptedAccountData: async function (username, unifiedPassword) {
         try {
-            // First validate unified password
-            const isValid = await this.validateUnifiedPassword(unifiedPassword);
-            if (!isValid) {
-                return { status: false, message: 'Invalid password' };
-            }
-
             const db = await this.initDB();
             return new Promise((resolve, reject) => {
                 const transaction = db.transaction([this.storeName], 'readonly');
@@ -2004,12 +2009,6 @@ const indexDBUtil = {
      */
     getAllDecryptedAccountsForDIDMigration: async function (unifiedPassword) {
         try {
-            // First validate unified password
-            const isValid = await this.validateUnifiedPassword(unifiedPassword);
-            if (!isValid) {
-                return { status: false, message: 'Invalid password', accounts: [] };
-            }
-
             const db = await this.initDB();
             return new Promise((resolve, reject) => {
                 const transaction = db.transaction([this.storeName], 'readonly');
