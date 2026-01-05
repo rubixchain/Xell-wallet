@@ -1577,6 +1577,45 @@ const indexDBUtil = {
     },
 
     /**
+     * Ensure unified password exists - creates it if missing
+     * Used as a fallback for users who completed migration before the fix
+     * @param {string} password - The verified password
+     * @returns {Promise<boolean>}
+     */
+    ensureUnifiedPassword: async function (password) {
+        try {
+            const hasUnified = await this.hasUnifiedPassword();
+            if (hasUnified) {
+                return true;
+            }
+
+            const db = await this.initDB();
+            return new Promise((resolve, reject) => {
+                const transaction = db.transaction([this.storeName], 'readwrite');
+                const store = transaction.objectStore(this.storeName);
+                const request = store.get('UserDetails');
+
+                request.onsuccess = () => {
+                    const data = request.result;
+                    if (!data) {
+                        resolve(false);
+                        return;
+                    }
+
+                    data.unifiedPassword = CryptoJS.AES.encrypt(password, password).toString();
+                    const updateRequest = store.put(data);
+                    updateRequest.onsuccess = () => resolve(true);
+                    updateRequest.onerror = () => reject(updateRequest.error);
+                };
+
+                request.onerror = () => reject(request.error);
+            });
+        } catch (error) {
+            return false;
+        }
+    },
+
+    /**
      * Get all accounts with full details for migration
      * @returns {Promise<Array>}
      */
@@ -1994,35 +2033,14 @@ const indexDBUtil = {
     },
 
     /**
-     * Complete DID migration - set version to 6 and remove unifiedPassword
+     * Complete DID migration - set version to 6
+     * Note: unifiedPassword is preserved for validating new account creation
      * @returns {Promise<Object>}
      */
     completeDIDMigration: async function () {
         try {
-            // Set version to 6
             await this.setCurrentVersion(6);
-
-            // Remove unifiedPassword from UserDetails
-            const db = await this.initDB();
-            return new Promise((resolve, reject) => {
-                const transaction = db.transaction([this.storeName], 'readwrite');
-                const store = transaction.objectStore(this.storeName);
-                const request = store.get('UserDetails');
-
-                request.onsuccess = () => {
-                    const data = request.result;
-                    if (data && data.unifiedPassword) {
-                        delete data.unifiedPassword;
-                        const updateRequest = store.put(data);
-                        updateRequest.onsuccess = () => resolve({ status: true });
-                        updateRequest.onerror = () => reject(updateRequest.error);
-                    } else {
-                        resolve({ status: true });
-                    }
-                };
-
-                request.onerror = () => reject(request.error);
-            });
+            return { status: true };
         } catch (error) {
             throw error;
         }

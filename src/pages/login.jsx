@@ -168,6 +168,8 @@ function Login() {
     };
 
     const completeLogin = async (userData, pinValue) => {
+        await indexDBUtil.ensureUnifiedPassword(pinValue);
+
         let getActivenetwork = await indexDBUtil.getNetworksByDID(userData?.did) || []
         getActivenetwork = getActivenetwork?.find(item => item?.selected)
         if (getActivenetwork) {
