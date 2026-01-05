@@ -1818,7 +1818,7 @@ const indexDBUtil = {
     /**
      * Update account after DID migration
      * @param {string} username
-     * @param {Object} migrationData - { newDid, newPublicKey, oldDid, oldPublicKey }
+     * @param {Object} migrationData - { newDid, newPublicKey, newPrivateKey, unifiedPassword }
      * @returns {Promise<Object>}
      */
     updateAccountAfterDIDMigration: async function (username, migrationData) {
@@ -1844,15 +1844,30 @@ const indexDBUtil = {
                         return;
                     }
 
-                    // Update account with new DID and public key
+                    const oldDid = data.accounts[accountIndex].did;
+
+                    // Encrypt the new private key with unified password
+                    const encryptedNewPrivateKey = CryptoJS.AES.encrypt(
+                        migrationData.newPrivateKey,
+                        migrationData.unifiedPassword
+                    ).toString();
+
+                    // Replace old data with new data completely
                     data.accounts[accountIndex] = {
-                        ...data.accounts[accountIndex],
-                        did: migrationData.newDid,
+                        privatekey: encryptedNewPrivateKey,
                         publickey: migrationData.newPublicKey,
-                        oldDid: migrationData.oldDid,
-                        oldPublicKey: migrationData.oldPublicKey,
+                        username: data.accounts[accountIndex].username,
+                        did: migrationData.newDid,
+                        network: data.accounts[accountIndex].network,
+                        createdAt: data.accounts[accountIndex].createdAt,
+                        mnemonics: data.accounts[accountIndex].mnemonics,
                         migratedAt: new Date().toISOString()
                     };
+
+                    // Remove unifiedPassword field from root level
+                    if (data.unifiedPassword) {
+                        delete data.unifiedPassword;
+                    }
 
                     const updateUserDetailsRequest = store.put(data);
 
@@ -1865,7 +1880,7 @@ const indexDBUtil = {
                             if (networkData && networkData.networks) {
                                 // Find the network entry for the old DID
                                 const oldDidIndex = networkData.networks.findIndex(
-                                    entry => entry.did === migrationData.oldDid
+                                    entry => entry.did === oldDid
                                 );
 
                                 if (oldDidIndex !== -1) {
@@ -1967,9 +1982,7 @@ const indexDBUtil = {
                                 network: account.network,
                                 publickey: account.publickey,
                                 privateKey: decryptedPrivateKey,
-                                mnemonic: decryptedMnemonic,
-                                oldDid: account.oldDid,
-                                oldPublicKey: account.oldPublicKey
+                                mnemonic: decryptedMnemonic
                             }
                         });
                     } catch (e) {

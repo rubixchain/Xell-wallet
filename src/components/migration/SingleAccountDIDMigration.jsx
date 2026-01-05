@@ -99,77 +99,119 @@ const SingleAccountDIDMigration = ({ username, unifiedPassword, onComplete, onEr
                 throw new Error(`invalid private key format: expected 64 hex characters, got ${privateKeyHex.length} characters`);
             }
 
-            // Step 2: Request new DID from backend
+            // Step 2: Request and register new DID on all networks
             setCurrentStep(MIGRATION_STEPS.REQUESTING_DID);
             setProgress(40);
 
-            // Get the appropriate base URL for the network
-            const baseUrl = getBaseUrlForNetwork(account.network);
-            const customApi = axios.create({
-                baseURL: baseUrl,
-                headers: { 'Content-Type': 'application/json' }
+            const networks = [
+                {
+                    id: "1",
+                    name: "RUBIX_MAINNET",
+                    baseUrl: config.RUBIX_MAINNET_BASE_URL
+                },
+                {
+                    id: "2",
+                    name: "RUBIX_TESTNET",
+                    baseUrl: config.RUBIX_TESTNET_BASE_URL
+                }
+            ];
+
+            // Step 3: Register the new DID on all networks
+            setCurrentStep(MIGRATION_STEPS.REGISTERING_DID);
+            setProgress(50);
+
+            const registrationPromises = networks.map(async (network) => {
+                try {
+                    const customApi = axios.create({
+                        baseURL: network.baseUrl,
+                        headers: { 'Content-Type': 'application/json' }
+                    });
+
+                    let didResponse = await customApi.post('/request-did-for-pubkey', {
+                        public_key: newPublicKey,
+                        network: network.id
+                    });
+                    didResponse = didResponse.data;
+
+                    if (!didResponse || !didResponse.did) {
+                        return null;
+                    }
+
+                    const newDid = didResponse.did;
+
+                    let registerResponse = await customApi.post('/register-did', { did: newDid });
+                    registerResponse = registerResponse.data;
+
+                    if (!registerResponse || !registerResponse.status) {
+                        return null;
+                    }
+
+                    const signature = await generateSignature(privateKeyHex, registerResponse.result.hash);
+                    let signatureResponse = await customApi.post('/signature-response', {
+                        id: registerResponse.result.id,
+                        Signature: { Signature: signature },
+                        mode: 4
+                    });
+                    signatureResponse = signatureResponse.data;
+
+                    if (!signatureResponse || !signatureResponse.status) {
+                        return null;
+                    }
+
+                    return {
+                        network: network.id,
+                        did: newDid,
+                        status: true,
+                        baseUrl: network.baseUrl
+                    };
+                } catch (error) {
+                    console.error(`[Migration] Failed to register on ${network.name}:`, error.message);
+                    return null;
+                }
             });
 
-            let didResponse = await customApi.post('/request-did-for-pubkey', {
-                public_key: newPublicKey,
-                network: account.network
-            });
-            didResponse = didResponse.data;
+            const registrationResults = await Promise.all(registrationPromises);
+            const successfulRegistrations = registrationResults.filter(result => result !== null);
 
-            if (!didResponse || !didResponse.did) {
-                throw new Error('Failed to get new DID from server');
+            if (successfulRegistrations.length === 0) {
+                throw new Error('Failed to register new DID on any network');
             }
 
-            const generatedNewDid = didResponse.did;
+            const generatedNewDid = successfulRegistrations[0].did;
             setNewDid(generatedNewDid);
 
-            // Step 3: Register the new DID
-            setCurrentStep(MIGRATION_STEPS.REGISTERING_DID);
-            setProgress(60);
+            setProgress(70);
 
-            let registerResponse = await customApi.post('/register-did', { did: generatedNewDid });
-            registerResponse = registerResponse.data;
+            // Step 4: Transfer balance from old DID to new DID (Rubix networks only)
+            const rubixNetworks = ['1', '2'];
+            if (rubixNetworks.includes(account.network)) {
+                try {
+                    console.log('[Migration] Initiating proxy balance transfer:', { from: account.did, to: generatedNewDid });
 
-            if (!registerResponse || !registerResponse.status) {
-                throw new Error('Failed to register new DID');
-            }
+                    const currentNetworkBaseUrl = getBaseUrlForNetwork(account.network);
+                    const currentNetworkApi = axios.create({
+                        baseURL: currentNetworkBaseUrl,
+                        headers: { 'Content-Type': 'application/json' }
+                    });
 
-            // Sign the registration
-            const signature = await generateSignature(privateKeyHex, registerResponse.result.hash);
-            let signatureResponse = await customApi.post('/signature-response', {
-                id: registerResponse.result.id,
-                Signature: { Signature: signature },
-                mode: 4
-            });
-            signatureResponse = signatureResponse.data;
+                    const accountInfo = await currentNetworkApi.get('/get-account-info', { params: { did: account.did } });
+                    const balance = accountInfo?.data?.account_info?.[0]?.rbt_amount || 0;
 
-            if (!signatureResponse || !signatureResponse.status) {
-                throw new Error('Failed to complete DID registration');
-            }
-
-            setProgress(75);
-
-            // Step 4: Transfer balance from old DID to new DID via proxy (silent)
-            try {
-                console.log('[Migration] Initiating proxy balance transfer:', { from: account.did, to: generatedNewDid });
-
-                // Get account balance first to check if transfer is needed
-                const accountInfo = await customApi.get('/get-account-info', { params: { did: account.did } });
-                const balance = accountInfo?.data?.account_info?.[0]?.rbt_amount || 0;
-
-                if (balance > 0) {
-                    // Use proxy transfer with ECIES encryption - proxy handles the full balance
-                    const transferResult = await initiateProxyTransfer(privateKeyHex, account.did, generatedNewDid);
-                    if (transferResult.success) {
-                        console.log('[Migration] Proxy balance transfer completed successfully', transferResult.data);
+                    if (balance > 0) {
+                        const transferResult = await initiateProxyTransfer(privateKeyHex, account.did, generatedNewDid);
+                        if (transferResult.success) {
+                            console.log('[Migration] Proxy balance transfer completed successfully', transferResult.data);
+                        } else {
+                            console.warn('[Migration] Proxy balance transfer warning:', transferResult.message);
+                        }
                     } else {
-                        console.warn('[Migration] Proxy balance transfer warning:', transferResult.message);
+                        console.log('[Migration] No balance to transfer, skipping');
                     }
-                } else {
-                    console.log('[Migration] No balance to transfer, skipping');
+                } catch (transferError) {
+                    console.warn('[Migration] Proxy balance transfer failed (continuing migration):', transferError.message);
                 }
-            } catch (transferError) {
-                console.warn('[Migration] Proxy balance transfer failed (continuing migration):', transferError.message);
+            } else {
+                console.log('[Migration] Trie network detected, skipping balance transfer');
             }
 
             // Step 5: Update local storage
@@ -179,8 +221,8 @@ const SingleAccountDIDMigration = ({ username, unifiedPassword, onComplete, onEr
             await indexDBUtil.updateAccountAfterDIDMigration(account.username, {
                 newDid: generatedNewDid,
                 newPublicKey: newPublicKey,
-                oldDid: account.did,
-                oldPublicKey: account.publickey
+                newPrivateKey: privateKeyHex,
+                unifiedPassword: unifiedPassword
             });
 
             // Check if all accounts are now migrated
