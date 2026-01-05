@@ -216,7 +216,7 @@ const SingleAccountDIDMigration = ({ username, unifiedPassword, onComplete, onEr
 
             // Step 5: Update local storage
             setCurrentStep(MIGRATION_STEPS.UPDATING_STORAGE);
-            setProgress(90);
+            setProgress(85);
 
             await indexDBUtil.updateAccountAfterDIDMigration(account.username, {
                 newDid: generatedNewDid,
@@ -224,6 +224,13 @@ const SingleAccountDIDMigration = ({ username, unifiedPassword, onComplete, onEr
                 newPrivateKey: privateKeyHex,
                 unifiedPassword: unifiedPassword
             });
+
+            setProgress(90);
+
+            // Step 6: Mark account as fully migrated (only after ALL steps succeed)
+            await indexDBUtil.markAccountAsMigrated(account.username);
+
+            setProgress(95);
 
             // Check if all accounts are now migrated
             await checkAndCompleteFullMigration();

@@ -241,6 +241,9 @@ const DIDMigrationProgress = ({ unifiedPassword, onComplete, onError }) => {
                 unifiedPassword: unifiedPassword
             });
 
+            // Mark account as fully migrated (only after ALL steps succeed)
+            await indexDBUtil.markAccountAsMigrated(account.username);
+
             // Update local state
             updateAccountStatus(index, 'completed', { newDid, newPublicKey });
 
