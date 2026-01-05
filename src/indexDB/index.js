@@ -326,12 +326,12 @@ const indexDBUtil = {
 
             if (!res) {
                 toast.error(res?.message || 'failed to create wallet');
-                return;
+                return { status: false, message: res?.message || 'Failed to create wallet' };
             }
             let registerDid = await END_POINTS.register_did({ did: res?.did })
             if (!registerDid || !registerDid?.status) {
                 toast.error(registerDid?.message || 'failed to register DID');
-                return;
+                return { status: false, message: registerDid?.message || 'Failed to register DID' };
             }
             let signature = await generateSignature(privatekey, registerDid?.result?.hash);
             let signatureResponse = await END_POINTS.signature_response({
@@ -341,7 +341,7 @@ const indexDBUtil = {
             });
             if (!signatureResponse || !signatureResponse?.status) {
                 toast.error(signatureResponse?.message || 'failed to do response');
-                return;
+                return { status: false, message: signatureResponse?.message || 'Failed signature response' };
             }
 
             const db = await this.initDB();

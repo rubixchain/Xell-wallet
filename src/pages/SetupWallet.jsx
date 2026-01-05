@@ -109,7 +109,7 @@ export default function SetupWallet() {
       setLoader(false);
 
       if (!res?.status) {
-        toast.error(res?.message);
+        toast.error(res?.message || 'Failed to import wallet');
         return;
       }
 
@@ -203,7 +203,7 @@ export default function SetupWallet() {
       let res = await indexDBUtil.storeToDB(storeData);
       setLoader(false);
       if (!res?.status) {
-        toast.error(res?.message);
+        toast.error(res?.message || 'Failed to create account');
         return;
       }
 
@@ -252,6 +252,7 @@ export default function SetupWallet() {
       }
     } catch (e) {
       setLoader(false);
+      toast.error(e?.message || 'Failed to create account');
     }
   };
   const handleConfirmPin = async (confirmPin) => {
@@ -290,7 +291,7 @@ export default function SetupWallet() {
       let res = await indexDBUtil.storeToDB(storeData)
       setLoader(false)
       if (!res?.status) {
-        toast.error(res?.message)
+        toast.error(res?.message || 'Failed to import wallet')
         return
       }
 
@@ -345,6 +346,7 @@ export default function SetupWallet() {
       }
     } catch (e) {
       setLoader(false)
+      toast.error(e?.message || 'Failed to import wallet')
     }
   };
 
