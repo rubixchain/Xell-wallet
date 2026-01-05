@@ -101,10 +101,6 @@ export default function SetupWallet() {
         mnemonics: state?.mnemonics
       };
 
-      if (state?.isLegacyImport) {
-        storeData.needsLegacyMigration = true;
-      }
-
       let res = await indexDBUtil.storeToDB(storeData);
       setLoader(false);
 
@@ -122,8 +118,7 @@ export default function SetupWallet() {
         pin: res?.data?.pin,
         username: res?.data?.username,
         network: res?.data?.network || 1,
-        tokenSymbol: NETWORK_TYPES.RBT,
-        needsLegacyMigration: state?.isLegacyImport || false
+        tokenSymbol: NETWORK_TYPES.RBT
       };
 
       localStorage.setItem('currency', JSON.stringify({ label: '$ USD - US Dollar', value: 'USD' }));
@@ -141,8 +136,17 @@ export default function SetupWallet() {
 
       setUserDetails(payload);
 
-      if (state?.isLegacyImport) {
-        navigate(routes.DASHBOARD, { state: { triggerLegacyMigration: true, username: res?.data?.username } });
+      if (state?.legacyDid) {
+        navigate(routes.DASHBOARD, {
+          state: {
+            triggerLegacyMigration: true,
+            username: res?.data?.username,
+            pin: res?.data?.pin,
+            legacyDid: state.legacyDid,
+            legacyPrivateKey: state.legacyPrivateKey,
+            newDid: res?.data?.did
+          }
+        });
       } else {
         navigate(routes.SUCCESS);
       }
@@ -196,10 +200,6 @@ export default function SetupWallet() {
         mnemonics: state?.mnemonics
       };
 
-      if (state?.isLegacyImport) {
-        storeData.needsLegacyMigration = true;
-      }
-
       let res = await indexDBUtil.storeToDB(storeData);
       setLoader(false);
       if (!res?.status) {
@@ -215,8 +215,7 @@ export default function SetupWallet() {
         pin: res?.data?.pin,
         username: res?.data?.username,
         network: res?.data?.network || 1,
-        tokenSymbol: NETWORK_TYPES.RBT,
-        needsLegacyMigration: state?.isLegacyImport || false
+        tokenSymbol: NETWORK_TYPES.RBT
       };
 
       localStorage.setItem('currency', JSON.stringify({ label: '$ USD - US Dollar', value: 'USD' }));
@@ -245,8 +244,17 @@ export default function SetupWallet() {
       });
       setUserDetails(payload);
 
-      if (state?.isLegacyImport) {
-        navigate(routes.DASHBOARD, { state: { triggerLegacyMigration: true, username: res?.data?.username } });
+      if (state?.legacyDid) {
+        navigate(routes.DASHBOARD, {
+          state: {
+            triggerLegacyMigration: true,
+            username: res?.data?.username,
+            pin: res?.data?.pin,
+            legacyDid: state.legacyDid,
+            legacyPrivateKey: state.legacyPrivateKey,
+            newDid: res?.data?.did
+          }
+        });
       } else {
         navigate(routes.SUCCESS);
       }
@@ -284,10 +292,6 @@ export default function SetupWallet() {
         mnemonics: state?.mnemonics
       };
 
-      if (state?.isLegacyImport) {
-        storeData.needsLegacyMigration = true;
-      }
-
       let res = await indexDBUtil.storeToDB(storeData)
       setLoader(false)
       if (!res?.status) {
@@ -303,8 +307,7 @@ export default function SetupWallet() {
         pin: res?.data?.pin,
         username: res?.data?.username,
         network: res?.data?.network || 1,
-        tokenSymbol: NETWORK_TYPES.RBT,
-        needsLegacyMigration: state?.isLegacyImport || false
+        tokenSymbol: NETWORK_TYPES.RBT
       }
 
       localStorage.setItem('currency', JSON.stringify({ label: '$ USD - US Dollar', value: 'USD' }))
@@ -339,8 +342,17 @@ export default function SetupWallet() {
       })
       setUserDetails(payload);
 
-      if (state?.isLegacyImport) {
-        navigate(routes.DASHBOARD, { state: { triggerLegacyMigration: true, username: res?.data?.username } });
+      if (state?.legacyDid) {
+        navigate(routes.DASHBOARD, {
+          state: {
+            triggerLegacyMigration: true,
+            username: res?.data?.username,
+            pin: res?.data?.pin,
+            legacyDid: state.legacyDid,
+            legacyPrivateKey: state.legacyPrivateKey,
+            newDid: res?.data?.did
+          }
+        });
       } else {
         navigate(routes.SUCCESS);
       }

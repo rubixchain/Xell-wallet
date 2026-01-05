@@ -91,52 +91,34 @@ const ImportWallet = () => {
     try {
       const keys = deriveKeysFromMnemonic(trimed);
 
-      const newPrivateKey = keys.privateKey;
-      const newPublicKey = keys.uncompressedPublicKey;
-      const legacyPrivateKey = keys.legacyPrivateKey;
-      const legacyPublicKey = keys.legacyUncompressedPublicKey;
-
-      const isNewKeyExists = await indexDBUtil.checkPrivateKeyExists(newPrivateKey);
-      const isLegacyKeyExists = await indexDBUtil.checkPrivateKeyExists(legacyPrivateKey);
+      const isNewKeyExists = await indexDBUtil.checkPrivateKeyExists(keys.privateKey);
+      const isLegacyKeyExists = await indexDBUtil.checkPrivateKeyExists(keys.legacyPrivateKey);
 
       if (isNewKeyExists?.status || isLegacyKeyExists?.status) {
         toast.error('This wallet already exists in your accounts')
         return
       }
 
-      let publickey = newPublicKey;
-      let privatekey = newPrivateKey;
-      let isLegacyImport = false;
-
+      let legacyDid = null;
       try {
         const legacyDIDResponse = await END_POINTS.create_wallet({
-          public_key: legacyPublicKey,
+          public_key: keys.legacyCompressedPublicKey,
           network: "1"
         });
-
-        if (legacyDIDResponse?.data?.did) {
-          publickey = legacyPublicKey;
-          privatekey = legacyPrivateKey;
-          isLegacyImport = true;
-        }
-      } catch (e) {
-        // No legacy DID found, use new keys
-      }
-
-      if (publickey.length !== 130) {
-        toast.error('Invalid public key')
-        return
-      }
+        legacyDid = legacyDIDResponse?.did || legacyDIDResponse?.data?.did;
+      } catch (e) {}
 
       toast.success('Phrase verified successfully')
+
       navigate(routes.SETUP_WALLET, {
         state: {
           type: 'import',
-          publickey,
-          privatekey,
+          publickey: keys.uncompressedPublicKey,
+          privatekey: keys.privateKey,
           mnemonics: trimed,
           fromDashboard,
-          isLegacyImport
+          legacyDid,
+          legacyPrivateKey: legacyDid ? keys.legacyPrivateKey : null
         }
       })
     } catch (error) {

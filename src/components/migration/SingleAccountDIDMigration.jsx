@@ -29,16 +29,26 @@ const SingleAccountDIDMigration = ({ username, unifiedPassword, onComplete, onEr
 
     const startMigration = async () => {
         try {
+            console.log('========== MIGRATION START ==========');
+            console.log('[Migration] Starting migration for username:', username);
+            console.log('[Migration] UnifiedPassword provided:', !!unifiedPassword);
+
             setCurrentStep(MIGRATION_STEPS.PREPARING);
             setError(null);
             setProgress(10);
 
-            // Get decrypted account data for the specific account
+            console.log('[Migration] Calling getDecryptedAccountForDIDMigration...');
             const result = await indexDBUtil.getDecryptedAccountForDIDMigration(username, unifiedPassword);
+            console.log('[Migration] getDecryptedAccountForDIDMigration result:', {
+                status: result.status,
+                alreadyMigrated: result.alreadyMigrated,
+                message: result.message,
+                hasAccount: !!result.account
+            });
 
             if (!result.status) {
                 if (result.alreadyMigrated) {
-                    // Account already migrated, complete immediately
+                    console.log('[Migration] Account already migrated, completing...');
                     await checkAndCompleteFullMigration();
                     onComplete();
                     return;
@@ -46,8 +56,19 @@ const SingleAccountDIDMigration = ({ username, unifiedPassword, onComplete, onEr
                 throw new Error(result.message || 'Failed to load account');
             }
 
+            console.log('[Migration] Account data retrieved:', {
+                username: result.account?.username,
+                did: result.account?.did,
+                network: result.account?.network,
+                publickey: result.account?.publickey?.substring(0, 20) + '...',
+                hasPrivateKey: !!result.account?.privateKey,
+                privateKeyLength: result.account?.privateKey?.length,
+                hasMnemonic: !!result.account?.mnemonic
+            });
+
             await migrateAccount(result.account);
         } catch (err) {
+            console.error('[Migration] ERROR:', err.message);
             setError(err.message);
             setCurrentStep(MIGRATION_STEPS.FAILED);
         }
@@ -55,7 +76,10 @@ const SingleAccountDIDMigration = ({ username, unifiedPassword, onComplete, onEr
 
     const migrateAccount = async (account) => {
         try {
-            // Step 1: Generate new keys
+            console.log('---------- MIGRATE ACCOUNT ----------');
+            console.log('[Migration] OLD DID:', account.did);
+            console.log('[Migration] Network:', account.network);
+
             setCurrentStep(MIGRATION_STEPS.GENERATING_KEYS);
             setProgress(20);
 
@@ -63,28 +87,50 @@ const SingleAccountDIDMigration = ({ username, unifiedPassword, onComplete, onEr
             let privateKeyHex;
 
             if (account.mnemonic) {
-                // Derive from mnemonic - try new method first, fallback to legacy
+                console.log('[Migration] Deriving keys from mnemonic...');
                 const keys = deriveKeysFromMnemonic(account.mnemonic);
+                console.log('[Migration] Keys derived successfully');
+                console.log('[Migration] New compressed public key:', keys.compressedPublicKey?.substring(0, 20) + '...');
+                console.log('[Migration] Legacy compressed public key:', keys.legacyCompressedPublicKey?.substring(0, 20) + '...');
+                console.log('[Migration] New uncompressed public key:', keys.uncompressedPublicKey?.substring(0, 20) + '...');
+                console.log('[Migration] Legacy uncompressed public key:', keys.legacyUncompressedPublicKey?.substring(0, 20) + '...');
 
-                // Check if current public key matches new or legacy key
                 const currentPubKey = account.publickey;
-                const matchesNew = currentPubKey === keys.compressedPublicKey;
-                const matchesLegacy = currentPubKey === keys.legacyCompressedPublicKey;
+                console.log('[Migration] Current stored public key:', currentPubKey?.substring(0, 20) + '...');
+                console.log('[Migration] Current pubkey length:', currentPubKey?.length);
+
+                // Check against both compressed and uncompressed keys
+                const matchesNewCompressed = currentPubKey === keys.compressedPublicKey;
+                const matchesLegacyCompressed = currentPubKey === keys.legacyCompressedPublicKey;
+                const matchesNewUncompressed = currentPubKey === keys.uncompressedPublicKey;
+                const matchesLegacyUncompressed = currentPubKey === keys.legacyUncompressedPublicKey;
+
+                const matchesNew = matchesNewCompressed || matchesNewUncompressed;
+                const matchesLegacy = matchesLegacyCompressed || matchesLegacyUncompressed;
+
+                console.log('[Migration] Matches NEW (compressed):', matchesNewCompressed);
+                console.log('[Migration] Matches NEW (uncompressed):', matchesNewUncompressed);
+                console.log('[Migration] Matches LEGACY (compressed):', matchesLegacyCompressed);
+                console.log('[Migration] Matches LEGACY (uncompressed):', matchesLegacyUncompressed);
+                console.log('[Migration] Final - matchesNew:', matchesNew, 'matchesLegacy:', matchesLegacy);
 
                 if (matchesLegacy && !matchesNew) {
-                    // Use legacy keys for this account
+                    console.log('[Migration] Using LEGACY keys for migration');
                     newPublicKey = keys.legacyUncompressedPublicKey;
                     privateKeyHex = keys.legacyPrivateKey;
                 } else {
-                    // Use new BIP32 keys
+                    console.log('[Migration] Using NEW BIP32 keys for migration');
                     newPublicKey = keys.uncompressedPublicKey;
                     privateKeyHex = keys.privateKey;
                 }
             } else {
-                // Generate from existing private key
+                console.log('[Migration] No mnemonic, using stored private key');
                 newPublicKey = generateUncompressedPublicKey(account.privateKey);
                 privateKeyHex = account.privateKey;
             }
+
+            console.log('[Migration] Private key hex length:', privateKeyHex?.length);
+            console.log('[Migration] Private key hex sample:', privateKeyHex?.substring(0, 10) + '...');
 
             // Validate private key format
             if (!privateKeyHex || typeof privateKeyHex !== 'string') {
@@ -98,6 +144,8 @@ const SingleAccountDIDMigration = ({ username, unifiedPassword, onComplete, onEr
             if (!/^[0-9a-f]{64}$/i.test(privateKeyHex)) {
                 throw new Error(`invalid private key format: expected 64 hex characters, got ${privateKeyHex.length} characters`);
             }
+
+            console.log('[Migration] Private key validated successfully');
 
             // Step 2: Request and register new DID on all networks
             setCurrentStep(MIGRATION_STEPS.REQUESTING_DID);
@@ -120,44 +168,59 @@ const SingleAccountDIDMigration = ({ username, unifiedPassword, onComplete, onEr
             setCurrentStep(MIGRATION_STEPS.REGISTERING_DID);
             setProgress(50);
 
+            console.log('[Migration] Registering DID on networks:', networks.map(n => n.name));
+
             const registrationPromises = networks.map(async (network) => {
                 try {
+                    console.log(`[Migration] [${network.name}] Starting registration...`);
                     const customApi = axios.create({
                         baseURL: network.baseUrl,
                         headers: { 'Content-Type': 'application/json' }
                     });
 
+                    console.log(`[Migration] [${network.name}] Calling /request-did-for-pubkey...`);
                     let didResponse = await customApi.post('/request-did-for-pubkey', {
                         public_key: newPublicKey,
                         network: network.id
                     });
                     didResponse = didResponse.data;
+                    console.log(`[Migration] [${network.name}] DID response:`, didResponse?.did);
 
                     if (!didResponse || !didResponse.did) {
+                        console.log(`[Migration] [${network.name}] No DID returned`);
                         return null;
                     }
 
                     const newDid = didResponse.did;
+                    console.log(`[Migration] [${network.name}] NEW DID: ${newDid}`);
 
+                    console.log(`[Migration] [${network.name}] Calling /register-did...`);
                     let registerResponse = await customApi.post('/register-did', { did: newDid });
                     registerResponse = registerResponse.data;
+                    console.log(`[Migration] [${network.name}] Register response status:`, registerResponse?.status);
 
                     if (!registerResponse || !registerResponse.status) {
+                        console.log(`[Migration] [${network.name}] Registration failed`);
                         return null;
                     }
 
+                    console.log(`[Migration] [${network.name}] Generating signature for hash:`, registerResponse.result.hash?.substring(0, 20) + '...');
                     const signature = await generateSignature(privateKeyHex, registerResponse.result.hash);
+                    console.log(`[Migration] [${network.name}] Calling /signature-response...`);
                     let signatureResponse = await customApi.post('/signature-response', {
                         id: registerResponse.result.id,
                         Signature: { Signature: signature },
                         mode: 4
                     });
                     signatureResponse = signatureResponse.data;
+                    console.log(`[Migration] [${network.name}] Signature response status:`, signatureResponse?.status);
 
                     if (!signatureResponse || !signatureResponse.status) {
+                        console.log(`[Migration] [${network.name}] Signature response failed`);
                         return null;
                     }
 
+                    console.log(`[Migration] [${network.name}] Registration SUCCESSFUL! DID: ${newDid}`);
                     return {
                         network: network.id,
                         did: newDid,
@@ -165,13 +228,14 @@ const SingleAccountDIDMigration = ({ username, unifiedPassword, onComplete, onEr
                         baseUrl: network.baseUrl
                     };
                 } catch (error) {
-                    console.error(`[Migration] Failed to register on ${network.name}:`, error.message);
+                    console.error(`[Migration] [${network.name}] ERROR:`, error.message);
                     return null;
                 }
             });
 
             const registrationResults = await Promise.all(registrationPromises);
             const successfulRegistrations = registrationResults.filter(result => result !== null);
+            console.log('[Migration] Successful registrations:', successfulRegistrations.length);
 
             if (successfulRegistrations.length === 0) {
                 throw new Error('Failed to register new DID on any network');
@@ -179,39 +243,58 @@ const SingleAccountDIDMigration = ({ username, unifiedPassword, onComplete, onEr
 
             const generatedNewDid = successfulRegistrations[0].did;
             setNewDid(generatedNewDid);
+            console.log('[Migration] Using NEW DID:', generatedNewDid);
 
             setProgress(70);
 
             // Step 4: Transfer balance from old DID to new DID (Rubix networks only)
+            console.log('---------- BALANCE TRANSFER ----------');
+            console.log('[Migration] Account network:', account.network, typeof account.network);
             const rubixNetworks = ['1', '2'];
-            if (rubixNetworks.includes(account.network)) {
-                try {
-                    console.log('[Migration] Initiating proxy balance transfer:', { from: account.did, to: generatedNewDid });
+            const networkStr = String(account.network);
+            console.log('[Migration] Is Rubix network:', rubixNetworks.includes(networkStr));
 
+            if (rubixNetworks.includes(networkStr)) {
+                try {
+                    console.log('[Migration] Checking balance for OLD DID:', account.did);
                     const currentNetworkBaseUrl = getBaseUrlForNetwork(account.network);
+                    console.log('[Migration] Network base URL:', currentNetworkBaseUrl);
+
                     const currentNetworkApi = axios.create({
                         baseURL: currentNetworkBaseUrl,
                         headers: { 'Content-Type': 'application/json' }
                     });
 
+                    console.log('[Migration] Calling /get-account-info...');
                     const accountInfo = await currentNetworkApi.get('/get-account-info', { params: { did: account.did } });
+                    console.log('[Migration] Account info response:', JSON.stringify(accountInfo?.data, null, 2));
+
                     const balance = accountInfo?.data?.account_info?.[0]?.rbt_amount || 0;
+                    console.log('[Migration] OLD DID balance:', balance);
 
                     if (balance > 0) {
+                        console.log('[Migration] Initiating PROXY TRANSFER...');
+                        console.log('[Migration] From (OLD DID):', account.did);
+                        console.log('[Migration] To (NEW DID):', generatedNewDid);
+                        console.log('[Migration] Private key hex for transfer:', privateKeyHex?.substring(0, 10) + '...');
+
                         const transferResult = await initiateProxyTransfer(privateKeyHex, account.did, generatedNewDid);
+                        console.log('[Migration] Proxy transfer result:', JSON.stringify(transferResult, null, 2));
+
                         if (transferResult.success) {
-                            console.log('[Migration] Proxy balance transfer completed successfully', transferResult.data);
+                            console.log('[Migration] PROXY TRANSFER SUCCESS!');
                         } else {
-                            console.warn('[Migration] Proxy balance transfer warning:', transferResult.message);
+                            console.warn('[Migration] Proxy transfer warning:', transferResult.message);
                         }
                     } else {
-                        console.log('[Migration] No balance to transfer, skipping');
+                        console.log('[Migration] Balance is 0, skipping transfer');
                     }
                 } catch (transferError) {
-                    console.warn('[Migration] Proxy balance transfer failed (continuing migration):', transferError.message);
+                    console.error('[Migration] PROXY TRANSFER ERROR:', transferError.message);
+                    console.warn('[Migration] Continuing migration despite transfer failure...');
                 }
             } else {
-                console.log('[Migration] Trie network detected, skipping balance transfer');
+                console.log('[Migration] Not a Rubix network, skipping balance transfer');
             }
 
             // Step 5: Update local storage

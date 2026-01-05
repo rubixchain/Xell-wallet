@@ -15,7 +15,7 @@ import { FiList, FiClock } from 'react-icons/fi';
 import History from './History';
 import { NETWORK_TYPES } from "../../config.js"
 import { useLocation } from 'react-router-dom';
-import { SingleAccountDIDMigration } from '../components/migration';
+import { LegacyBalanceTransfer } from '../components/migration';
 
 const Tabs = ({ activeTab, setActiveTab }) => (
   <div className="flex justify-between my-4 border-b border-gray-300">
@@ -41,8 +41,8 @@ export default function Dashboard() {
   const { transactionsData, setTransactionsData } = useContext(TransactionsContext)
   const [isTransactionCompleted, setIsTransactionCompleted] = useState(false)
   const [activeTab, setActiveTab] = useState('Tokens');
-  const [showLegacyMigration, setShowLegacyMigration] = useState(false);
-  const [migrationUsername, setMigrationUsername] = useState('');
+  const [showLegacyTransfer, setShowLegacyTransfer] = useState(false);
+  const [legacyTransferData, setLegacyTransferData] = useState(null);
   const location = useLocation();
 
   useEffect(() => {
@@ -56,23 +56,26 @@ export default function Dashboard() {
   }, []);
 
   useEffect(() => {
-    if (location.state?.triggerLegacyMigration && location.state?.username) {
-      setMigrationUsername(location.state.username);
-      setShowLegacyMigration(true);
+    if (location.state?.triggerLegacyMigration && location.state?.legacyDid) {
+      setLegacyTransferData({
+        legacyDid: location.state.legacyDid,
+        legacyPrivateKey: location.state.legacyPrivateKey,
+        newDid: location.state.newDid
+      });
+      setShowLegacyTransfer(true);
       window.history.replaceState({}, document.title);
     }
   }, [location.state]);
 
-  const handleLegacyMigrationComplete = async () => {
-    setShowLegacyMigration(false);
-    setMigrationUsername('');
-    toast.success('Account migrated successfully');
+  const handleLegacyTransferComplete = () => {
+    setShowLegacyTransfer(false);
+    setLegacyTransferData(null);
+    toast.success('Balance transferred successfully');
   };
 
-  const handleLegacyMigrationError = (error) => {
-    setShowLegacyMigration(false);
-    setMigrationUsername('');
-    toast.error(error || 'Migration failed');
+  const handleLegacyTransferSkip = () => {
+    setShowLegacyTransfer(false);
+    setLegacyTransferData(null);
   };
 
   useEffect(() => {
@@ -189,14 +192,15 @@ export default function Dashboard() {
         </div>
       </main>
 
-      {showLegacyMigration && migrationUsername && (
+      {showLegacyTransfer && legacyTransferData && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-center">
           <Card>
-            <SingleAccountDIDMigration
-              username={migrationUsername}
-              unifiedPassword={userDetails?.pin}
-              onComplete={handleLegacyMigrationComplete}
-              onError={handleLegacyMigrationError}
+            <LegacyBalanceTransfer
+              legacyDid={legacyTransferData.legacyDid}
+              legacyPrivateKey={legacyTransferData.legacyPrivateKey}
+              newDid={legacyTransferData.newDid}
+              onComplete={handleLegacyTransferComplete}
+              onSkip={handleLegacyTransferSkip}
             />
           </Card>
         </div>

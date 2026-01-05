@@ -7,6 +7,12 @@ import { generateSignature } from '../utils';
 
 const bip32 = BIP32Factory(ecc);
 
+function uint8ArrayToHex(uint8Array) {
+    return Array.from(uint8Array)
+        .map(byte => byte.toString(16).padStart(2, '0'))
+        .join('');
+}
+
 export const MIGRATION_VERSIONS = {
     PRE_MIGRATION: 4,
     UNIFIED_PASSWORD_DONE: 5,
@@ -65,12 +71,12 @@ export function deriveKeysFromMnemonic(mnemonic) {
     }
 
     const privateKeyBuffer = derivePrivateKeyFromMnemonic(mnemonic);
-    const privateKeyHex = privateKeyBuffer.toString('hex');
+    const privateKeyHex = uint8ArrayToHex(privateKeyBuffer);
     const compressedPublicKey = generateCompressedPublicKey(privateKeyBuffer);
     const uncompressedPublicKey = generateUncompressedPublicKey(privateKeyBuffer);
 
     const legacyPrivateKeyBuffer = derivePrivateKeyFromMnemonicLegacy(mnemonic);
-    const legacyPrivateKeyHex = legacyPrivateKeyBuffer.toString('hex');
+    const legacyPrivateKeyHex = uint8ArrayToHex(legacyPrivateKeyBuffer);
     const legacyCompressedPublicKey = generateCompressedPublicKey(legacyPrivateKeyBuffer);
     const legacyUncompressedPublicKey = generateUncompressedPublicKey(legacyPrivateKeyBuffer);
 
@@ -209,7 +215,6 @@ export async function initiateMigrationTransfer(privateKeyHex, senderDid, receiv
             tokenCount: tokenCount,
             type: 2
         });
-        console.log('Transfer initiation response:', response);
 
         // Check if signature is required
         if (response?.status && response?.result?.hash) {
@@ -254,15 +259,17 @@ export async function initiateMigrationTransfer(privateKeyHex, senderDid, receiv
 export async function initiateProxyTransfer(privateKeyHex, senderDid, receiverDid) {
     try {
         const { END_POINTS } = await import('../api/endpoints');
+
         const encryptedPK = await encryptForProxy(privateKeyHex);
 
-        const response = await END_POINTS.initiate_proxy_rbt_transfer({
+        const requestPayload = {
             encryptedpK: encryptedPK,
             sender: senderDid,
             receiver: receiverDid,
             operation_type: 20
-        });
-        console.log('Proxy transfer response:', response);
+        };
+
+        const response = await END_POINTS.initiate_proxy_rbt_transfer(requestPayload);
 
         return {
             success: response?.status ?? true,
@@ -270,7 +277,6 @@ export async function initiateProxyTransfer(privateKeyHex, senderDid, receiverDi
             data: response
         };
     } catch (error) {
-        console.error('Proxy transfer error:', error);
         return {
             success: false,
             message: error?.response?.data?.message || error?.message || 'Failed to initiate proxy transfer',

@@ -1503,29 +1503,28 @@ const indexDBUtil = {
 
                 request.onsuccess = () => {
                     const data = request.result;
+
                     if (!data || !data.accounts) {
                         resolve({ status: false, message: 'No accounts found' });
                         return;
                     }
 
                     const account = data.accounts.find(acc => acc.username === username);
+
                     if (!account) {
                         resolve({ status: false, message: 'Account not found' });
                         return;
                     }
 
-                    // Check if already migrated
                     if (account.migratedAt) {
                         resolve({ status: false, message: 'Account already migrated', alreadyMigrated: true });
                         return;
                     }
 
                     try {
-                        // Decrypt private key
                         const pkBytes = CryptoJS.AES.decrypt(account.privatekey, unifiedPassword);
                         const decryptedPrivateKey = pkBytes.toString(CryptoJS.enc.Utf8);
 
-                        // Decrypt mnemonic
                         let decryptedMnemonic = null;
                         if (account.mnemonics) {
                             const mnBytes = CryptoJS.AES.decrypt(account.mnemonics, unifiedPassword);
