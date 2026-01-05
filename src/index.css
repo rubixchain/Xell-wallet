@@ -56,9 +56,3 @@ body {
     --color-text: #f9fadb;
 }
 
-/* Smaller PIN input for migration modal */
-.migration-pin-input input {
-    width: 32px !important;
-    height: 32px !important;
-    font-size: 16px !important;
-}

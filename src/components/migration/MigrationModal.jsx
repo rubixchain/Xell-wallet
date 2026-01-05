@@ -222,59 +222,91 @@ const MigrationModal = ({ onLock }) => {
         }
     };
 
+    // Calculate progress
+    const getProgress = () => {
+        const states = Object.values(accountStates);
+        const handled = states.filter(s =>
+            s.status === 'validated' || s.status === 'imported' || s.status === 'skipped'
+        ).length;
+        return { handled, total: states.length };
+    };
+
     // Render step 1: Collect passwords
-    const renderCollectPasswordsStep = () => (
-        <div className="flex flex-col h-full pt-4">
-            {/* Header */}
-            <div className="flex items-center gap-3 mb-6">
-                <div className="bg-tertiary p-3 rounded-xl">
-                    <FiShield className="text-primary" size={24} />
-                </div>
-                <div>
-                    <h2 className="font-semibold text-xl text-senary">Wallet Migration Required</h2>
-                    <p className="text-quinary text-sm">Unify your passwords for better security</p>
-                </div>
-            </div>
+    const renderCollectPasswordsStep = () => {
+        const progress = getProgress();
 
-            {/* Info box */}
-            <div className="bg-tertiary border border-secondary/20 rounded-lg p-3 mb-4">
-                <p className="text-sm text-senary">
-                    We're upgrading your wallet security. Please verify each account below by entering its current PIN,
-                    importing with recovery phrase, or skip accounts you no longer need.
-                </p>
-            </div>
-
-            {/* Account list */}
-            <div className="flex-1 overflow-y-auto space-y-3 mb-4" style={{ maxHeight: '320px' }}>
-                {isLoading ? (
-                    <div className="flex justify-center items-center h-32">
-                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        return (
+            <div className="flex flex-col h-full pt-4 pb-4">
+                {/* Header */}
+                <div className="flex items-center gap-3 mb-4">
+                    <div className="bg-tertiary p-2.5 rounded-xl">
+                        <FiShield className="text-secondary" size={22} />
                     </div>
-                ) : (
-                    accounts.map((account, index) => (
-                        <AccountMigrationCard
-                            key={account.username}
-                            account={account}
-                            state={accountStates[account.username]}
-                            onPasswordValidate={(password) => handlePasswordValidation(account.username, password)}
-                            onSkipToggle={(isSkipped) => handleSkipToggle(account.username, isSkipped)}
-                            onImportClick={() => handleImportClick(account.username)}
-                            autoFocus={index === 0}
-                        />
-                    ))
-                )}
-            </div>
+                    <div className="flex-1">
+                        <h2 className="font-semibold text-lg text-senary leading-tight">Security Upgrade</h2>
+                        <p className="text-quinary text-xs">Verify your accounts to continue</p>
+                    </div>
+                </div>
 
-            {/* Continue button */}
-            <button
-                onClick={handleContinue}
-                disabled={!canProceed()}
-                className="w-full bg-secondary hover:bg-primary text-white font-semibold py-3 px-6 rounded-lg transition-colors disabled:bg-disabled disabled:cursor-not-allowed disabled:text-gray-500"
-            >
-                Continue
-            </button>
-        </div>
-    );
+                {/* Progress indicator */}
+                <div className="mb-4">
+                    <div className="flex justify-between items-center mb-1.5">
+                        <span className="text-xs text-quinary">Progress</span>
+                        <span className="text-xs font-medium text-senary">{progress.handled}/{progress.total} accounts</span>
+                    </div>
+                    <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                        <div
+                            className="h-full bg-secondary rounded-full transition-all duration-300"
+                            style={{ width: `${progress.total > 0 ? (progress.handled / progress.total) * 100 : 0}%` }}
+                        />
+                    </div>
+                </div>
+
+                {/* Info box - more concise */}
+                <div className="bg-tertiary/60 rounded-lg px-3 py-2 mb-3">
+                    <p className="text-xs text-senary leading-relaxed">
+                        Enter current PIN for each account, or use recovery phrase to verify.
+                    </p>
+                </div>
+
+                {/* Account list - takes remaining space */}
+                <div className="flex-1 overflow-y-auto space-y-2.5 mb-4 pr-1">
+                    {isLoading ? (
+                        <div className="flex justify-center items-center h-32">
+                            <div className="animate-spin rounded-full h-8 w-8 border-2 border-secondary border-t-transparent"></div>
+                        </div>
+                    ) : (
+                        accounts.map((account, index) => (
+                            <AccountMigrationCard
+                                key={account.username}
+                                account={account}
+                                state={accountStates[account.username]}
+                                onPasswordValidate={(password) => handlePasswordValidation(account.username, password)}
+                                onSkipToggle={(isSkipped) => handleSkipToggle(account.username, isSkipped)}
+                                onImportClick={() => handleImportClick(account.username)}
+                                autoFocus={index === 0}
+                            />
+                        ))
+                    )}
+                </div>
+
+                {/* Continue button - stays at bottom */}
+                <div className="mt-auto">
+                    <button
+                        onClick={handleContinue}
+                        disabled={!canProceed()}
+                        className={`w-full font-semibold py-3 px-6 rounded-xl transition-all duration-200 ${
+                            canProceed()
+                                ? 'bg-secondary hover:bg-primary text-white shadow-sm hover:shadow-md'
+                                : 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                        }`}
+                    >
+                        Continue
+                    </button>
+                </div>
+            </div>
+        );
+    };
 
     // Render step 2: Set unified password
     const renderSetUnifiedPasswordStep = () => (
@@ -303,7 +335,7 @@ const MigrationModal = ({ onLock }) => {
 
     return (
         <Card>
-            <div className="flex flex-col h-full">
+            <div className="flex flex-col flex-1 min-h-0">
                 {currentStep === STEPS.COLLECT_PASSWORDS && renderCollectPasswordsStep()}
                 {currentStep === STEPS.SET_UNIFIED_PASSWORD && renderSetUnifiedPasswordStep()}
                 {currentStep === STEPS.COMPLETE && renderCompleteStep()}
