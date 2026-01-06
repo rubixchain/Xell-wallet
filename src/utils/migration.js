@@ -240,7 +240,6 @@ export async function initiateMigrationTransfer(privateKeyHex, senderDid, receiv
             data: response
         };
     } catch (error) {
-        console.error('Migration transfer error:', error);
         return {
             success: false,
             message: error?.response?.data?.message || error?.message || 'Failed to initiate migration transfer',

@@ -185,7 +185,6 @@ const DIDMigrationProgress = ({ unifiedPassword, onComplete, onError }) => {
                         baseUrl: network.baseUrl
                     };
                 } catch (error) {
-                    console.error(`[Migration] Failed to register on ${network.name}:`, error.message);
                     return null;
                 }
             });
@@ -199,12 +198,9 @@ const DIDMigrationProgress = ({ unifiedPassword, onComplete, onError }) => {
 
             const newDid = successfulRegistrations[0].did;
 
-            // Step 4: Transfer balance from old DID to new DID on Rubix networks only
             const rubixNetworks = ['1', '2'];
             if (rubixNetworks.includes(account.network)) {
                 try {
-                    console.log('[Migration] Initiating proxy balance transfer:', { from: account.did, to: newDid });
-
                     const currentNetworkBaseUrl = getBaseUrlForNetwork(account.network);
                     const currentNetworkApi = axios.create({
                         baseURL: currentNetworkBaseUrl,
@@ -215,20 +211,11 @@ const DIDMigrationProgress = ({ unifiedPassword, onComplete, onError }) => {
                     const balance = accountInfo?.data?.account_info?.[0]?.rbt_amount || 0;
 
                     if (balance > 0) {
-                        const transferResult = await initiateProxyTransfer(privateKeyHex, account.did, newDid);
-                        if (transferResult.success) {
-                            console.log('[Migration] ✓ Proxy balance transfer completed successfully', transferResult.data);
-                        } else {
-                            console.warn('[Migration] ⚠ Proxy balance transfer warning:', transferResult.message);
-                        }
-                    } else {
-                        console.log('[Migration] No balance to transfer, skipping');
+                        await initiateProxyTransfer(privateKeyHex, account.did, newDid);
                     }
                 } catch (transferError) {
-                    console.warn('[Migration] ✗ Proxy balance transfer failed (continuing migration):', transferError.message);
+                    // Continue migration despite transfer failure
                 }
-            } else {
-                console.log('[Migration] Trie network, skipping balance transfer');
             }
 
             // Step 5: Update local storage
