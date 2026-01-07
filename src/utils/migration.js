@@ -271,9 +271,11 @@ export async function initiateProxyTransfer(privateKeyHex, senderDid, receiverDi
         const response = await END_POINTS.initiate_proxy_rbt_transfer(requestPayload);
 
         return {
-            success: response?.status ?? true,
+            success: response?.status ?? false,
             message: response?.message || 'Proxy transfer completed successfully',
-            data: response
+            data: response,
+            finalBalance: response?.finalBalance ?? null,
+            transferCount: response?.transferCount ?? 0
         };
     } catch (error) {
         return {
