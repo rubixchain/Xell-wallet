@@ -65,7 +65,7 @@ export default function AccountSwitcher() {
       }
 
       await completeAccountSwitch(account);
-    } catch (error) {
+    } catch {
       toast.error('Failed to switch account');
       setIsLoading(false);
     }
@@ -114,7 +114,7 @@ export default function AccountSwitcher() {
 
       setIsOpen(false);
       toast.success(`Switched to ${accountToUse.username}`);
-    } catch (error) {
+    } catch {
       toast.error('Failed to switch account');
     } finally {
       setIsLoading(false);
