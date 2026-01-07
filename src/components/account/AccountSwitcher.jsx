@@ -9,12 +9,15 @@ import { EXECUTE_API } from '../../utils';
 import { WALLET_TYPES } from '../../enums';
 import { useNavigate } from 'react-router-dom';
 import { routes } from '../../routes/routes';
+import SingleAccountDIDMigration from '../migration/SingleAccountDIDMigration';
 
 export default function AccountSwitcher() {
   const { userDetails, setUserDetails } = useContext(UserContext);
   const [isOpen, setIsOpen] = useState(false);
   const [accounts, setAccounts] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [showMigration, setShowMigration] = useState(false);
+  const [pendingAccount, setPendingAccount] = useState(null);
   const popupRef = useRef(null);
   const navigate = useNavigate();
 
@@ -51,7 +54,31 @@ export default function AccountSwitcher() {
     try {
       setIsLoading(true);
 
-      let getActivenetwork = await indexDBUtil.getNetworksByDID(account?.did) || [];
+      const needsMigration = await indexDBUtil.accountNeedsDIDMigration(account.username);
+
+      if (needsMigration) {
+        setPendingAccount(account);
+        setShowMigration(true);
+        setIsOpen(false);
+        setIsLoading(false);
+        return;
+      }
+
+      await completeAccountSwitch(account);
+    } catch (error) {
+      toast.error('Failed to switch account');
+      setIsLoading(false);
+    }
+  };
+
+  const completeAccountSwitch = async (account) => {
+    try {
+      setIsLoading(true);
+
+      const freshAccountData = await indexDBUtil.getAccountByUsername(account.username);
+      const accountToUse = freshAccountData || account;
+
+      let getActivenetwork = await indexDBUtil.getNetworksByDID(accountToUse?.did) || [];
       getActivenetwork = getActivenetwork?.find(item => item?.selected);
 
       const networkSetting = getActivenetwork ? {
@@ -66,13 +93,13 @@ export default function AccountSwitcher() {
       }
 
       localStorage.setItem("currentUser", JSON.stringify({
-        username: account.username,
-        network: account.network
+        username: accountToUse.username,
+        network: accountToUse.network
       }));
 
       await EXECUTE_API({
         data: {
-          ...account,
+          ...accountToUse,
           pin: userDetails?.pin,
           tokenSymbol: networkSetting?.tokenSymbol
         },
@@ -80,18 +107,32 @@ export default function AccountSwitcher() {
       });
 
       setUserDetails({
-        ...account,
+        ...accountToUse,
         pin: userDetails?.pin,
         tokenSymbol: networkSetting?.tokenSymbol
       });
 
       setIsOpen(false);
-      toast.success(`Switched to ${account.username}`);
+      toast.success(`Switched to ${accountToUse.username}`);
     } catch (error) {
       toast.error('Failed to switch account');
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleMigrationComplete = async () => {
+    setShowMigration(false);
+    if (pendingAccount) {
+      await completeAccountSwitch(pendingAccount);
+      setPendingAccount(null);
+    }
+  };
+
+  const handleMigrationError = () => {
+    setShowMigration(false);
+    setPendingAccount(null);
+    toast.error('Migration failed. Please try again.');
   };
 
   const handleCopyDid = (e, did) => {
@@ -246,6 +287,19 @@ export default function AccountSwitcher() {
           <div className="bg-white dark:bg-gray-800 px-6 py-4 rounded-xl shadow-lg flex items-center gap-3">
             <div className="animate-spin rounded-full h-5 w-5 border-2 border-gray-200 border-t-secondary"></div>
             <span className="text-sm text-gray-600 dark:text-gray-300">Switching...</span>
+          </div>
+        </div>
+      )}
+
+      {showMigration && pendingAccount && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex justify-center items-center">
+          <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl w-[360px] max-h-[500px] overflow-hidden mx-4 p-4">
+            <SingleAccountDIDMigration
+              username={pendingAccount.username}
+              unifiedPassword={userDetails?.pin}
+              onComplete={handleMigrationComplete}
+              onError={handleMigrationError}
+            />
           </div>
         </div>
       )}

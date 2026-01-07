@@ -768,8 +768,44 @@ const indexDBUtil = {
                 };
             });
         } catch (error) {
-           
+
             throw error;
+        }
+    },
+
+    getAccountByUsername: async function (username) {
+        try {
+            const db = await this.initDB();
+
+            return new Promise((resolve, reject) => {
+                const transaction = db.transaction([this.storeName], 'readonly');
+                const store = transaction.objectStore(this.storeName);
+                const request = store.get('UserDetails');
+
+                request.onerror = () => reject(request.error);
+                request.onsuccess = () => {
+                    const data = request.result;
+                    if (!data || !data.accounts) {
+                        resolve(null);
+                        return;
+                    }
+
+                    const account = data.accounts.find(acc => acc.username === username);
+                    if (!account) {
+                        resolve(null);
+                        return;
+                    }
+
+                    resolve({
+                        username: account.username,
+                        did: account.did,
+                        publickey: account.publickey,
+                        network: account.network
+                    });
+                };
+            });
+        } catch (error) {
+            return null;
         }
     },
 
