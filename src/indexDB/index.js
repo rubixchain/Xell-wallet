@@ -368,7 +368,7 @@ const indexDBUtil = {
                     };
 
                     if (!needsLegacyMigration) {
-                        newAccount.migratedAt = new Date().toISOString();
+                        newAccount.isMigrated = true;
                     }
 
                     const objectToStore = {
@@ -559,7 +559,7 @@ const indexDBUtil = {
                         network: successfulAccounts[0].network,
                         createdAt: new Date().toISOString(),
                         mnemonics: encryptedMnemonics,
-                        migratedAt: new Date().toISOString()
+                        isMigrated: true
                     };
 
                     const objectToStore = {
@@ -1481,8 +1481,8 @@ const indexDBUtil = {
                         return;
                     }
 
-                    // Account needs migration if it doesn't have migratedAt field
-                    resolve(!account.migratedAt);
+                    // Account needs migration if isMigrated is not true
+                    resolve(!account.isMigrated);
                 };
 
                 request.onerror = () => reject(request.error);
@@ -1511,8 +1511,8 @@ const indexDBUtil = {
                         return;
                     }
 
-                    // Check if all accounts have migratedAt field
-                    const allMigrated = data.accounts.every(acc => !!acc.migratedAt);
+                    // Check if all accounts have isMigrated set to true
+                    const allMigrated = data.accounts.every(acc => acc.isMigrated === true);
                     resolve(allMigrated);
                 };
 
@@ -1552,7 +1552,7 @@ const indexDBUtil = {
                         return;
                     }
 
-                    if (account.migratedAt) {
+                    if (account.isMigrated) {
                         resolve({ status: false, message: 'Account already migrated', alreadyMigrated: true });
                         return;
                     }
@@ -1971,7 +1971,7 @@ const indexDBUtil = {
                     ).toString();
 
                     // Replace old data with new data completely
-                    // Note: migratedAt is NOT set here - it will be set separately after full migration verification
+                    // Note: isMigrated is NOT set here - it will be set separately after full migration verification
                     data.accounts[accountIndex] = {
                         privatekey: encryptedNewPrivateKey,
                         publickey: migrationData.newPublicKey,
@@ -2030,7 +2030,7 @@ const indexDBUtil = {
     },
 
     /**
-     * Mark account as fully migrated by adding migratedAt timestamp
+     * Mark account as fully migrated by setting isMigrated to true
      * @param {string} username
      * @returns {Promise<Object>}
      */
@@ -2055,8 +2055,8 @@ const indexDBUtil = {
                         return;
                     }
 
-                    // Add migratedAt timestamp
-                    data.accounts[accountIndex].migratedAt = new Date().toISOString();
+                    // Set isMigrated to true
+                    data.accounts[accountIndex].isMigrated = true;
 
                     const updateRequest = store.put(data);
                     updateRequest.onsuccess = () => resolve({ status: true });

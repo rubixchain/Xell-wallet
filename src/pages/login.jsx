@@ -1,6 +1,4 @@
-import React, { useEffect, useState, useContext, useRef } from 'react';
-import { FiChevronDown } from 'react-icons/fi';
-import RubixLogo from '../components/RubixLogo';
+import { useEffect, useState, useContext } from 'react';
 import Card from '../components/Card';
 import PinInput from '../components/setup/PinInput';
 import indexDBUtil from '../indexDB';
@@ -31,13 +29,10 @@ const Logo = () => (
 function Login() {
     const { setUserDetails, userDetails, setIsUserLoggedIn, websiteInitiated, setWebsiteInitiated } = useContext(UserContext)
     const [attempts, setAttempts] = useState(5);
-    const [isOpen, setIsOpen] = useState(false);
     const [pin, setPin] = useState('');
     const [error, setError] = useState('');
-    const [users, setUsers] = useState([])
-    const [selectedUser, setSelectedUser] = useState(users[0]);
+    const [selectedUser, setSelectedUser] = useState(null);
     const navigate = useNavigate()
-    const popupRef = useRef(null)
 
     // Migration states
     const [showMigrationModal, setShowMigrationModal] = useState(false);
@@ -48,32 +43,18 @@ function Login() {
     const [accountToMigrate, setAccountToMigrate] = useState(null);
 
     useEffect(() => {
-        function handleClickOutside(event) {
-            if (popupRef.current && !popupRef.current.contains(event.target)) {
-                setIsOpen(false)
-            }
-        }
-        document.addEventListener('mousedown', handleClickOutside);
-        return () => {
-            document.removeEventListener('mousedown', handleClickOutside);
-        };
-    }, [])
-
-    useEffect(() => {
         (async () => {
-            // Check if migration is needed
             await checkMigrationStatus();
 
             let res = await indexDBUtil.getData()
-            if (res?.status) {
-                setUsers(res?.data)
-            }
             let currentUser = localStorage.getItem("currentUser")
             if (currentUser) {
                 setSelectedUser(JSON.parse(currentUser))
                 return
             }
-            setSelectedUser(res?.data[0])
+            if (res?.status && res?.data?.length > 0) {
+                setSelectedUser(res?.data[0])
+            }
         })()
 
     }, [userDetails])
@@ -227,8 +208,6 @@ function Login() {
         // Reload account list to reflect deleted accounts
         const res = await indexDBUtil.getData();
         if (res?.status) {
-            setUsers(res?.data);
-
             // Update selected user if it was deleted
             const currentUser = localStorage.getItem("currentUser");
             if (currentUser) {
@@ -237,16 +216,12 @@ function Login() {
                 if (userStillExists) {
                     setSelectedUser(parsedUser);
                 } else {
-                    // Select first available account
                     setSelectedUser(res?.data[0]);
                 }
             } else {
                 setSelectedUser(res?.data[0]);
             }
         }
-
-        // Reset state to show login screen
-        // User will now login with unified password, which triggers DID migration
     };
 
     // Handle DID migration complete (bulk - legacy)
@@ -363,47 +338,13 @@ function Login() {
                     Enter your PIN to unlock your wallet
                 </p>
 
-                <div className="mb-8 relative w-full" ref={popupRef}>
-                    <button
-                        onClick={() => setIsOpen(!isOpen)}
-                        className="w-full flex items-center justify-center px-4 py-3 bg-surface-low rounded-lg text-senary hover:bg-gray-100 transition-colors"
-                    >
+                <div className="mb-8 w-full">
+                    <div className="w-full flex items-center justify-center px-4 py-3 bg-surface-low rounded-lg">
                         <div className="flex items-center gap-2">
                             <span className="text-quinary">@</span>
-                            <span className='text-senary font-medium text-sm'>{selectedUser?.username}</span>
+                            <span className="text-senary font-medium text-sm">{selectedUser?.username}</span>
                         </div>
-                        <FiChevronDown className={`w-5 h-5 text-quinary transition-transform ${isOpen ? 'rotate-180' : ''}`} />
-                    </button>
-
-                    {isOpen && (
-                        <div
-                            style={{
-                                minHeight: '30px',
-                                maxHeight: '150px',
-                                overflowY: 'auto'
-                            }}
-                            className="absolute w-full mt-1 bg-quaternary rounded-lg shadow-lg border border-gray-100 py-1 z-10">
-                            {users?.map((user) => (
-                                <button
-                                    key={user.username}
-                                    onClick={() => {
-                                        setSelectedUser(user);
-                                        setIsOpen(false);
-                                    }}
-                                    className={`w-full px-4 py-3 text-left hover:bg-surface-low transition-colors ${selectedUser.username === user.username ? 'bg-surface-low' : ''
-                                        }`}
-                                >
-                                    <div className="flex justify-between gap-2">
-                                        <div style={{ width: 200 }} className="gap-2 overflow-hidden text-ellipsis whitespace-nowrap">
-                                            <span className="text-quinary me-1">@</span>
-                                            <span>{user?.username}</span>
-                                        </div>
-                                        {/* <span className='bg-green-600 p-1 px-2 text-white text-xs rounded-lg'>{user?.network?.toUpperCase()}</span> */}
-                                    </div>
-                                </button>
-                            ))}
-                        </div>
-                    )}
+                    </div>
                 </div>
 
                 <div className="mb-8">
