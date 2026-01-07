@@ -171,7 +171,7 @@ export default function AccountSwitcher() {
             {userDetails?.username}
           </span>
           <FiChevronDown
-            className={`w-3 h-3 text-gray-500 transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
+            className={`w-5 h-5 text-black dark:text-white transition-transform duration-200 ${isOpen ? 'rotate-180' : ''}`}
           />
         </div>
         <div className="flex items-center space-x-2">
