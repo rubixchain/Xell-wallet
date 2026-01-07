@@ -378,14 +378,6 @@ const indexDBUtil = {
                             [newAccount]
                     };
 
-                    // If no unified password exists, create one (new user)
-                    if (!hasUnified) {
-                        objectToStore.unifiedPassword = CryptoJS.AES.encrypt(encryptionPassword, encryptionPassword).toString();
-                    } else {
-                        // Preserve existing unified password
-                        objectToStore.unifiedPassword = existingData?.unifiedPassword;
-                    }
-
                     const putRequest = store.put(objectToStore);
                     putRequest.onerror = () => reject(putRequest.error);
                     putRequest.onsuccess = async () => {
@@ -568,14 +560,6 @@ const indexDBUtil = {
                             [...(existingData.accounts || []), newAccount] :
                             [newAccount]
                     };
-
-                    // If no unified password exists, create one (new user)
-                    if (!hasUnified) {
-                        objectToStore.unifiedPassword = CryptoJS.AES.encrypt(encryptionPassword, encryptionPassword).toString();
-                    } else {
-                        // Preserve existing unified password
-                        objectToStore.unifiedPassword = existingData?.unifiedPassword;
-                    }
 
                     const putRequest = store.put(objectToStore);
                     putRequest.onerror = () => reject(putRequest.error);
@@ -1591,66 +1575,42 @@ const indexDBUtil = {
     },
 
     /**
-     * Check if user has unified password set
+     * Check if unified password system is set up (version >= 5 AND has accounts)
      * @returns {Promise<boolean>}
      */
     hasUnifiedPassword: async function () {
         try {
+            const currentVersion = await this.getCurrentVersion();
+            if (!currentVersion?.version || currentVersion.version < 5) {
+                return false;
+            }
+
+            // Also check if there are any accounts to validate against
             const db = await this.initDB();
-            return new Promise((resolve, reject) => {
+            return new Promise((resolve) => {
                 const transaction = db.transaction([this.storeName], 'readonly');
                 const store = transaction.objectStore(this.storeName);
                 const request = store.get('UserDetails');
 
                 request.onsuccess = () => {
                     const data = request.result;
-                    resolve(!!data?.unifiedPassword);
+                    resolve(data?.accounts?.length > 0);
                 };
 
-                request.onerror = () => reject(request.error);
+                request.onerror = () => resolve(false);
             });
-        } catch (error) {
+        } catch {
             return false;
         }
     },
 
     /**
-     * Ensure unified password exists - creates it if missing
-     * Used as a fallback for users who completed migration before the fix
-     * @param {string} password - The verified password
+     * Ensure unified password system is set up
+     * No-op since we validate via decryption, not hash storage
      * @returns {Promise<boolean>}
      */
-    ensureUnifiedPassword: async function (password) {
-        try {
-            const hasUnified = await this.hasUnifiedPassword();
-            if (hasUnified) {
-                return true;
-            }
-
-            const db = await this.initDB();
-            return new Promise((resolve, reject) => {
-                const transaction = db.transaction([this.storeName], 'readwrite');
-                const store = transaction.objectStore(this.storeName);
-                const request = store.get('UserDetails');
-
-                request.onsuccess = () => {
-                    const data = request.result;
-                    if (!data) {
-                        resolve(false);
-                        return;
-                    }
-
-                    data.unifiedPassword = CryptoJS.AES.encrypt(password, password).toString();
-                    const updateRequest = store.put(data);
-                    updateRequest.onsuccess = () => resolve(true);
-                    updateRequest.onerror = () => reject(updateRequest.error);
-                };
-
-                request.onerror = () => reject(request.error);
-            });
-        } catch (error) {
-            return false;
-        }
+    ensureUnifiedPassword: async function () {
+        return true;
     },
 
     /**
@@ -1761,7 +1721,7 @@ const indexDBUtil = {
     },
 
     /**
-     * Validate unified password
+     * Validate unified password by attempting to decrypt any account's private key
      * @param {string} password
      * @returns {Promise<boolean>}
      */
@@ -1775,23 +1735,25 @@ const indexDBUtil = {
 
                 request.onsuccess = () => {
                     const data = request.result;
-                    if (!data || !data.unifiedPassword) {
+                    if (!data || !data.accounts || data.accounts.length === 0) {
                         resolve(false);
                         return;
                     }
 
+                    // Try to decrypt the first account's private key
+                    const account = data.accounts[0];
                     try {
-                        const bytes = CryptoJS.AES.decrypt(data.unifiedPassword, password);
+                        const bytes = CryptoJS.AES.decrypt(account.privatekey, password);
                         const decrypted = bytes.toString(CryptoJS.enc.Utf8);
-                        resolve(decrypted === password);
-                    } catch (e) {
+                        resolve(!!decrypted && decrypted.length > 0);
+                    } catch {
                         resolve(false);
                     }
                 };
 
                 request.onerror = () => reject(request.error);
             });
-        } catch (error) {
+        } catch {
             return false;
         }
     },
@@ -1910,7 +1872,6 @@ const indexDBUtil = {
 
                     // Update data with migrated accounts only
                     data.accounts = migratedAccounts;
-                    data.unifiedPassword = CryptoJS.AES.encrypt(newPassword, newPassword).toString();
 
                     const updateRequest = store.put(data);
                     updateRequest.onsuccess = () => {
@@ -2072,7 +2033,7 @@ const indexDBUtil = {
 
     /**
      * Complete DID migration - set version to 6
-     * Note: unifiedPassword is preserved for validating new account creation
+     * Note: unifiedPasswordHash is preserved for validating new account creation
      * @returns {Promise<Object>}
      */
     completeDIDMigration: async function () {
