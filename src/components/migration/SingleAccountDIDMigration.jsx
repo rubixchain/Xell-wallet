@@ -65,24 +65,8 @@ const SingleAccountDIDMigration = ({ username, unifiedPassword, onComplete, onEr
 
             if (account.mnemonic) {
                 const keys = deriveKeysFromMnemonic(account.mnemonic);
-
-                const currentPubKey = account.publickey;
-
-                const matchesNewCompressed = currentPubKey === keys.compressedPublicKey;
-                const matchesLegacyCompressed = currentPubKey === keys.legacyCompressedPublicKey;
-                const matchesNewUncompressed = currentPubKey === keys.uncompressedPublicKey;
-                const matchesLegacyUncompressed = currentPubKey === keys.legacyUncompressedPublicKey;
-
-                const matchesNew = matchesNewCompressed || matchesNewUncompressed;
-                const matchesLegacy = matchesLegacyCompressed || matchesLegacyUncompressed;
-
-                if (matchesLegacy && !matchesNew) {
-                    newPublicKey = keys.legacyUncompressedPublicKey;
-                    privateKeyHex = keys.legacyPrivateKey;
-                } else {
-                    newPublicKey = keys.uncompressedPublicKey;
-                    privateKeyHex = keys.privateKey;
-                }
+                newPublicKey = keys.legacyUncompressedPublicKey;
+                privateKeyHex = keys.legacyPrivateKey;
             } else {
                 newPublicKey = generateUncompressedPublicKey(account.privateKey);
                 privateKeyHex = account.privateKey;
