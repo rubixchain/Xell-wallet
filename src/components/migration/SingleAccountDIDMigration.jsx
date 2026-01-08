@@ -379,6 +379,37 @@ const SingleAccountDIDMigration = ({ username, unifiedPassword, onComplete, onEr
         }
     };
 
+    if (currentStep === MIGRATION_STEPS.TRANSFER_FAILED) {
+        return (
+            <div className="flex flex-col h-full pt-4 pb-6">
+                <div className="flex-1 flex flex-col items-center justify-center">
+                    <div className="p-4 rounded-full bg-tertiary mb-4">
+                        <FiRefreshCw className="text-primary" size={32} />
+                    </div>
+                    <h2 className="font-semibold text-xl text-senary mb-2">Consensus Failed</h2>
+                    <p className="text-quinary text-sm text-center mb-4">@{username}</p>
+                    <p className="text-quinary text-sm text-center mb-6">
+                        Please retry to complete your balance transfer.
+                    </p>
+                </div>
+                <button
+                    onClick={handleRetryTransfer}
+                    disabled={isRetrying}
+                    className="w-full bg-secondary hover:bg-primary text-white font-semibold py-3 px-6 rounded-lg transition-colors disabled:bg-disabled disabled:text-gray-500"
+                >
+                    {isRetrying ? (
+                        <span className="flex items-center justify-center gap-2">
+                            <span className="animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full"></span>
+                            Transferring...
+                        </span>
+                    ) : (
+                        'Retry'
+                    )}
+                </button>
+            </div>
+        );
+    }
+
     return (
         <div className="flex flex-col h-full pt-4 pb-6">
             {/* Header */}
@@ -386,13 +417,13 @@ const SingleAccountDIDMigration = ({ username, unifiedPassword, onComplete, onEr
                 <div className={`p-3 rounded-xl ${
                     currentStep === MIGRATION_STEPS.COMPLETE
                         ? 'bg-tertiary'
-                        : (currentStep === MIGRATION_STEPS.FAILED || currentStep === MIGRATION_STEPS.TRANSFER_FAILED)
+                        : currentStep === MIGRATION_STEPS.FAILED
                             ? 'bg-red-100'
                             : 'bg-tertiary'
                 }`}>
                     {currentStep === MIGRATION_STEPS.COMPLETE ? (
                         <FiCheck className="text-secondary" size={24} />
-                    ) : (currentStep === MIGRATION_STEPS.FAILED || currentStep === MIGRATION_STEPS.TRANSFER_FAILED) ? (
+                    ) : currentStep === MIGRATION_STEPS.FAILED ? (
                         <FiX className="text-red-600" size={24} />
                     ) : (
                         <FiRefreshCw className="text-primary animate-spin" size={24} />
@@ -419,7 +450,7 @@ const SingleAccountDIDMigration = ({ username, unifiedPassword, onComplete, onEr
                 <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
                     <div
                         className={`h-full transition-all duration-500 ${
-                            (currentStep === MIGRATION_STEPS.FAILED || currentStep === MIGRATION_STEPS.TRANSFER_FAILED)
+                            currentStep === MIGRATION_STEPS.FAILED
                                 ? 'bg-red-500'
                                 : currentStep === MIGRATION_STEPS.COMPLETE
                                     ? 'bg-secondary'
@@ -444,7 +475,6 @@ const SingleAccountDIDMigration = ({ username, unifiedPassword, onComplete, onEr
                     const currentIndex = Object.values(MIGRATION_STEPS).indexOf(currentStep);
                     const isComplete = currentIndex > stepIndex || currentStep === MIGRATION_STEPS.COMPLETE;
                     const isCurrent = step === currentStep;
-                    const isFailed = currentStep === MIGRATION_STEPS.FAILED && step === currentStep;
 
                     return (
                         <div
@@ -479,7 +509,7 @@ const SingleAccountDIDMigration = ({ username, unifiedPassword, onComplete, onEr
             )}
 
             {/* Error message */}
-            {error && (
+            {error && currentStep === MIGRATION_STEPS.FAILED && (
                 <div className="bg-red-50 border border-red-200 rounded-lg p-3 mb-4">
                     <p className="text-sm text-red-700">{error}</p>
                 </div>
@@ -499,24 +529,6 @@ const SingleAccountDIDMigration = ({ username, unifiedPassword, onComplete, onEr
                         </span>
                     ) : (
                         'Retry Migration'
-                    )}
-                </button>
-            )}
-
-            {/* Retry button for transfer failed state */}
-            {currentStep === MIGRATION_STEPS.TRANSFER_FAILED && (
-                <button
-                    onClick={handleRetryTransfer}
-                    disabled={isRetrying}
-                    className="w-full bg-secondary hover:bg-primary text-white font-semibold py-3 px-6 rounded-lg transition-colors disabled:bg-disabled disabled:text-gray-500"
-                >
-                    {isRetrying ? (
-                        <span className="flex items-center justify-center gap-2">
-                            <span className="animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full"></span>
-                            Retrying Transfer...
-                        </span>
-                    ) : (
-                        'Retry Transfer'
                     )}
                 </button>
             )}
