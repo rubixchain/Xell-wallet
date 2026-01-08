@@ -189,21 +189,20 @@ const SingleAccountDIDMigration = ({ username, unifiedPassword, onComplete, onEr
                 });
 
                 const accountInfo = await currentNetworkApi.get('/get-account-info', { params: { did: account.did } });
+                let remainingBalance = accountInfo?.data?.account_info?.[0]?.rbt_amount || 0;
 
-                const balance = accountInfo?.data?.account_info?.[0]?.rbt_amount || 0;
+                const RETRY_DELAY_MS = 2000;
 
-                if (balance > 0) {
+                while (remainingBalance > 0) {
                     const transferResult = await initiateProxyTransfer(privateKeyHex, account.did, generatedNewDid);
 
-                    if (!transferResult.success) {
-                        throw new Error(transferResult.message || 'Balance transfer failed');
-                    }
-
                     const verifyInfo = await currentNetworkApi.get('/get-account-info', { params: { did: account.did } });
-                    const remainingBalance = verifyInfo?.data?.account_info?.[0]?.rbt_amount || 0;
+                    remainingBalance = verifyInfo?.data?.account_info?.[0]?.rbt_amount || 0;
 
                     if (remainingBalance > 0) {
-                        throw new Error(`Transfer incomplete. ${remainingBalance} RBT remaining in old account.`);
+                        if (!transferResult.success) {
+                            await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
+                        }
                     }
                 }
             }
