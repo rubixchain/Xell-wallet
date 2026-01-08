@@ -11,8 +11,10 @@ const MIGRATION_STEPS = {
     GENERATING_KEYS: 'generating_keys',
     REQUESTING_DID: 'requesting_did',
     REGISTERING_DID: 'registering_did',
+    TRANSFERRING_BALANCE: 'transferring_balance',
     UPDATING_STORAGE: 'updating_storage',
     COMPLETE: 'complete',
+    TRANSFER_FAILED: 'transfer_failed',
     FAILED: 'failed'
 };
 
@@ -22,6 +24,8 @@ const SingleAccountDIDMigration = ({ username, unifiedPassword, onComplete, onEr
     const [error, setError] = useState(null);
     const [isRetrying, setIsRetrying] = useState(false);
     const [newDid, setNewDid] = useState(null);
+    const [transferContext, setTransferContext] = useState(null);
+    const [remainingBalance, setRemainingBalance] = useState(0);
 
     useEffect(() => {
         startMigration();
@@ -189,20 +193,32 @@ const SingleAccountDIDMigration = ({ username, unifiedPassword, onComplete, onEr
                 });
 
                 const accountInfo = await currentNetworkApi.get('/get-account-info', { params: { did: account.did } });
-                let remainingBalance = accountInfo?.data?.account_info?.[0]?.rbt_amount || 0;
+                const balance = accountInfo?.data?.account_info?.[0]?.rbt_amount || 0;
 
-                const RETRY_DELAY_MS = 2000;
+                if (balance > 0) {
+                    setCurrentStep(MIGRATION_STEPS.TRANSFERRING_BALANCE);
+                    setProgress(75);
+                    setRemainingBalance(balance);
 
-                while (remainingBalance > 0) {
+                    setTransferContext({
+                        privateKeyHex,
+                        oldDid: account.did,
+                        newDid: generatedNewDid,
+                        networkBaseUrl: currentNetworkBaseUrl,
+                        account,
+                        newPublicKey
+                    });
+
                     const transferResult = await initiateProxyTransfer(privateKeyHex, account.did, generatedNewDid);
 
                     const verifyInfo = await currentNetworkApi.get('/get-account-info', { params: { did: account.did } });
-                    remainingBalance = verifyInfo?.data?.account_info?.[0]?.rbt_amount || 0;
+                    const balanceAfterTransfer = verifyInfo?.data?.account_info?.[0]?.rbt_amount || 0;
+                    setRemainingBalance(balanceAfterTransfer);
 
-                    if (remainingBalance > 0) {
-                        if (!transferResult.success) {
-                            await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
-                        }
+                    if (balanceAfterTransfer > 0) {
+                        setError(`Transfer incomplete. ${balanceAfterTransfer} RBT remaining. Please retry.`);
+                        setCurrentStep(MIGRATION_STEPS.TRANSFER_FAILED);
+                        return;
                     }
                 }
             }
@@ -277,6 +293,67 @@ const SingleAccountDIDMigration = ({ username, unifiedPassword, onComplete, onEr
         setIsRetrying(false);
     };
 
+    const handleRetryTransfer = async () => {
+        if (!transferContext) return;
+
+        setIsRetrying(true);
+        setError(null);
+        setCurrentStep(MIGRATION_STEPS.TRANSFERRING_BALANCE);
+
+        try {
+            const { privateKeyHex, oldDid, newDid: receiverDid, networkBaseUrl, account, newPublicKey } = transferContext;
+
+            const currentNetworkApi = axios.create({
+                baseURL: networkBaseUrl,
+                headers: { 'Content-Type': 'application/json' }
+            });
+
+            const transferResult = await initiateProxyTransfer(privateKeyHex, oldDid, receiverDid);
+
+            const verifyInfo = await currentNetworkApi.get('/get-account-info', { params: { did: oldDid } });
+            const balanceAfterTransfer = verifyInfo?.data?.account_info?.[0]?.rbt_amount || 0;
+            setRemainingBalance(balanceAfterTransfer);
+
+            if (balanceAfterTransfer > 0) {
+                setError(`Transfer incomplete. ${balanceAfterTransfer} RBT remaining. Please retry.`);
+                setCurrentStep(MIGRATION_STEPS.TRANSFER_FAILED);
+                setIsRetrying(false);
+                return;
+            }
+
+            setCurrentStep(MIGRATION_STEPS.UPDATING_STORAGE);
+            setProgress(85);
+
+            await indexDBUtil.updateAccountAfterDIDMigration(account.username, {
+                newDid: receiverDid,
+                newPublicKey: newPublicKey,
+                newPrivateKey: privateKeyHex,
+                unifiedPassword: unifiedPassword
+            });
+
+            setProgress(90);
+
+            await indexDBUtil.markAccountAsMigrated(account.username);
+
+            setProgress(95);
+
+            await checkAndCompleteFullMigration();
+
+            setCurrentStep(MIGRATION_STEPS.COMPLETE);
+            setProgress(100);
+
+            setTimeout(() => {
+                onComplete();
+            }, 1000);
+
+        } catch (err) {
+            setError(`Transfer failed: ${err.message}`);
+            setCurrentStep(MIGRATION_STEPS.TRANSFER_FAILED);
+        }
+
+        setIsRetrying(false);
+    };
+
     const getStepLabel = () => {
         switch (currentStep) {
             case MIGRATION_STEPS.PREPARING:
@@ -287,10 +364,14 @@ const SingleAccountDIDMigration = ({ username, unifiedPassword, onComplete, onEr
                 return 'Requesting new DID...';
             case MIGRATION_STEPS.REGISTERING_DID:
                 return 'Registering DID on network...';
+            case MIGRATION_STEPS.TRANSFERRING_BALANCE:
+                return 'Transferring balance...';
             case MIGRATION_STEPS.UPDATING_STORAGE:
                 return 'Updating local storage...';
             case MIGRATION_STEPS.COMPLETE:
                 return 'Migration complete!';
+            case MIGRATION_STEPS.TRANSFER_FAILED:
+                return 'Balance transfer failed';
             case MIGRATION_STEPS.FAILED:
                 return 'Migration failed';
             default:
@@ -305,13 +386,13 @@ const SingleAccountDIDMigration = ({ username, unifiedPassword, onComplete, onEr
                 <div className={`p-3 rounded-xl ${
                     currentStep === MIGRATION_STEPS.COMPLETE
                         ? 'bg-tertiary'
-                        : currentStep === MIGRATION_STEPS.FAILED
+                        : (currentStep === MIGRATION_STEPS.FAILED || currentStep === MIGRATION_STEPS.TRANSFER_FAILED)
                             ? 'bg-red-100'
                             : 'bg-tertiary'
                 }`}>
                     {currentStep === MIGRATION_STEPS.COMPLETE ? (
                         <FiCheck className="text-secondary" size={24} />
-                    ) : currentStep === MIGRATION_STEPS.FAILED ? (
+                    ) : (currentStep === MIGRATION_STEPS.FAILED || currentStep === MIGRATION_STEPS.TRANSFER_FAILED) ? (
                         <FiX className="text-red-600" size={24} />
                     ) : (
                         <FiRefreshCw className="text-primary animate-spin" size={24} />
@@ -338,7 +419,7 @@ const SingleAccountDIDMigration = ({ username, unifiedPassword, onComplete, onEr
                 <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
                     <div
                         className={`h-full transition-all duration-500 ${
-                            currentStep === MIGRATION_STEPS.FAILED
+                            (currentStep === MIGRATION_STEPS.FAILED || currentStep === MIGRATION_STEPS.TRANSFER_FAILED)
                                 ? 'bg-red-500'
                                 : currentStep === MIGRATION_STEPS.COMPLETE
                                     ? 'bg-secondary'
@@ -356,6 +437,7 @@ const SingleAccountDIDMigration = ({ username, unifiedPassword, onComplete, onEr
                     { step: MIGRATION_STEPS.GENERATING_KEYS, label: 'Generate new keys' },
                     { step: MIGRATION_STEPS.REQUESTING_DID, label: 'Request new DID' },
                     { step: MIGRATION_STEPS.REGISTERING_DID, label: 'Register on network' },
+                    { step: MIGRATION_STEPS.TRANSFERRING_BALANCE, label: 'Transfer balance' },
                     { step: MIGRATION_STEPS.UPDATING_STORAGE, label: 'Update local storage' }
                 ].map(({ step, label }, index) => {
                     const stepIndex = Object.values(MIGRATION_STEPS).indexOf(step);
@@ -417,6 +499,24 @@ const SingleAccountDIDMigration = ({ username, unifiedPassword, onComplete, onEr
                         </span>
                     ) : (
                         'Retry Migration'
+                    )}
+                </button>
+            )}
+
+            {/* Retry button for transfer failed state */}
+            {currentStep === MIGRATION_STEPS.TRANSFER_FAILED && (
+                <button
+                    onClick={handleRetryTransfer}
+                    disabled={isRetrying}
+                    className="w-full bg-secondary hover:bg-primary text-white font-semibold py-3 px-6 rounded-lg transition-colors disabled:bg-disabled disabled:text-gray-500"
+                >
+                    {isRetrying ? (
+                        <span className="flex items-center justify-center gap-2">
+                            <span className="animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full"></span>
+                            Retrying Transfer...
+                        </span>
+                    ) : (
+                        'Retry Transfer'
                     )}
                 </button>
             )}
