@@ -18,7 +18,7 @@ const MIGRATION_STEPS = {
     FAILED: 'failed'
 };
 
-const SingleAccountDIDMigration = ({ username, unifiedPassword, onComplete, onError }) => {
+const SingleAccountDIDMigration = ({ username, unifiedPassword, legacyDid: propLegacyDid, legacyPrivateKey: propLegacyPrivateKey, onComplete, onError }) => {
     const [currentStep, setCurrentStep] = useState(MIGRATION_STEPS.PREPARING);
     const [progress, setProgress] = useState(0);
     const [error, setError] = useState(null);
@@ -62,14 +62,21 @@ const SingleAccountDIDMigration = ({ username, unifiedPassword, onComplete, onEr
 
             let newPublicKey;
             let privateKeyHex;
+            let legacyPrivateKeyHex;
+
+            // Use prop values if provided (fresh import case), otherwise derive from mnemonic
+            const effectiveLegacyDid = propLegacyDid || account.legacyDid;
+            const effectiveLegacyPrivateKey = propLegacyPrivateKey;
 
             if (account.mnemonic) {
                 const keys = deriveKeysFromMnemonic(account.mnemonic);
-                newPublicKey = keys.legacyUncompressedPublicKey;
-                privateKeyHex = keys.legacyPrivateKey;
+                newPublicKey = keys.uncompressedPublicKey;
+                privateKeyHex = keys.privateKey;
+                legacyPrivateKeyHex = effectiveLegacyPrivateKey || keys.legacyPrivateKey;
             } else {
                 newPublicKey = generateUncompressedPublicKey(account.privateKey);
                 privateKeyHex = account.privateKey;
+                legacyPrivateKeyHex = effectiveLegacyPrivateKey || account.privateKey;
             }
 
             // Validate private key format
@@ -84,10 +91,15 @@ const SingleAccountDIDMigration = ({ username, unifiedPassword, onComplete, onEr
                 throw new Error(`invalid private key format: expected 64 hex characters, got ${privateKeyHex.length} characters`);
             }
 
+            // Also validate legacy private key if we have one
+            if (legacyPrivateKeyHex) {
+                legacyPrivateKeyHex = legacyPrivateKeyHex.trim().toLowerCase().replace(/^0x/, '');
+            }
+
             let generatedNewDid;
 
             // Check if this is a fresh import (legacyDid exists, meaning account.did is already the new DID)
-            if (account.legacyDid) {
+            if (effectiveLegacyDid) {
                 // Fresh import case: account.did is already the new DID, legacyDid is the old one
                 generatedNewDid = account.did;
                 setNewDid(generatedNewDid);
@@ -175,7 +187,7 @@ const SingleAccountDIDMigration = ({ username, unifiedPassword, onComplete, onEr
             }
 
             // Determine the old DID for balance transfer
-            const oldDid = account.legacyDid || account.did;
+            const oldDid = effectiveLegacyDid || account.did;
 
             const rubixNetworks = ['1', '2'];
             const networkStr = String(account.network);
@@ -197,15 +209,16 @@ const SingleAccountDIDMigration = ({ username, unifiedPassword, onComplete, onEr
                     setRemainingBalance(balance);
 
                     setTransferContext({
-                        privateKeyHex,
+                        privateKeyHex: legacyPrivateKeyHex,
                         oldDid: oldDid,
                         newDid: generatedNewDid,
                         networkBaseUrl: currentNetworkBaseUrl,
                         account,
-                        newPublicKey
+                        newPublicKey,
+                        newPrivateKey: privateKeyHex
                     });
 
-                    const transferResult = await initiateProxyTransfer(privateKeyHex, oldDid, generatedNewDid);
+                    const transferResult = await initiateProxyTransfer(legacyPrivateKeyHex, oldDid, generatedNewDid);
 
                     const verifyInfo = await currentNetworkApi.get('/get-account-info', { params: { did: oldDid } });
                     const balanceAfterTransfer = verifyInfo?.data?.account_info?.[0]?.rbt_amount || 0;
@@ -220,7 +233,7 @@ const SingleAccountDIDMigration = ({ username, unifiedPassword, onComplete, onEr
             }
 
             // Step 5: Update local storage (only for normal migration, fresh imports already have correct DID)
-            if (!account.legacyDid) {
+            if (!effectiveLegacyDid) {
                 setCurrentStep(MIGRATION_STEPS.UPDATING_STORAGE);
                 setProgress(85);
 
@@ -302,7 +315,7 @@ const SingleAccountDIDMigration = ({ username, unifiedPassword, onComplete, onEr
         setCurrentStep(MIGRATION_STEPS.TRANSFERRING_BALANCE);
 
         try {
-            const { privateKeyHex, oldDid, newDid: receiverDid, networkBaseUrl, account, newPublicKey } = transferContext;
+            const { privateKeyHex, oldDid, newDid: receiverDid, networkBaseUrl, account, newPublicKey, newPrivateKey } = transferContext;
 
             const currentNetworkApi = axios.create({
                 baseURL: networkBaseUrl,
@@ -328,7 +341,7 @@ const SingleAccountDIDMigration = ({ username, unifiedPassword, onComplete, onEr
             await indexDBUtil.updateAccountAfterDIDMigration(account.username, {
                 newDid: receiverDid,
                 newPublicKey: newPublicKey,
-                newPrivateKey: privateKeyHex,
+                newPrivateKey: newPrivateKey || privateKeyHex,
                 unifiedPassword: unifiedPassword
             });
 

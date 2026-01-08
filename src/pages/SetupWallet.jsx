@@ -141,7 +141,9 @@ export default function SetupWallet() {
       if (state?.needsLegacyMigration) {
         setMigrationData({
           username: res?.data?.username,
-          unifiedPassword: userDetails?.pin
+          unifiedPassword: userDetails?.pin,
+          legacyDid: state?.legacyDid,
+          legacyPrivateKey: state?.legacyPrivateKey
         });
         setStep('migration');
       } else {
@@ -246,7 +248,9 @@ export default function SetupWallet() {
       if (state?.needsLegacyMigration) {
         setMigrationData({
           username: res?.data?.username,
-          unifiedPassword: pin
+          unifiedPassword: pin,
+          legacyDid: state?.legacyDid,
+          legacyPrivateKey: state?.legacyPrivateKey
         });
         setStep('migration');
       } else {
@@ -341,7 +345,9 @@ export default function SetupWallet() {
       if (state?.needsLegacyMigration) {
         setMigrationData({
           username: res?.data?.username,
-          unifiedPassword: userDetails?.pin
+          unifiedPassword: userDetails?.pin,
+          legacyDid: state?.legacyDid,
+          legacyPrivateKey: state?.legacyPrivateKey
         });
         setStep('migration');
       } else {
@@ -458,6 +464,8 @@ export default function SetupWallet() {
               <SingleAccountDIDMigration
                 username={migrationData.username}
                 unifiedPassword={migrationData.unifiedPassword}
+                legacyDid={migrationData.legacyDid}
+                legacyPrivateKey={migrationData.legacyPrivateKey}
                 onComplete={handleMigrationComplete}
               />
             </motion.div>

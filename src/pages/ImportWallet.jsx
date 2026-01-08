@@ -102,7 +102,7 @@ const ImportWallet = () => {
       let legacyDid = null;
       try {
         const legacyDIDResponse = await END_POINTS.create_wallet({
-          public_key: keys.legacyCompressedPublicKey,
+          public_key: keys.legacyUncompressedPublicKey,
           network: "1"
         });
         legacyDid = legacyDIDResponse?.did || legacyDIDResponse?.data?.did;
@@ -113,11 +113,12 @@ const ImportWallet = () => {
       navigate(routes.SETUP_WALLET, {
         state: {
           type: 'import',
-          publickey: keys.legacyUncompressedPublicKey,
-          privatekey: keys.legacyPrivateKey,
+          publickey: keys.uncompressedPublicKey,
+          privatekey: keys.privateKey,
           mnemonics: trimed,
           fromDashboard,
           legacyDid: legacyDid,
+          legacyPrivateKey: legacyDid ? keys.legacyPrivateKey : null,
           needsLegacyMigration: !!legacyDid
         }
       })
