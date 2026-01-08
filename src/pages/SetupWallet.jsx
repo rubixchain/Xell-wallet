@@ -17,7 +17,7 @@ import Network from '../components/setup/Network';
 import { EXECUTE_API } from '../utils';
 import { WALLET_TYPES } from '../enums';
 import { config, NETWORK_TYPES } from '../../config';
-import { LegacyBalanceTransfer } from '../components/migration';
+import { SingleAccountDIDMigration } from '../components/migration';
 
 export default function SetupWallet() {
   const { setUserDetails, userDetails, setIsUserLoggedIn, websiteInitiated, setWebsiteInitiated } = useContext(UserContext)
@@ -26,7 +26,7 @@ export default function SetupWallet() {
   const [error, setError] = useState('');
   const [hasUnifiedPassword, setHasUnifiedPassword] = useState(false);
   const [isCheckingUnified, setIsCheckingUnified] = useState(true);
-  const [legacyTransferData, setLegacyTransferData] = useState(null);
+  const [migrationData, setMigrationData] = useState(null);
   const navigate = useNavigate()
   const location = useLocation()
   const state = location?.state
@@ -98,7 +98,9 @@ export default function SetupWallet() {
         ...updatedUserDetails,
         publickey: state.publickey,
         privatekey: state?.privatekey,
-        mnemonics: state?.mnemonics
+        mnemonics: state?.mnemonics,
+        needsLegacyMigration: state?.needsLegacyMigration || false,
+        existingDid: state?.existingDid
       };
 
       let res = await indexDBUtil.storeToDB(storeData);
@@ -136,13 +138,12 @@ export default function SetupWallet() {
 
       setUserDetails(payload);
 
-      if (state?.legacyDid) {
-        setLegacyTransferData({
-          legacyDid: state.legacyDid,
-          legacyPrivateKey: state.legacyPrivateKey,
-          newDid: res?.data?.did
+      if (state?.needsLegacyMigration) {
+        setMigrationData({
+          username: res?.data?.username,
+          unifiedPassword: userDetails?.pin
         });
-        setStep('legacy_transfer');
+        setStep('migration');
       } else {
         navigate(routes.SUCCESS);
       }
@@ -150,15 +151,6 @@ export default function SetupWallet() {
       setLoader(false);
       toast.error('Failed to import wallet');
     }
-  };
-
-  const handleLegacyTransferComplete = () => {
-    toast.success('Balance transferred successfully');
-    navigate(routes.DASHBOARD);
-  };
-
-  const handleLegacyTransferSkip = () => {
-    navigate(routes.DASHBOARD);
   };
 
   const handlePinSubmit = (pin) => {
@@ -202,7 +194,9 @@ export default function SetupWallet() {
         ...updatedUserDetails,
         publickey: state.publickey,
         privatekey: state?.privatekey,
-        mnemonics: state?.mnemonics
+        mnemonics: state?.mnemonics,
+        needsLegacyMigration: state?.needsLegacyMigration || false,
+        existingDid: state?.existingDid
       };
 
       let res = await indexDBUtil.storeToDB(storeData);
@@ -249,13 +243,12 @@ export default function SetupWallet() {
       });
       setUserDetails(payload);
 
-      if (state?.legacyDid) {
-        setLegacyTransferData({
-          legacyDid: state.legacyDid,
-          legacyPrivateKey: state.legacyPrivateKey,
-          newDid: res?.data?.did
+      if (state?.needsLegacyMigration) {
+        setMigrationData({
+          username: res?.data?.username,
+          unifiedPassword: pin
         });
-        setStep('legacy_transfer');
+        setStep('migration');
       } else {
         navigate(routes.SUCCESS);
       }
@@ -290,7 +283,9 @@ export default function SetupWallet() {
         ...updatedUserDetails,
         publickey: state.publickey,
         privatekey: state?.privatekey,
-        mnemonics: state?.mnemonics
+        mnemonics: state?.mnemonics,
+        needsLegacyMigration: state?.needsLegacyMigration || false,
+        existingDid: state?.existingDid
       };
 
       let res = await indexDBUtil.storeToDB(storeData)
@@ -343,13 +338,12 @@ export default function SetupWallet() {
       })
       setUserDetails(payload);
 
-      if (state?.legacyDid) {
-        setLegacyTransferData({
-          legacyDid: state.legacyDid,
-          legacyPrivateKey: state.legacyPrivateKey,
-          newDid: res?.data?.did
+      if (state?.needsLegacyMigration) {
+        setMigrationData({
+          username: res?.data?.username,
+          unifiedPassword: userDetails?.pin
         });
-        setStep('legacy_transfer');
+        setStep('migration');
       } else {
         navigate(routes.SUCCESS);
       }
@@ -362,6 +356,12 @@ export default function SetupWallet() {
   const onChangeNetwork = (network) => {
     setUserDetails(prev => ({ ...prev, network }));
   }
+
+  const handleMigrationComplete = () => {
+    toast.success('Migration completed successfully');
+    navigate(routes.DASHBOARD);
+  };
+
   const Continue = async () => {
 
     setUserDetails(prev => {
@@ -388,9 +388,9 @@ export default function SetupWallet() {
   return (
     <Card>
       <div className="space-y-6 flex flex-col w-full h-full justify-center">
-        {step !== 'legacy_transfer' && <BackButton onClick={handleBack} />}
+        {step !== 'migration' && <BackButton onClick={handleBack} />}
 
-        {step !== 'legacy_transfer' && <SetupProgress currentStep={step} totalSteps={totalSteps} />}
+        {step !== 'migration' && <SetupProgress currentStep={step} totalSteps={totalSteps} />}
 
         <AnimatePresence mode="wait">
           {step === 1 && (
@@ -448,19 +448,17 @@ export default function SetupWallet() {
             </motion.div>
           )}
 
-          {step === 'legacy_transfer' && legacyTransferData && (
+          {step === 'migration' && migrationData && (
             <motion.div
-              key="legacy-transfer"
+              key="migration"
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -20 }}
             >
-              <LegacyBalanceTransfer
-                legacyDid={legacyTransferData.legacyDid}
-                legacyPrivateKey={legacyTransferData.legacyPrivateKey}
-                newDid={legacyTransferData.newDid}
-                onComplete={handleLegacyTransferComplete}
-                onSkip={handleLegacyTransferSkip}
+              <SingleAccountDIDMigration
+                username={migrationData.username}
+                unifiedPassword={migrationData.unifiedPassword}
+                onComplete={handleMigrationComplete}
               />
             </motion.div>
           )}

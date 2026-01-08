@@ -113,12 +113,12 @@ const ImportWallet = () => {
       navigate(routes.SETUP_WALLET, {
         state: {
           type: 'import',
-          publickey: keys.uncompressedPublicKey,
-          privatekey: keys.privateKey,
+          publickey: keys.legacyUncompressedPublicKey,
+          privatekey: keys.legacyPrivateKey,
           mnemonics: trimed,
           fromDashboard,
-          legacyDid,
-          legacyPrivateKey: legacyDid ? keys.legacyPrivateKey : null
+          existingDid: legacyDid,
+          needsLegacyMigration: !!legacyDid
         }
       })
     } catch (error) {

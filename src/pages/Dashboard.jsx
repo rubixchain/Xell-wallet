@@ -13,6 +13,9 @@ import toast from 'react-hot-toast';
 import { FiList, FiClock } from 'react-icons/fi';
 import History from './History';
 import { NETWORK_TYPES } from "../../config.js"
+import indexDBUtil from '../indexDB';
+import { useNavigate } from 'react-router-dom';
+import { routes } from '../routes/routes';
 
 const Tabs = ({ activeTab, setActiveTab }) => (
   <div className="flex justify-between my-4 border-b border-gray-300">
@@ -33,11 +36,29 @@ const Tabs = ({ activeTab, setActiveTab }) => (
 
 export default function Dashboard() {
 
-  const { userDetails, setUserDetails, setSelectedTokens } = useContext(UserContext)
+  const { userDetails, setUserDetails, setSelectedTokens, setIsUserLoggedIn } = useContext(UserContext)
   const [accountInfo, setAccountInfo] = useState({})
   const { transactionsData, setTransactionsData } = useContext(TransactionsContext)
   const [isTransactionCompleted, setIsTransactionCompleted] = useState(false)
   const [activeTab, setActiveTab] = useState('Tokens');
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const checkPendingMigration = async () => {
+      try {
+        if (!userDetails?.username) {
+          return;
+        }
+        const needsMigration = await indexDBUtil.accountNeedsDIDMigration(userDetails.username);
+        if (needsMigration) {
+          setIsUserLoggedIn(false);
+          navigate(routes.LOGIN, { replace: true });
+        }
+      } catch (e) {
+      }
+    };
+    checkPendingMigration();
+  }, [userDetails?.username]);
 
   useEffect(() => {
     if (!userDetails?.username || !userDetails?.did) {
