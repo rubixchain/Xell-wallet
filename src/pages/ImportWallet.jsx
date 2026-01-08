@@ -117,7 +117,7 @@ const ImportWallet = () => {
           privatekey: keys.legacyPrivateKey,
           mnemonics: trimed,
           fromDashboard,
-          existingDid: legacyDid,
+          legacyDid: legacyDid,
           needsLegacyMigration: !!legacyDid
         }
       })

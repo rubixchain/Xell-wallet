@@ -84,86 +84,98 @@ const SingleAccountDIDMigration = ({ username, unifiedPassword, onComplete, onEr
                 throw new Error(`invalid private key format: expected 64 hex characters, got ${privateKeyHex.length} characters`);
             }
 
-            // Step 2: Request and register new DID on all networks
-            setCurrentStep(MIGRATION_STEPS.REQUESTING_DID);
-            setProgress(40);
+            let generatedNewDid;
 
-            const networks = [
-                {
-                    id: "1",
-                    name: "RUBIX_MAINNET",
-                    baseUrl: config.RUBIX_MAINNET_BASE_URL
-                },
-                {
-                    id: "2",
-                    name: "RUBIX_TESTNET",
-                    baseUrl: config.RUBIX_TESTNET_BASE_URL
+            // Check if this is a fresh import (legacyDid exists, meaning account.did is already the new DID)
+            if (account.legacyDid) {
+                // Fresh import case: account.did is already the new DID, legacyDid is the old one
+                generatedNewDid = account.did;
+                setNewDid(generatedNewDid);
+                setProgress(70);
+            } else {
+                // Normal migration case: need to create new DID
+                setCurrentStep(MIGRATION_STEPS.REQUESTING_DID);
+                setProgress(40);
+
+                const networks = [
+                    {
+                        id: "1",
+                        name: "RUBIX_MAINNET",
+                        baseUrl: config.RUBIX_MAINNET_BASE_URL
+                    },
+                    {
+                        id: "2",
+                        name: "RUBIX_TESTNET",
+                        baseUrl: config.RUBIX_TESTNET_BASE_URL
+                    }
+                ];
+
+                setCurrentStep(MIGRATION_STEPS.REGISTERING_DID);
+                setProgress(50);
+
+                const registrationPromises = networks.map(async (network) => {
+                    try {
+                        const customApi = axios.create({
+                            baseURL: network.baseUrl,
+                            headers: { 'Content-Type': 'application/json' }
+                        });
+
+                        let didResponse = await customApi.post('/request-did-for-pubkey', {
+                            public_key: newPublicKey,
+                            network: network.id
+                        });
+                        didResponse = didResponse.data;
+
+                        if (!didResponse || !didResponse.did) {
+                            return null;
+                        }
+
+                        const newDid = didResponse.did;
+
+                        let registerResponse = await customApi.post('/register-did', { did: newDid });
+                        registerResponse = registerResponse.data;
+
+                        if (!registerResponse || !registerResponse.status) {
+                            return null;
+                        }
+
+                        const signature = await generateSignature(privateKeyHex, registerResponse.result.hash);
+                        let signatureResponse = await customApi.post('/signature-response', {
+                            id: registerResponse.result.id,
+                            Signature: { Signature: signature },
+                            mode: 4
+                        });
+                        signatureResponse = signatureResponse.data;
+
+                        if (!signatureResponse || !signatureResponse.status) {
+                            return null;
+                        }
+
+                        return {
+                            network: network.id,
+                            did: newDid,
+                            status: true,
+                            baseUrl: network.baseUrl
+                        };
+                    } catch (error) {
+                        return null;
+                    }
+                });
+
+                const registrationResults = await Promise.all(registrationPromises);
+                const successfulRegistrations = registrationResults.filter(result => result !== null);
+
+                if (successfulRegistrations.length === 0) {
+                    throw new Error('Failed to register new DID on any network');
                 }
-            ];
 
-            setCurrentStep(MIGRATION_STEPS.REGISTERING_DID);
-            setProgress(50);
-
-            const registrationPromises = networks.map(async (network) => {
-                try {
-                    const customApi = axios.create({
-                        baseURL: network.baseUrl,
-                        headers: { 'Content-Type': 'application/json' }
-                    });
-
-                    let didResponse = await customApi.post('/request-did-for-pubkey', {
-                        public_key: newPublicKey,
-                        network: network.id
-                    });
-                    didResponse = didResponse.data;
-
-                    if (!didResponse || !didResponse.did) {
-                        return null;
-                    }
-
-                    const newDid = didResponse.did;
-
-                    let registerResponse = await customApi.post('/register-did', { did: newDid });
-                    registerResponse = registerResponse.data;
-
-                    if (!registerResponse || !registerResponse.status) {
-                        return null;
-                    }
-
-                    const signature = await generateSignature(privateKeyHex, registerResponse.result.hash);
-                    let signatureResponse = await customApi.post('/signature-response', {
-                        id: registerResponse.result.id,
-                        Signature: { Signature: signature },
-                        mode: 4
-                    });
-                    signatureResponse = signatureResponse.data;
-
-                    if (!signatureResponse || !signatureResponse.status) {
-                        return null;
-                    }
-
-                    return {
-                        network: network.id,
-                        did: newDid,
-                        status: true,
-                        baseUrl: network.baseUrl
-                    };
-                } catch (error) {
-                    return null;
-                }
-            });
-
-            const registrationResults = await Promise.all(registrationPromises);
-            const successfulRegistrations = registrationResults.filter(result => result !== null);
-
-            if (successfulRegistrations.length === 0) {
-                throw new Error('Failed to register new DID on any network');
+                generatedNewDid = successfulRegistrations[0].did;
+                setNewDid(generatedNewDid);
+                setProgress(70);
             }
 
-            const generatedNewDid = successfulRegistrations[0].did;
-            setNewDid(generatedNewDid);
-
-            setProgress(70);
+            // Determine the old DID for balance transfer
+            const oldDid = account.legacyDid || account.did;
 
             const rubixNetworks = ['1', '2'];
             const networkStr = String(account.network);
@@ -176,7 +188,7 @@ const SingleAccountDIDMigration = ({ username, unifiedPassword, onComplete, onEr
                     headers: { 'Content-Type': 'application/json' }
                 });
 
-                const accountInfo = await currentNetworkApi.get('/get-account-info', { params: { did: account.did } });
+                const accountInfo = await currentNetworkApi.get('/get-account-info', { params: { did: oldDid } });
                 const balance = accountInfo?.data?.account_info?.[0]?.rbt_amount || 0;
 
                 if (balance > 0) {
@@ -186,16 +198,16 @@ const SingleAccountDIDMigration = ({ username, unifiedPassword, onComplete, onEr
 
                     setTransferContext({
                         privateKeyHex,
-                        oldDid: account.did,
+                        oldDid: oldDid,
                         newDid: generatedNewDid,
                         networkBaseUrl: currentNetworkBaseUrl,
                         account,
                         newPublicKey
                     });
 
-                    const transferResult = await initiateProxyTransfer(privateKeyHex, account.did, generatedNewDid);
+                    const transferResult = await initiateProxyTransfer(privateKeyHex, oldDid, generatedNewDid);
 
-                    const verifyInfo = await currentNetworkApi.get('/get-account-info', { params: { did: account.did } });
+                    const verifyInfo = await currentNetworkApi.get('/get-account-info', { params: { did: oldDid } });
                     const balanceAfterTransfer = verifyInfo?.data?.account_info?.[0]?.rbt_amount || 0;
                     setRemainingBalance(balanceAfterTransfer);
 
@@ -207,16 +219,21 @@ const SingleAccountDIDMigration = ({ username, unifiedPassword, onComplete, onEr
                 }
             }
 
-            // Step 5: Update local storage
-            setCurrentStep(MIGRATION_STEPS.UPDATING_STORAGE);
-            setProgress(85);
+            // Step 5: Update local storage (only for normal migration, fresh imports already have correct DID)
+            if (!account.legacyDid) {
+                setCurrentStep(MIGRATION_STEPS.UPDATING_STORAGE);
+                setProgress(85);
 
-            await indexDBUtil.updateAccountAfterDIDMigration(account.username, {
-                newDid: generatedNewDid,
-                newPublicKey: newPublicKey,
-                newPrivateKey: privateKeyHex,
-                unifiedPassword: unifiedPassword
-            });
+                await indexDBUtil.updateAccountAfterDIDMigration(account.username, {
+                    newDid: generatedNewDid,
+                    newPublicKey: newPublicKey,
+                    newPrivateKey: privateKeyHex,
+                    unifiedPassword: unifiedPassword
+                });
+            } else {
+                setCurrentStep(MIGRATION_STEPS.UPDATING_STORAGE);
+                setProgress(85);
+            }
 
             setProgress(90);
 

@@ -306,7 +306,7 @@ const indexDBUtil = {
         });
     },
 
-    storeToDB: async function ({ privatekey, publickey, pin, username, mnemonics, needsLegacyMigration = false, existingDid = null }) {
+    storeToDB: async function ({ privatekey, publickey, pin, username, mnemonics, needsLegacyMigration = false, legacyDid = null }) {
         try {
             const hasUnified = await this.hasUnifiedPassword();
             let encryptionPassword = pin;
@@ -321,30 +321,26 @@ const indexDBUtil = {
             }
 
             let res;
-            if (existingDid) {
-                res = { did: existingDid, network: "1" };
-            } else {
-                res = await END_POINTS.create_wallet({ public_key: publickey, network: "1" });
+            res = await END_POINTS.create_wallet({ public_key: publickey, network: "1" });
 
-                if (!res) {
-                    toast.error(res?.message || 'failed to create wallet');
-                    return { status: false, message: res?.message || 'Failed to create wallet' };
-                }
-                let registerDid = await END_POINTS.register_did({ did: res?.did })
-                if (!registerDid || !registerDid?.status) {
-                    toast.error(registerDid?.message || 'failed to register DID');
-                    return { status: false, message: registerDid?.message || 'Failed to register DID' };
-                }
-                let signature = await generateSignature(privatekey, registerDid?.result?.hash);
-                let signatureResponse = await END_POINTS.signature_response({
-                    id: registerDid?.result?.id,
-                    Signature: { Signature: signature },
-                    mode: 4
-                });
-                if (!signatureResponse || !signatureResponse?.status) {
-                    toast.error(signatureResponse?.message || 'failed to do response');
-                    return { status: false, message: signatureResponse?.message || 'Failed signature response' };
-                }
+            if (!res) {
+                toast.error(res?.message || 'failed to create wallet');
+                return { status: false, message: res?.message || 'Failed to create wallet' };
+            }
+            let registerDid = await END_POINTS.register_did({ did: res?.did })
+            if (!registerDid || !registerDid?.status) {
+                toast.error(registerDid?.message || 'failed to register DID');
+                return { status: false, message: registerDid?.message || 'Failed to register DID' };
+            }
+            let signature = await generateSignature(privatekey, registerDid?.result?.hash);
+            let signatureResponse = await END_POINTS.signature_response({
+                id: registerDid?.result?.id,
+                Signature: { Signature: signature },
+                mode: 4
+            });
+            if (!signatureResponse || !signatureResponse?.status) {
+                toast.error(signatureResponse?.message || 'failed to do response');
+                return { status: false, message: signatureResponse?.message || 'Failed signature response' };
             }
 
             const db = await this.initDB();
@@ -368,6 +364,10 @@ const indexDBUtil = {
                         createdAt: new Date().toISOString(),
                         mnemonics: encryptedMnemonics
                     };
+
+                    if (needsLegacyMigration && legacyDid) {
+                        newAccount.legacyDid = legacyDid;
+                    }
 
                     if (!needsLegacyMigration) {
                         newAccount.isMigrated = true;
@@ -1561,7 +1561,8 @@ const indexDBUtil = {
                                 network: account.network,
                                 publickey: account.publickey,
                                 privateKey: decryptedPrivateKey,
-                                mnemonic: decryptedMnemonic
+                                mnemonic: decryptedMnemonic,
+                                legacyDid: account.legacyDid || null
                             }
                         });
                     } catch (e) {

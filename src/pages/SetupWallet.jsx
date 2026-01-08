@@ -100,7 +100,7 @@ export default function SetupWallet() {
         privatekey: state?.privatekey,
         mnemonics: state?.mnemonics,
         needsLegacyMigration: state?.needsLegacyMigration || false,
-        existingDid: state?.existingDid
+        legacyDid: state?.legacyDid
       };
 
       let res = await indexDBUtil.storeToDB(storeData);
@@ -196,7 +196,7 @@ export default function SetupWallet() {
         privatekey: state?.privatekey,
         mnemonics: state?.mnemonics,
         needsLegacyMigration: state?.needsLegacyMigration || false,
-        existingDid: state?.existingDid
+        legacyDid: state?.legacyDid
       };
 
       let res = await indexDBUtil.storeToDB(storeData);
@@ -285,7 +285,7 @@ export default function SetupWallet() {
         privatekey: state?.privatekey,
         mnemonics: state?.mnemonics,
         needsLegacyMigration: state?.needsLegacyMigration || false,
-        existingDid: state?.existingDid
+        legacyDid: state?.legacyDid
       };
 
       let res = await indexDBUtil.storeToDB(storeData)
