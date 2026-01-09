@@ -1927,7 +1927,8 @@ const indexDBUtil = {
                         did: migrationData.newDid,
                         network: data.accounts[accountIndex].network,
                         createdAt: data.accounts[accountIndex].createdAt,
-                        mnemonics: data.accounts[accountIndex].mnemonics
+                        mnemonics: data.accounts[accountIndex].mnemonics,
+                        legacyDid: oldDid
                     };
 
                     const updateUserDetailsRequest = store.put(data);
@@ -2153,6 +2154,50 @@ const indexDBUtil = {
                         status: true,
                         accounts: decryptedAccounts
                     });
+                };
+
+                request.onerror = () => reject(request.error);
+            });
+        } catch (error) {
+            throw error;
+        }
+    },
+
+    /**
+     * Manually set legacy DID for already-migrated accounts
+     * Use this to fix accounts that were migrated before legacyDid storage was implemented
+     * @param {string} username
+     * @param {string} legacyDid
+     * @returns {Promise<Object>}
+     */
+    setLegacyDid: async function (username, legacyDid) {
+        try {
+            const db = await this.initDB();
+            return new Promise((resolve, reject) => {
+                const transaction = db.transaction([this.storeName], 'readwrite');
+                const store = transaction.objectStore(this.storeName);
+                const request = store.get('UserDetails');
+
+                request.onsuccess = () => {
+                    const data = request.result;
+                    if (!data || !data.accounts) {
+                        resolve({ status: false, message: 'No accounts found' });
+                        return;
+                    }
+
+                    const accountIndex = data.accounts.findIndex(acc => acc.username === username);
+                    if (accountIndex === -1) {
+                        resolve({ status: false, message: 'Account not found' });
+                        return;
+                    }
+
+                    data.accounts[accountIndex].legacyDid = legacyDid;
+
+                    const updateRequest = store.put(data);
+                    updateRequest.onsuccess = () => {
+                        resolve({ status: true, message: 'Legacy DID added successfully' });
+                    };
+                    updateRequest.onerror = () => reject(updateRequest.error);
                 };
 
                 request.onerror = () => reject(request.error);
