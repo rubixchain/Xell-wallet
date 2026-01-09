@@ -371,11 +371,11 @@ const SingleAccountDIDMigration = ({ username, unifiedPassword, legacyDid: propL
     const getStepLabel = () => {
         switch (currentStep) {
             case MIGRATION_STEPS.PREPARING:
-                return 'Preparing migration...';
+                return 'Preparing upgrade...';
             case MIGRATION_STEPS.GENERATING_KEYS:
-                return 'Generating new keys...';
+                return 'Upgrading keys...';
             case MIGRATION_STEPS.REQUESTING_DID:
-                return 'Requesting new DID...';
+                return 'Upgrading DID...';
             case MIGRATION_STEPS.REGISTERING_DID:
                 return 'Registering DID on network...';
             case MIGRATION_STEPS.TRANSFERRING_BALANCE:
@@ -383,11 +383,11 @@ const SingleAccountDIDMigration = ({ username, unifiedPassword, legacyDid: propL
             case MIGRATION_STEPS.UPDATING_STORAGE:
                 return 'Updating local storage...';
             case MIGRATION_STEPS.COMPLETE:
-                return 'Migration complete!';
+                return 'Upgrade complete!';
             case MIGRATION_STEPS.TRANSFER_FAILED:
                 return 'Balance transfer failed';
             case MIGRATION_STEPS.FAILED:
-                return 'Migration failed';
+                return 'Upgrade failed';
             default:
                 return 'Processing...';
         }
@@ -444,14 +444,14 @@ const SingleAccountDIDMigration = ({ username, unifiedPassword, legacyDid: propL
                     )}
                 </div>
                 <div>
-                    <h2 className="font-semibold text-xl text-senary">Account Migration</h2>
+                    <h2 className="font-semibold text-xl text-senary">Wallet Upgradation</h2>
                     <p className="text-quinary text-sm">{getStepLabel()}</p>
                 </div>
             </div>
 
-            {/* Account being migrated */}
+            {/* Account being upgraded */}
             <div className="mb-6 p-4 bg-tertiary/50 rounded-lg border border-secondary/20">
-                <p className="text-sm text-quinary mb-1">Migrating account</p>
+                <p className="text-sm text-quinary mb-1">Updating account</p>
                 <p className="font-medium text-senary">@{username}</p>
             </div>
 
@@ -475,12 +475,12 @@ const SingleAccountDIDMigration = ({ username, unifiedPassword, legacyDid: propL
                 </div>
             </div>
 
-            {/* Migration Steps */}
+            {/* Upgrade Steps */}
             <div className="flex-1 space-y-2 mb-4">
                 {[
                     { step: MIGRATION_STEPS.PREPARING, label: 'Prepare account data' },
-                    { step: MIGRATION_STEPS.GENERATING_KEYS, label: 'Generate new keys' },
-                    { step: MIGRATION_STEPS.REQUESTING_DID, label: 'Request new DID' },
+                    { step: MIGRATION_STEPS.GENERATING_KEYS, label: 'Upgrading keys' },
+                    { step: MIGRATION_STEPS.REQUESTING_DID, label: 'Upgrade DID' },
                     { step: MIGRATION_STEPS.REGISTERING_DID, label: 'Register on network' },
                     { step: MIGRATION_STEPS.TRANSFERRING_BALANCE, label: 'Transfer balance' },
                     { step: MIGRATION_STEPS.UPDATING_STORAGE, label: 'Update local storage' }
@@ -542,7 +542,7 @@ const SingleAccountDIDMigration = ({ username, unifiedPassword, legacyDid: propL
                             Retrying...
                         </span>
                     ) : (
-                        'Retry Migration'
+                        'Retry Upgrade'
                     )}
                 </button>
             )}
@@ -550,7 +550,7 @@ const SingleAccountDIDMigration = ({ username, unifiedPassword, legacyDid: propL
             {/* Success message */}
             {currentStep === MIGRATION_STEPS.COMPLETE && (
                 <div className="text-center">
-                    <p className="text-secondary font-medium">Account migrated successfully!</p>
+                    <p className="text-secondary font-medium">Account upgraded successfully!</p>
                     <p className="text-sm text-quinary mt-1">Continuing to wallet...</p>
                 </div>
             )}
