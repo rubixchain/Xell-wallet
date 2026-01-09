@@ -214,7 +214,13 @@ export default function AccountSwitcher() {
               </span>
             </div>
 
-            <div className="max-h-[180px] overflow-y-auto">
+            <div
+              className="max-h-[180px] overflow-y-scroll pr-1"
+              style={{
+                scrollbarWidth: 'thin',
+                scrollbarColor: '#d1d5db #f3f4f6'
+              }}
+            >
               {accounts.map((account) => {
                 const isActive = account.username === userDetails?.username;
                 return (

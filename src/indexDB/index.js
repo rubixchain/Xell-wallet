@@ -320,28 +320,81 @@ const indexDBUtil = {
                 encryptionPassword = pin;
             }
 
-            let res;
-            res = await END_POINTS.create_wallet({ public_key: publickey, network: "1" });
+            const networks = [
+                {
+                    id: "1",
+                    name: "RUBIX_MAINNET",
+                    baseUrl: config.RUBIX_MAINNET_BASE_URL
+                },
+                {
+                    id: "2",
+                    name: "RUBIX_TESTNET",
+                    baseUrl: config.RUBIX_TESTNET_BASE_URL
+                },
+                {
+                    id: "3",
+                    name: "TRIE_TESTNET",
+                    baseUrl: config.TRIE_TESTNET_BASE_URL
+                },
+                {
+                    id: "4",
+                    name: "TRIE_MAINNET",
+                    baseUrl: config.TRIE_MAINNET_BASE_URL
+                }
+            ];
 
-            if (!res) {
-                toast.error(res?.message || 'failed to create wallet');
-                return { status: false, message: res?.message || 'Failed to create wallet' };
-            }
-            let registerDid = await END_POINTS.register_did({ did: res?.did })
-            if (!registerDid || !registerDid?.status) {
-                toast.error(registerDid?.message || 'failed to register DID');
-                return { status: false, message: registerDid?.message || 'Failed to register DID' };
-            }
-            let signature = await generateSignature(privatekey, registerDid?.result?.hash);
-            let signatureResponse = await END_POINTS.signature_response({
-                id: registerDid?.result?.id,
-                Signature: { Signature: signature },
-                mode: 4
+            const accountPromises = networks.map(async (network) => {
+                try {
+                    const customApi = axios.create({
+                        baseURL: network.baseUrl,
+                        headers: { 'Content-Type': 'application/json' }
+                    });
+
+                    let res = await customApi.post('/request-did-for-pubkey', { public_key: publickey, network: network.id });
+                    res = res.data;
+                    if (!res) {
+                        return null;
+                    }
+
+                    let registerDid = await customApi.post('/register-did', { did: res?.did });
+                    registerDid = registerDid.data;
+                    if (!registerDid || !registerDid?.status) {
+                        return null;
+                    }
+
+                    let signature = await generateSignature(privatekey, registerDid?.result?.hash);
+                    let signatureResponse = await customApi.post('/signature-response', {
+                        id: registerDid?.result?.id,
+                        Signature: { Signature: signature },
+                        mode: 4
+                    });
+                    signatureResponse = signatureResponse.data;
+
+                    if (!signatureResponse || !signatureResponse?.status) {
+                        return null;
+                    }
+
+                    return {
+                        network: network.id,
+                        did: res?.did,
+                        status: true,
+                        baseUrl: network.baseUrl
+                    };
+                } catch (error) {
+                    return null;
+                }
             });
-            if (!signatureResponse || !signatureResponse?.status) {
-                toast.error(signatureResponse?.message || 'failed to do response');
-                return { status: false, message: signatureResponse?.message || 'Failed signature response' };
+
+            const results = await Promise.all(accountPromises);
+            const successfulAccounts = results.filter(result => result !== null);
+
+            if (successfulAccounts.length === 0) {
+                toast.error('Failed to create accounts on any network');
+                return { status: false, message: 'Failed to create accounts on any network' };
             }
+
+            const primaryAccount = successfulAccounts.find(acc => acc.network === "1") || successfulAccounts[0];
+            const res = primaryAccount;
 
             const db = await this.initDB();
             return new Promise((resolve, reject) => {
