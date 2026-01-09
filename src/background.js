@@ -258,9 +258,26 @@ const messageListener = async (message, sender, sendResponse) => {
                 break;
             case WALLET_TYPES.STORE_USER_DETAILS:
                 userDetails = { ...message.data };
+                // Persist to chrome.storage.session to survive service worker restarts
+                try {
+                    await chrome.storage.session.set({ userDetails: userDetails });
+                } catch (error) {
+                    // Fallback to memory only if storage fails
+                }
                 break;
 
             case WALLET_TYPES.GET_USER_DETAILS:
+                // If userDetails is not in memory, try to restore from storage
+                if (!userDetails) {
+                    try {
+                        const stored = await chrome.storage.session.get(['userDetails']);
+                        if (stored.userDetails) {
+                            userDetails = stored.userDetails;
+                        }
+                    } catch (error) {
+                        // Storage read failed, return empty
+                    }
+                }
                 sendResponse({
                     status: userDetails ? true : false,
                     userDetails: userDetails
@@ -269,6 +286,12 @@ const messageListener = async (message, sender, sendResponse) => {
 
             case WALLET_TYPES.CLEAR_USER_DETAILS:
                 userDetails = null;
+                // Also clear from storage
+                try {
+                    await chrome.storage.session.remove(['userDetails']);
+                } catch (error) {
+                    // Ignore error
+                }
                 sendResponse({ success: true });
                 return true;
             case 'CONTENT_SCRIPT_LOADED':

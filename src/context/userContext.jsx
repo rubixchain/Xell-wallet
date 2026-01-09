@@ -78,7 +78,8 @@ export const UserProvider = ({ children }) => {
                                 did: userData.did,
                                 network: userData.network,
                                 publickey: userData.publickey,
-                                pin: userData.pin
+                                pin: userData.pin,
+                                legacyDid: userData.legacyDid || null
                             }
                         };
                     }
@@ -88,6 +89,19 @@ export const UserProvider = ({ children }) => {
             }
 
             if (!checkUser || !checkUser?.status || currentUser.username !== checkUser.userDetails?.username) {
+                // Background script may have been terminated - try fetching from IndexedDB directly
+                try {
+                    const hasUnified = await indexDBUtil.hasUnifiedPassword();
+                    if (hasUnified && currentUser.username) {
+                        // Try to get user details from IndexedDB with the stored username
+                        // Note: We don't have the password here, so we'll need to redirect to login
+                        setIsInitializing(false);
+                        navigate(ROUTES.LOGIN, { replace: true })
+                        return
+                    }
+                } catch (error) {
+                    // Error checking - redirect to login
+                }
                 setIsInitializing(false);
                 navigate(ROUTES.LOGIN, { replace: true })
                 return

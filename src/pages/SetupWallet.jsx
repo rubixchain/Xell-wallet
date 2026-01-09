@@ -120,7 +120,8 @@ export default function SetupWallet() {
         pin: res?.data?.pin,
         username: res?.data?.username,
         network: res?.data?.network || 1,
-        tokenSymbol: NETWORK_TYPES.RBT
+        tokenSymbol: NETWORK_TYPES.RBT,
+        legacyDid: res?.data?.legacyDid || null
       };
 
       localStorage.setItem('currency', JSON.stringify({ label: '$ USD - US Dollar', value: 'USD' }));
@@ -216,7 +217,8 @@ export default function SetupWallet() {
         pin: res?.data?.pin,
         username: res?.data?.username,
         network: res?.data?.network || 1,
-        tokenSymbol: NETWORK_TYPES.RBT
+        tokenSymbol: NETWORK_TYPES.RBT,
+        legacyDid: res?.data?.legacyDid || null
       };
 
       localStorage.setItem('currency', JSON.stringify({ label: '$ USD - US Dollar', value: 'USD' }));
@@ -307,7 +309,8 @@ export default function SetupWallet() {
         pin: res?.data?.pin,
         username: res?.data?.username,
         network: res?.data?.network || 1,
-        tokenSymbol: NETWORK_TYPES.RBT
+        tokenSymbol: NETWORK_TYPES.RBT,
+        legacyDid: res?.data?.legacyDid || null
       }
 
       localStorage.setItem('currency', JSON.stringify({ label: '$ USD - US Dollar', value: 'USD' }))

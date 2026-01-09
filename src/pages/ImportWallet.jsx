@@ -106,7 +106,10 @@ const ImportWallet = () => {
           network: "1"
         });
         legacyDid = legacyDIDResponse?.did || legacyDIDResponse?.data?.did;
-      } catch (e) {}
+        console.log('🔍 ImportWallet - Legacy DID requested:', legacyDid);
+      } catch (e) {
+        console.log('⚠️ ImportWallet - Failed to get legacy DID:', e.message);
+      }
 
       toast.success('Phrase verified successfully')
 
