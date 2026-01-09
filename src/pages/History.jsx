@@ -101,38 +101,59 @@ export default function History({ isModal = false }) {
       setIsLoading(true);
       setTransactionsFilter([]);
 
+      const apiPromises = [
+        END_POINTS.get_transactions_info({ DID: userDetails?.did })
+      ];
 
+      // Also fetch transactions from legacy DID if it exists
+      if (userDetails?.legacyDid) {
+        apiPromises.push(
+          END_POINTS.get_transactions_info({ DID: userDetails?.legacyDid })
+        );
+      }
 
-      const transactionsApiData = await END_POINTS.get_transactions_info({
-        DID: userDetails?.did,
-      });
+      const apiResults = await Promise.all(apiPromises);
+      const transactionsApiData = apiResults[0];
+      const legacyTransactionsApiData = apiResults[1]; // undefined if no legacy DID
 
-
+      let allTransactions = [];
 
       if (transactionsApiData?.status) {
-        const transactions =
+        const newTransactions =
           transactionsApiData?.TxnDetails?.filter((res) => res?.Mode === 0 || res?.Mode === 1)?.map(
             (txn) => ({
               ...txn,
               type: txn?.SenderDID === userDetails?.did ? "Sent" : "Received",
               Epoch: normalizeEpoch(txn?.Epoch, txn?.DateTime),
+              isLegacy: false
             })
           ) || [];
+        allTransactions = [...allTransactions, ...newTransactions];
+      }
 
+      if (legacyTransactionsApiData?.status) {
+        const legacyTransactions =
+          legacyTransactionsApiData?.TxnDetails?.filter((res) => res?.Mode === 0 || res?.Mode === 1)?.map(
+            (txn) => ({
+              ...txn,
+              type: txn?.SenderDID === userDetails?.legacyDid ? "Sent" : "Received",
+              Epoch: normalizeEpoch(txn?.Epoch, txn?.DateTime),
+              isLegacy: true
+            })
+          ) || [];
+        allTransactions = [...allTransactions, ...legacyTransactions];
+      }
 
-
-        // Apply filtering similar to FT transactions
-        const filteredTxns = transactions.filter((item) => {
+      if (allTransactions.length > 0) {
+        // Apply filtering
+        const filteredTxns = allTransactions.filter((item) => {
           const meetsTypeCheck = selectedType === "All" || item?.type === selectedType;
           const matchesInput =
             !inputValue || item?.SenderDID?.includes(inputValue) || item?.ReceiverDID?.includes(inputValue);
           return meetsTypeCheck && matchesInput;
         });
 
-
-
         const sortedTransactions = filteredTxns.sort((a, b) => b.Epoch - a.Epoch);
-
 
         setTransactionsFilter(sortedTransactions);
       } else {

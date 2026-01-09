@@ -82,28 +82,53 @@ export default function Dashboard() {
         // Default to network 1 if undefined (new wallet defaults to mainnet)
         const networkValue = userDetails?.network ?? 1;
         if (networkValue == 1 || networkValue == 2) {
-          const [accountinfoApiData,
-            transactionsApiData] = await Promise.all([
-              END_POINTS.get_account_info({ did: userDetails?.did }),
-              END_POINTS.get_transactions_info({ DID: userDetails?.did })
-            ])
-          let res = {}
+          const apiPromises = [
+            END_POINTS.get_account_info({ did: userDetails?.did }),
+            END_POINTS.get_transactions_info({ DID: userDetails?.did })
+          ];
 
+          // Also fetch transactions from legacy DID if it exists
+          if (userDetails?.legacyDid) {
+            apiPromises.push(
+              END_POINTS.get_transactions_info({ DID: userDetails?.legacyDid })
+            );
+          }
+
+          const apiResults = await Promise.all(apiPromises);
+          const accountinfoApiData = apiResults[0];
+          const transactionsApiData = apiResults[1];
+          const legacyTransactionsApiData = apiResults[2]; // undefined if no legacy DID
+
+          let res = {}
 
           if (accountinfoApiData?.status) {
             res = { ...res, ...accountinfoApiData?.account_info[0] }
-
-
           }
           setAccountInfo(res)
           setSelectedTokens([])
+
+          // Merge transactions from both new and legacy DIDs
+          let allTransactions = [];
+
           if (transactionsApiData?.status) {
-            const transactions = transactionsApiData?.TxnDetails?.filter(res => res?.Mode == 0 || res?.Mode == 1)?.map((txn) => ({
+            const newTransactions = transactionsApiData?.TxnDetails?.filter(res => res?.Mode == 0 || res?.Mode == 1)?.map((txn) => ({
               ...txn,
               type: txn?.SenderDID == userDetails?.did ? "Sent" : "Received",
+              isLegacy: false
             })) || []
-            setTransactionsData(transactions?.sort((a, b) => b.Epoch - a.Epoch) || [])
+            allTransactions = [...allTransactions, ...newTransactions];
           }
+
+          if (legacyTransactionsApiData?.status) {
+            const legacyTransactions = legacyTransactionsApiData?.TxnDetails?.filter(res => res?.Mode == 0 || res?.Mode == 1)?.map((txn) => ({
+              ...txn,
+              type: txn?.SenderDID == userDetails?.legacyDid ? "Sent" : "Received",
+              isLegacy: true
+            })) || []
+            allTransactions = [...allTransactions, ...legacyTransactions];
+          }
+
+          setTransactionsData(allTransactions?.sort((a, b) => b.Epoch - a.Epoch) || [])
         }
         else {
           const [ftinfo, fttxn] = await Promise.all([

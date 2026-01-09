@@ -831,6 +831,7 @@ const indexDBUtil = {
                                     username: account.username,
                                     did: account?.did,
                                     network: account?.network,
+                                    legacyDid: account?.legacyDid || null
                                 }
                             });
                         } else {
@@ -2078,7 +2079,8 @@ const indexDBUtil = {
                                 network: account.network,
                                 publickey: account.publickey,
                                 privateKey: decryptedPrivateKey,
-                                mnemonic: decryptedMnemonic
+                                mnemonic: decryptedMnemonic,
+                                legacyDid: account.legacyDid || null
                             }
                         });
                     } catch (e) {
