@@ -189,10 +189,10 @@ const SingleAccountDIDMigration = ({ username, unifiedPassword, legacyDid: propL
             // Determine the old DID for balance transfer
             const oldDid = effectiveLegacyDid || account.did;
 
-            const rubixNetworks = ['1', '2'];
+            const rubixMainnet = ['1'];
             const networkStr = String(account.network);
 
-            if (rubixNetworks.includes(networkStr)) {
+            if (rubixMainnet.includes(networkStr)) {
                 const currentNetworkBaseUrl = getBaseUrlForNetwork(account.network);
 
                 const currentNetworkApi = axios.create({
@@ -288,7 +288,7 @@ const SingleAccountDIDMigration = ({ username, unifiedPassword, legacyDid: propL
         const networkId = parseInt(network);
         switch (networkId) {
             case 1:
-                return config.RUBIX_MAINNET_BASE_URL;
+                return 'http://localhost:3000';
             case 2:
                 return config.RUBIX_TESTNET_BASE_URL;
             case 3:
