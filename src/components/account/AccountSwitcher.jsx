@@ -75,7 +75,8 @@ export default function AccountSwitcher() {
     try {
       setIsLoading(true);
 
-      const freshAccountData = await indexDBUtil.getAccountByUsername(account.username);
+      const freshAccountDataResponse = await indexDBUtil.getDecryptedAccountData(account.username, userDetails?.pin);
+      const freshAccountData = freshAccountDataResponse?.status ? freshAccountDataResponse.data : null;
       const accountToUse = freshAccountData || account;
 
       let getActivenetwork = await indexDBUtil.getNetworksByDID(accountToUse?.did) || [];
