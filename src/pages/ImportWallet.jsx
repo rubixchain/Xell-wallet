@@ -102,11 +102,11 @@ const ImportWallet = () => {
       let legacyDid = null;
       try {
         const legacyDIDResponse = await END_POINTS.create_wallet({
-          public_key: keys.legacyUncompressedPublicKey,
+          public_key: keys.legacyCompressedPublicKey,
           network: "1"
         });
         legacyDid = legacyDIDResponse?.did || legacyDIDResponse?.data?.did;
-        console.log('🔍 ImportWallet - Legacy DID requested:', legacyDid);
+        console.log('🔍 ImportWallet - Legacy DID requested (compressed):', legacyDid);
       } catch (e) {
         console.log('⚠️ ImportWallet - Failed to get legacy DID:', e.message);
       }
