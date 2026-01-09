@@ -1417,23 +1417,6 @@ const indexDBUtil = {
         }
     },
 
-    /**
-     * Check if DID migration is needed (version === 5)
-     * @returns {Promise<boolean>}
-     */
-    needsDIDMigration: async function () {
-        try {
-            const currentVersion = await this.getCurrentVersion();
-            const accounts = await this.getData();
-
-            if (currentVersion?.version === 5 && accounts?.data?.length > 0) {
-                return true;
-            }
-            return false;
-        } catch (error) {
-            return false;
-        }
-    },
 
     /**
      * Check if a specific account needs DID migration
@@ -1878,7 +1861,7 @@ const indexDBUtil = {
 
                     const updateRequest = store.put(data);
                     updateRequest.onsuccess = () => {
-                        // Set version to 5 (unified password done, DID migration pending)
+                        // Set version to 5 (unified password done, accounts ready for DID migration on-demand)
                         this.setCurrentVersion(5).then(() => {
                             resolve({
                                 status: true,
@@ -2035,13 +2018,13 @@ const indexDBUtil = {
     },
 
     /**
-     * Complete DID migration - set version to 6
+     * Complete DID migration - set version to 5
      * Note: unifiedPasswordHash is preserved for validating new account creation
      * @returns {Promise<Object>}
      */
     completeDIDMigration: async function () {
         try {
-            await this.setCurrentVersion(6);
+            await this.setCurrentVersion(5);
             return { status: true };
         } catch (error) {
             throw error;

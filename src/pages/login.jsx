@@ -64,7 +64,8 @@ function Login() {
         try {
             setIsCheckingMigration(true);
 
-            // Check if unified password migration is needed (version <= 4)
+            // Check if migration is needed (version <= 4)
+            // Migration includes both password unification and DID migration
             const needsPasswordMigration = await indexDBUtil.needsMigration();
 
             if (needsPasswordMigration) {
@@ -72,11 +73,6 @@ function Login() {
                 setIsCheckingMigration(false);
                 return;
             }
-
-            // Check if DID migration is needed (version === 5)
-            // User needs to enter unified password first, then DID migration starts
-            // This will be handled after login with unified password
-            await indexDBUtil.needsDIDMigration();
 
             setIsCheckingMigration(false);
         } catch (error) {
