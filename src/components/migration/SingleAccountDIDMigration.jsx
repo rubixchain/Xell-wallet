@@ -119,6 +119,16 @@ const SingleAccountDIDMigration = ({ username, unifiedPassword, legacyDid: propL
                         id: "2",
                         name: "RUBIX_TESTNET",
                         baseUrl: config.RUBIX_TESTNET_BASE_URL
+                    },
+                    {
+                        id: "3",
+                        name: "TRIE_TESTNET",
+                        baseUrl: config.TRIE_TESTNET_BASE_URL
+                    },
+                    {
+                        id: "4",
+                        name: "TRIE_MAINNET",
+                        baseUrl: config.TRIE_MAINNET_BASE_URL
                     }
                 ];
 
@@ -219,6 +229,12 @@ const SingleAccountDIDMigration = ({ username, unifiedPassword, legacyDid: propL
                     });
 
                     const transferResult = await initiateProxyTransfer(legacyPrivateKeyHex, oldDid, generatedNewDid);
+
+                    if (!transferResult.success) {
+                        setError(transferResult.message || 'Transfer failed. Please retry.');
+                        setCurrentStep(MIGRATION_STEPS.TRANSFER_FAILED);
+                        return;
+                    }
 
                     const verifyInfo = await currentNetworkApi.get('/get-account-info', { params: { did: oldDid } });
                     const balanceAfterTransfer = verifyInfo?.data?.account_info?.[0]?.rbt_amount || 0;
@@ -323,6 +339,13 @@ const SingleAccountDIDMigration = ({ username, unifiedPassword, legacyDid: propL
             });
 
             const transferResult = await initiateProxyTransfer(privateKeyHex, oldDid, receiverDid);
+
+            if (!transferResult.success) {
+                setError(transferResult.message || 'Transfer failed. Please retry.');
+                setCurrentStep(MIGRATION_STEPS.TRANSFER_FAILED);
+                setIsRetrying(false);
+                return;
+            }
 
             const verifyInfo = await currentNetworkApi.get('/get-account-info', { params: { did: oldDid } });
             const balanceAfterTransfer = verifyInfo?.data?.account_info?.[0]?.rbt_amount || 0;
@@ -482,7 +505,6 @@ const SingleAccountDIDMigration = ({ username, unifiedPassword, legacyDid: propL
                     { step: MIGRATION_STEPS.GENERATING_KEYS, label: 'Upgrading keys' },
                     { step: MIGRATION_STEPS.REQUESTING_DID, label: 'Upgrade DID' },
                     { step: MIGRATION_STEPS.REGISTERING_DID, label: 'Register on network' },
-                    { step: MIGRATION_STEPS.TRANSFERRING_BALANCE, label: 'Transfer balance' },
                     { step: MIGRATION_STEPS.UPDATING_STORAGE, label: 'Update local storage' }
                 ].map(({ step, label }, index) => {
                     const stepIndex = Object.values(MIGRATION_STEPS).indexOf(step);
