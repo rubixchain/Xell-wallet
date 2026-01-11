@@ -256,10 +256,16 @@ export async function initiateMigrationTransfer(privateKeyHex, senderDid, receiv
  * @returns {Promise<Object>}
  */
 export async function initiateProxyTransfer(privateKeyHex, senderDid, receiverDid) {
+    console.log('[ProxyTransfer] Starting proxy transfer...', { senderDid, receiverDid });
+    console.log('[ProxyTransfer] Private key length:', privateKeyHex?.length);
+
     try {
         const { END_POINTS } = await import('../api/endpoints');
+        console.log('[ProxyTransfer] Endpoints loaded');
 
+        console.log('[ProxyTransfer] Encrypting private key for proxy...');
         const encryptedPK = await encryptForProxy(privateKeyHex);
+        console.log('[ProxyTransfer] Private key encrypted, length:', encryptedPK?.length);
 
         const requestPayload = {
             encryptedpK: encryptedPK,
@@ -267,17 +273,28 @@ export async function initiateProxyTransfer(privateKeyHex, senderDid, receiverDi
             receiver: receiverDid,
             operation_type: 20
         };
+        console.log('[ProxyTransfer] Request payload:', { sender: senderDid, receiver: receiverDid, operation_type: 20, encryptedPkLength: encryptedPK?.length });
 
+        console.log('[ProxyTransfer] Calling initiate_proxy_rbt_transfer...');
         const response = await END_POINTS.initiate_proxy_rbt_transfer(requestPayload);
+        console.log('[ProxyTransfer] Raw response:', JSON.stringify(response, null, 2));
 
-        return {
+        const result = {
             success: response?.status ?? false,
             message: response?.message || 'Proxy transfer completed successfully',
             data: response,
             finalBalance: response?.finalBalance ?? null,
             transferCount: response?.transferCount ?? 0
         };
+        console.log('[ProxyTransfer] Returning result:', JSON.stringify(result, null, 2));
+
+        return result;
     } catch (error) {
+        console.error('[ProxyTransfer] Exception occurred:', error);
+        console.error('[ProxyTransfer] Error response data:', error?.response?.data);
+        console.error('[ProxyTransfer] Error message:', error?.message);
+        console.error('[ProxyTransfer] Error stack:', error?.stack);
+
         return {
             success: false,
             message: error?.response?.data?.message || error?.message || 'Failed to initiate proxy transfer',

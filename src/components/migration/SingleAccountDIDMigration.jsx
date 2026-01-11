@@ -32,15 +32,23 @@ const SingleAccountDIDMigration = ({ username, unifiedPassword, legacyDid: propL
     }, []);
 
     const startMigration = async () => {
+        console.log('[Migration] ========== STARTING MIGRATION ==========');
+        console.log('[Migration] Username:', username);
+        console.log('[Migration] Props - legacyDid:', propLegacyDid);
+        console.log('[Migration] Props - legacyPrivateKey provided:', !!propLegacyPrivateKey);
+
         try {
             setCurrentStep(MIGRATION_STEPS.PREPARING);
             setError(null);
             setProgress(10);
 
+            console.log('[Migration] Getting decrypted account from IndexDB...');
             const result = await indexDBUtil.getDecryptedAccountForDIDMigration(username, unifiedPassword);
+            console.log('[Migration] IndexDB result:', { status: result.status, alreadyMigrated: result.alreadyMigrated, hasAccount: !!result.account });
 
             if (!result.status) {
                 if (result.alreadyMigrated) {
+                    console.log('[Migration] Account already migrated, completing...');
                     await checkAndCompleteFullMigration();
                     onComplete();
                     return;
@@ -48,8 +56,18 @@ const SingleAccountDIDMigration = ({ username, unifiedPassword, legacyDid: propL
                 throw new Error(result.message || 'Failed to load account');
             }
 
+            console.log('[Migration] Account loaded:', {
+                username: result.account.username,
+                did: result.account.did,
+                network: result.account.network,
+                hasMnemonic: !!result.account.mnemonic,
+                hasPrivateKey: !!result.account.privateKey,
+                legacyDid: result.account.legacyDid
+            });
+
             await migrateAccount(result.account);
         } catch (err) {
+            console.error('[Migration] FATAL ERROR:', err);
             setError(err.message);
             setCurrentStep(MIGRATION_STEPS.FAILED);
         }
@@ -204,21 +222,26 @@ const SingleAccountDIDMigration = ({ username, unifiedPassword, legacyDid: propL
 
             if (rubixMainnet.includes(networkStr)) {
                 const currentNetworkBaseUrl = getBaseUrlForNetwork(account.network);
+                console.log('[Migration] Network check:', { networkStr, currentNetworkBaseUrl, oldDid, newDid: generatedNewDid });
 
                 const currentNetworkApi = axios.create({
                     baseURL: currentNetworkBaseUrl,
                     headers: { 'Content-Type': 'application/json' }
                 });
 
+                console.log('[Migration] Fetching old DID balance...', { oldDid });
                 const accountInfo = await currentNetworkApi.get('/get-account-info', { params: { did: oldDid } });
+                console.log('[Migration] Old DID account info response:', JSON.stringify(accountInfo?.data, null, 2));
                 const balance = accountInfo?.data?.account_info?.[0]?.rbt_amount || 0;
+                console.log('[Migration] Old DID balance:', balance);
 
                 if (balance > 0) {
+                    console.log('[Migration] Balance > 0, initiating transfer...', { balance, from: oldDid, to: generatedNewDid });
                     setCurrentStep(MIGRATION_STEPS.TRANSFERRING_BALANCE);
                     setProgress(75);
                     setRemainingBalance(balance);
 
-                    setTransferContext({
+                    const transferCtx = {
                         privateKeyHex: legacyPrivateKeyHex,
                         oldDid: oldDid,
                         newDid: generatedNewDid,
@@ -226,32 +249,65 @@ const SingleAccountDIDMigration = ({ username, unifiedPassword, legacyDid: propL
                         account,
                         newPublicKey,
                         newPrivateKey: privateKeyHex
-                    });
+                    };
+                    console.log('[Migration] Transfer context saved:', { oldDid, newDid: generatedNewDid, networkBaseUrl: currentNetworkBaseUrl });
+                    setTransferContext(transferCtx);
 
+                    console.log('[Migration] Calling initiateProxyTransfer...');
                     const transferResult = await initiateProxyTransfer(legacyPrivateKeyHex, oldDid, generatedNewDid);
+                    console.log('[Migration] Transfer result:', JSON.stringify(transferResult, null, 2));
 
                     if (!transferResult.success) {
+                        console.error('[Migration] Transfer FAILED:', transferResult.message || 'Unknown error');
                         setError(transferResult.message || 'Transfer failed. Please retry.');
                         setCurrentStep(MIGRATION_STEPS.TRANSFER_FAILED);
                         return;
                     }
 
+                    console.log('[Migration] Transfer reported success, verifying old DID balance...');
                     const verifyInfo = await currentNetworkApi.get('/get-account-info', { params: { did: oldDid } });
+                    console.log('[Migration] Old DID verify response:', JSON.stringify(verifyInfo?.data, null, 2));
                     const balanceAfterTransfer = verifyInfo?.data?.account_info?.[0]?.rbt_amount || 0;
+                    console.log('[Migration] Old DID balance after transfer:', balanceAfterTransfer);
                     setRemainingBalance(balanceAfterTransfer);
 
                     if (balanceAfterTransfer > 0) {
+                        console.error('[Migration] Transfer INCOMPLETE - remaining balance:', balanceAfterTransfer);
                         setError(`Transfer incomplete. ${balanceAfterTransfer} RBT remaining. Please retry.`);
                         setCurrentStep(MIGRATION_STEPS.TRANSFER_FAILED);
                         return;
                     }
+
+                    console.log('[Migration] Verifying new DID balance...');
+                    const newDidInfo = await currentNetworkApi.get('/get-account-info', { params: { did: generatedNewDid } });
+                    console.log('[Migration] New DID account info:', JSON.stringify(newDidInfo?.data, null, 2));
+                    const newDidBalance = newDidInfo?.data?.account_info?.[0]?.rbt_amount || 0;
+                    console.log('[Migration] New DID balance:', newDidBalance);
+
+                    if (newDidBalance === 0 && balance > 0) {
+                        console.warn('[Migration] WARNING: New DID balance is 0 but old DID had', balance, 'RBT');
+                    }
+                } else {
+                    console.log('[Migration] No balance to transfer (balance = 0)');
                 }
+            } else {
+                console.log('[Migration] Skipping transfer - network not in rubixMainnet:', { networkStr, rubixMainnet });
             }
 
             // Step 5: Update local storage (only for normal migration, fresh imports already have correct DID)
+            console.log('[Migration] Step 5: Updating local storage...');
+            console.log('[Migration] effectiveLegacyDid:', effectiveLegacyDid);
+
             if (!effectiveLegacyDid) {
                 setCurrentStep(MIGRATION_STEPS.UPDATING_STORAGE);
                 setProgress(85);
+
+                console.log('[Migration] Updating account with new DID in IndexDB...', {
+                    username: account.username,
+                    newDid: generatedNewDid,
+                    newPublicKeyLength: newPublicKey?.length,
+                    newPrivateKeyLength: privateKeyHex?.length
+                });
 
                 await indexDBUtil.updateAccountAfterDIDMigration(account.username, {
                     newDid: generatedNewDid,
@@ -259,7 +315,9 @@ const SingleAccountDIDMigration = ({ username, unifiedPassword, legacyDid: propL
                     newPrivateKey: privateKeyHex,
                     unifiedPassword: unifiedPassword
                 });
+                console.log('[Migration] IndexDB updated with new DID');
             } else {
+                console.log('[Migration] Fresh import case - skipping DID update (already has correct DID)');
                 setCurrentStep(MIGRATION_STEPS.UPDATING_STORAGE);
                 setProgress(85);
             }
@@ -267,19 +325,25 @@ const SingleAccountDIDMigration = ({ username, unifiedPassword, legacyDid: propL
             setProgress(90);
 
             // Step 6: Mark account as fully migrated (only after ALL steps succeed)
+            console.log('[Migration] Step 6: Marking account as migrated...');
             await indexDBUtil.markAccountAsMigrated(account.username);
+            console.log('[Migration] Account marked as migrated');
 
             setProgress(95);
 
             // Check if all accounts are now migrated
+            console.log('[Migration] Checking if all accounts are migrated...');
             await checkAndCompleteFullMigration();
 
             // Complete
             setCurrentStep(MIGRATION_STEPS.COMPLETE);
             setProgress(100);
+            console.log('[Migration] ========== MIGRATION COMPLETE ==========');
+            console.log('[Migration] Final state:', { newDid: generatedNewDid, username: account.username });
 
             // Notify parent after a short delay
             setTimeout(() => {
+                console.log('[Migration] Calling onComplete callback...');
                 onComplete();
             }, 1000);
 
@@ -324,7 +388,11 @@ const SingleAccountDIDMigration = ({ username, unifiedPassword, legacyDid: propL
     };
 
     const handleRetryTransfer = async () => {
-        if (!transferContext) return;
+        console.log('[Migration Retry] Starting retry transfer...');
+        if (!transferContext) {
+            console.error('[Migration Retry] No transfer context available!');
+            return;
+        }
 
         setIsRetrying(true);
         setError(null);
@@ -332,45 +400,73 @@ const SingleAccountDIDMigration = ({ username, unifiedPassword, legacyDid: propL
 
         try {
             const { privateKeyHex, oldDid, newDid: receiverDid, networkBaseUrl, account, newPublicKey, newPrivateKey } = transferContext;
+            console.log('[Migration Retry] Transfer context:', { oldDid, receiverDid, networkBaseUrl });
 
             const currentNetworkApi = axios.create({
                 baseURL: networkBaseUrl,
                 headers: { 'Content-Type': 'application/json' }
             });
 
-            const transferResult = await initiateProxyTransfer(privateKeyHex, oldDid, receiverDid);
+            console.log('[Migration Retry] Checking old DID balance before retry...');
+            const preRetryInfo = await currentNetworkApi.get('/get-account-info', { params: { did: oldDid } });
+            console.log('[Migration Retry] Old DID balance before retry:', JSON.stringify(preRetryInfo?.data, null, 2));
+            const preRetryBalance = preRetryInfo?.data?.account_info?.[0]?.rbt_amount || 0;
+            console.log('[Migration Retry] Pre-retry balance:', preRetryBalance);
 
-            if (!transferResult.success) {
-                setError(transferResult.message || 'Transfer failed. Please retry.');
-                setCurrentStep(MIGRATION_STEPS.TRANSFER_FAILED);
-                setIsRetrying(false);
-                return;
+            if (preRetryBalance === 0) {
+                console.log('[Migration Retry] Old DID already has 0 balance, skipping transfer...');
+            } else {
+                console.log('[Migration Retry] Calling initiateProxyTransfer...');
+                const transferResult = await initiateProxyTransfer(privateKeyHex, oldDid, receiverDid);
+                console.log('[Migration Retry] Transfer result:', JSON.stringify(transferResult, null, 2));
+
+                if (!transferResult.success) {
+                    console.error('[Migration Retry] Transfer FAILED:', transferResult.message || 'Unknown error');
+                    setError(transferResult.message || 'Transfer failed. Please retry.');
+                    setCurrentStep(MIGRATION_STEPS.TRANSFER_FAILED);
+                    setIsRetrying(false);
+                    return;
+                }
             }
 
+            console.log('[Migration Retry] Verifying old DID balance after transfer...');
             const verifyInfo = await currentNetworkApi.get('/get-account-info', { params: { did: oldDid } });
+            console.log('[Migration Retry] Old DID verify response:', JSON.stringify(verifyInfo?.data, null, 2));
             const balanceAfterTransfer = verifyInfo?.data?.account_info?.[0]?.rbt_amount || 0;
+            console.log('[Migration Retry] Old DID balance after transfer:', balanceAfterTransfer);
             setRemainingBalance(balanceAfterTransfer);
 
             if (balanceAfterTransfer > 0) {
+                console.error('[Migration Retry] Transfer INCOMPLETE - remaining balance:', balanceAfterTransfer);
                 setError(`Transfer incomplete. ${balanceAfterTransfer} RBT remaining. Please retry.`);
                 setCurrentStep(MIGRATION_STEPS.TRANSFER_FAILED);
                 setIsRetrying(false);
                 return;
             }
 
+            console.log('[Migration Retry] Verifying new DID balance...');
+            const newDidInfo = await currentNetworkApi.get('/get-account-info', { params: { did: receiverDid } });
+            console.log('[Migration Retry] New DID account info:', JSON.stringify(newDidInfo?.data, null, 2));
+            const newDidBalance = newDidInfo?.data?.account_info?.[0]?.rbt_amount || 0;
+            console.log('[Migration Retry] New DID balance:', newDidBalance);
+
             setCurrentStep(MIGRATION_STEPS.UPDATING_STORAGE);
             setProgress(85);
 
+            console.log('[Migration Retry] Updating storage with new DID...');
             await indexDBUtil.updateAccountAfterDIDMigration(account.username, {
                 newDid: receiverDid,
                 newPublicKey: newPublicKey,
                 newPrivateKey: newPrivateKey || privateKeyHex,
                 unifiedPassword: unifiedPassword
             });
+            console.log('[Migration Retry] Storage updated successfully');
 
             setProgress(90);
 
+            console.log('[Migration Retry] Marking account as migrated...');
             await indexDBUtil.markAccountAsMigrated(account.username);
+            console.log('[Migration Retry] Account marked as migrated');
 
             setProgress(95);
 
@@ -378,12 +474,14 @@ const SingleAccountDIDMigration = ({ username, unifiedPassword, legacyDid: propL
 
             setCurrentStep(MIGRATION_STEPS.COMPLETE);
             setProgress(100);
+            console.log('[Migration Retry] Migration complete!');
 
             setTimeout(() => {
                 onComplete();
             }, 1000);
 
         } catch (err) {
+            console.error('[Migration Retry] Exception during retry:', err);
             setError(`Transfer failed: ${err.message}`);
             setCurrentStep(MIGRATION_STEPS.TRANSFER_FAILED);
         }
