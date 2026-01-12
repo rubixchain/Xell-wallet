@@ -253,11 +253,15 @@ export async function initiateMigrationTransfer(privateKeyHex, senderDid, receiv
  * @param {string} privateKeyHex - Legacy private key in hex format
  * @param {string} senderDid - Old DID (sender)
  * @param {string} receiverDid - New DID (receiver)
+ * @param {string} networkBaseUrl - Base URL of the network to transfer from
  * @returns {Promise<Object>}
  */
-export async function initiateProxyTransfer(privateKeyHex, senderDid, receiverDid) {
+export async function initiateProxyTransfer(privateKeyHex, senderDid, receiverDid, networkBaseUrl) {
     try {
-        const { END_POINTS } = await import('../api/endpoints');
+        console.log('[initiateProxyTransfer Debug] networkBaseUrl received:', networkBaseUrl);
+        console.log('[initiateProxyTransfer Debug] Full URL will be:', `${networkBaseUrl}/initiate-proxy-rbt-transfer`);
+
+        const axios = (await import('axios')).default;
 
         const encryptedPK = await encryptForProxy(privateKeyHex);
 
@@ -268,14 +272,17 @@ export async function initiateProxyTransfer(privateKeyHex, senderDid, receiverDi
             operation_type: 20
         };
 
-        const response = await END_POINTS.initiate_proxy_rbt_transfer(requestPayload);
+        const response = await axios.post(`${networkBaseUrl}/initiate-proxy-rbt-transfer`, requestPayload, {
+            headers: { 'Content-Type': 'application/json' },
+            timeout: 600000
+        });
 
         return {
-            success: response?.status ?? false,
-            message: response?.message || 'Proxy transfer completed successfully',
-            data: response,
-            finalBalance: response?.finalBalance ?? null,
-            transferCount: response?.transferCount ?? 0
+            success: response?.data?.status ?? false,
+            message: response?.data?.message || 'Proxy transfer completed successfully',
+            data: response?.data,
+            finalBalance: response?.data?.finalBalance ?? null,
+            transferCount: response?.data?.transferCount ?? 0
         };
     } catch (error) {
         return {

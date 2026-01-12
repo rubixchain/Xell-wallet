@@ -4,7 +4,7 @@ import indexDBUtil from '../../indexDB';
 import { generateUncompressedPublicKey, deriveKeysFromMnemonic, initiateProxyTransfer } from '../../utils/migration';
 import { END_POINTS } from '../../api/endpoints';
 import { generateSignature } from '../../utils';
-import { config } from '../../../config';
+import { config, getConfigPromise } from '../../../config';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 
@@ -34,6 +34,8 @@ const DIDMigrationProgress = ({ unifiedPassword, onComplete, onError }) => {
         try {
             setCurrentStep(MIGRATION_STEPS.PREPARING);
             setError(null);
+
+            await getConfigPromise();
 
             // Get all accounts that need DID migration
             const result = await indexDBUtil.getAllDecryptedAccountsForDIDMigration(unifiedPassword);
@@ -198,23 +200,27 @@ const DIDMigrationProgress = ({ unifiedPassword, onComplete, onError }) => {
 
             const newDid = successfulRegistrations[0].did;
 
-            const rubixNetworks = ['1', '2'];
-            if (rubixNetworks.includes(account.network)) {
+            const rubixNetworks = [
+                { id: '1', baseUrl: config.RUBIX_MAINNET_BASE_URL },
+                { id: '2', baseUrl: config.RUBIX_TESTNET_BASE_URL }
+            ];
+
+            for (const network of rubixNetworks) {
+                if (!network.baseUrl) continue;
+
                 try {
-                    const currentNetworkBaseUrl = getBaseUrlForNetwork(account.network);
-                    const currentNetworkApi = axios.create({
-                        baseURL: currentNetworkBaseUrl,
+                    const networkApi = axios.create({
+                        baseURL: network.baseUrl,
                         headers: { 'Content-Type': 'application/json' }
                     });
 
-                    const accountInfo = await currentNetworkApi.get('/get-account-info', { params: { did: account.did } });
+                    const accountInfo = await networkApi.get('/get-account-info', { params: { did: account.did } });
                     const balance = accountInfo?.data?.account_info?.[0]?.rbt_amount || 0;
 
                     if (balance > 0) {
-                        await initiateProxyTransfer(privateKeyHex, account.did, newDid);
+                        await initiateProxyTransfer(privateKeyHex, account.did, newDid, network.baseUrl);
                     }
                 } catch (transferError) {
-                    // Continue migration despite transfer failure
                 }
             }
 
@@ -271,22 +277,6 @@ const DIDMigrationProgress = ({ unifiedPassword, onComplete, onError }) => {
                 ? { ...acc, migrationStatus: status, ...data }
                 : acc
         ));
-    };
-
-    const getBaseUrlForNetwork = (network) => {
-        const networkId = parseInt(network);
-        switch (networkId) {
-            case 1:
-                return config.RUBIX_MAINNET_BASE_URL;
-            case 2:
-                return config.RUBIX_TESTNET_BASE_URL;
-            case 3:
-                return config.TRIE_TESTNET_BASE_URL;
-            case 4:
-                return config.TRIE_MAINNET_BASE_URL;
-            default:
-                return config.RUBIX_TESTNET_BASE_URL;
-        }
     };
 
     const handleRetry = async () => {

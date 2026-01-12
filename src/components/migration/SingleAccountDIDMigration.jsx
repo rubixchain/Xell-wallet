@@ -3,7 +3,7 @@ import { FiRefreshCw, FiCheck, FiX, FiLoader } from 'react-icons/fi';
 import indexDBUtil from '../../indexDB';
 import { generateUncompressedPublicKey, deriveKeysFromMnemonic, initiateProxyTransfer } from '../../utils/migration';
 import { generateSignature } from '../../utils';
-import { config } from '../../../config';
+import { config, getConfigPromise } from '../../../config';
 import axios from 'axios';
 
 const MIGRATION_STEPS = {
@@ -36,6 +36,8 @@ const SingleAccountDIDMigration = ({ username, unifiedPassword, legacyDid: propL
             setCurrentStep(MIGRATION_STEPS.PREPARING);
             setError(null);
             setProgress(10);
+
+            await getConfigPromise();
 
             const result = await indexDBUtil.getDecryptedAccountForDIDMigration(username, unifiedPassword);
 
@@ -191,53 +193,69 @@ const SingleAccountDIDMigration = ({ username, unifiedPassword, legacyDid: propL
 
             const oldDid = effectiveLegacyDid || account.did;
 
-            const rubixMainnet = ['1'];
-            const networkStr = String(account.network);
+            console.log('[Migration Debug] Config loaded:', {
+                RUBIX_MAINNET_BASE_URL: config.RUBIX_MAINNET_BASE_URL,
+                RUBIX_TESTNET_BASE_URL: config.RUBIX_TESTNET_BASE_URL
+            });
 
-            if (rubixMainnet.includes(networkStr)) {
-                const currentNetworkBaseUrl = getBaseUrlForNetwork(account.network);
+            const rubixNetworks = [
+                { id: '1', baseUrl: config.RUBIX_MAINNET_BASE_URL },
+                { id: '2', baseUrl: config.RUBIX_TESTNET_BASE_URL }
+            ];
 
-                const currentNetworkApi = axios.create({
-                    baseURL: currentNetworkBaseUrl,
-                    headers: { 'Content-Type': 'application/json' }
-                });
+            console.log('[Migration Debug] Networks to check:', rubixNetworks);
 
-                const accountInfo = await currentNetworkApi.get('/get-account-info', { params: { did: oldDid } });
-                const balance = accountInfo?.data?.account_info?.[0]?.rbt_amount || 0;
+            for (const network of rubixNetworks) {
+                console.log('[Migration Debug] Checking network:', network.id, 'baseUrl:', network.baseUrl);
+                if (!network.baseUrl) continue;
 
-                if (balance > 0) {
-                    setCurrentStep(MIGRATION_STEPS.TRANSFERRING_BALANCE);
-                    setProgress(75);
-                    setRemainingBalance(balance);
+                try {
+                    const networkApi = axios.create({
+                        baseURL: network.baseUrl,
+                        headers: { 'Content-Type': 'application/json' }
+                    });
 
-                    const transferCtx = {
-                        privateKeyHex: legacyPrivateKeyHex,
-                        oldDid: oldDid,
-                        newDid: generatedNewDid,
-                        networkBaseUrl: currentNetworkBaseUrl,
-                        account,
-                        newPublicKey,
-                        newPrivateKey: privateKeyHex
-                    };
-                    setTransferContext(transferCtx);
+                    const accountInfo = await networkApi.get('/get-account-info', { params: { did: oldDid } });
+                    const balance = accountInfo?.data?.account_info?.[0]?.rbt_amount || 0;
 
-                    const transferResult = await initiateProxyTransfer(legacyPrivateKeyHex, oldDid, generatedNewDid);
+                    console.log('[Migration Debug] Network:', network.id, 'Balance:', balance);
 
-                    if (!transferResult.success) {
-                        setError(transferResult.message || 'Transfer failed. Please retry.');
-                        setCurrentStep(MIGRATION_STEPS.TRANSFER_FAILED);
-                        return;
+                    if (balance > 0) {
+                        setCurrentStep(MIGRATION_STEPS.TRANSFERRING_BALANCE);
+                        setProgress(75);
+                        setRemainingBalance(balance);
+
+                        const transferCtx = {
+                            privateKeyHex: legacyPrivateKeyHex,
+                            oldDid: oldDid,
+                            newDid: generatedNewDid,
+                            networkBaseUrl: network.baseUrl,
+                            account,
+                            newPublicKey,
+                            newPrivateKey: privateKeyHex
+                        };
+                        setTransferContext(transferCtx);
+
+                        console.log('[Migration Debug] Initiating proxy transfer with baseUrl:', network.baseUrl);
+                        const transferResult = await initiateProxyTransfer(legacyPrivateKeyHex, oldDid, generatedNewDid, network.baseUrl);
+
+                        if (!transferResult.success) {
+                            setError(transferResult.message || 'Transfer failed. Please retry.');
+                            setCurrentStep(MIGRATION_STEPS.TRANSFER_FAILED);
+                            return;
+                        }
+
+                        const verifyInfo = await networkApi.get('/get-account-info', { params: { did: oldDid } });
+                        const balanceAfterTransfer = verifyInfo?.data?.account_info?.[0]?.rbt_amount || 0;
+                        setRemainingBalance(balanceAfterTransfer);
+
+                        if (balanceAfterTransfer > 0) {
+                            setError(`Transfer incomplete. ${balanceAfterTransfer} RBT remaining. Please retry.`);
+                            setCurrentStep(MIGRATION_STEPS.TRANSFER_FAILED);
+                            return;
+                        }
                     }
-
-                    const verifyInfo = await currentNetworkApi.get('/get-account-info', { params: { did: oldDid } });
-                    const balanceAfterTransfer = verifyInfo?.data?.account_info?.[0]?.rbt_amount || 0;
-                    setRemainingBalance(balanceAfterTransfer);
-
-                    if (balanceAfterTransfer > 0) {
-                        setError(`Transfer incomplete. ${balanceAfterTransfer} RBT remaining. Please retry.`);
-                        setCurrentStep(MIGRATION_STEPS.TRANSFER_FAILED);
-                        return;
-                    }
+                } catch (e) {
                 }
             }
 
@@ -284,22 +302,6 @@ const SingleAccountDIDMigration = ({ username, unifiedPassword, legacyDid: propL
                 await indexDBUtil.completeDIDMigration();
             }
         } catch (err) {
-        }
-    };
-
-    const getBaseUrlForNetwork = (network) => {
-        const networkId = parseInt(network);
-        switch (networkId) {
-            case 1:
-                return config.RUBIX_MAINNET_BASE_URL;
-            case 2:
-                return config.RUBIX_TESTNET_BASE_URL;
-            case 3:
-                return config.TRIE_TESTNET_BASE_URL;
-            case 4:
-                return config.TRIE_MAINNET_BASE_URL;
-            default:
-                return config.RUBIX_TESTNET_BASE_URL;
         }
     };
 

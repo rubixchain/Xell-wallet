@@ -9,6 +9,8 @@ import Card from '../components/Card';
 import indexDBUtil from '../indexDB';
 import { deriveKeysFromMnemonic } from '../utils/migration';
 import { END_POINTS } from '../api/endpoints';
+import { config, getConfigPromise } from '../../config';
+import axios from 'axios';
 
 
 const Header = () => {
@@ -101,17 +103,40 @@ const ImportWallet = () => {
 
       let legacyDid = null;
       try {
-        const legacyDIDResponse = await END_POINTS.create_wallet({
-          public_key: keys.legacyCompressedPublicKey,
-          network: "1"
-        });
-        legacyDid = legacyDIDResponse?.did || legacyDIDResponse?.data?.did;
+        await getConfigPromise();
 
-        const uncompressedResponse = await END_POINTS.create_wallet({
-          public_key: keys.legacyUncompressedPublicKey,
-          network: "1"
-        });
-        const uncompressedDid = uncompressedResponse?.did || uncompressedResponse?.data?.did;
+        const rubixNetworks = [
+          { id: "1", baseUrl: config.RUBIX_MAINNET_BASE_URL },
+          { id: "2", baseUrl: config.RUBIX_TESTNET_BASE_URL }
+        ];
+
+        for (const network of rubixNetworks) {
+          if (!network.baseUrl) continue;
+
+          try {
+            const networkApi = axios.create({
+              baseURL: network.baseUrl,
+              headers: { 'Content-Type': 'application/json' }
+            });
+
+            const legacyDIDResponse = await networkApi.post('/request-did-for-pubkey', {
+              public_key: keys.legacyCompressedPublicKey,
+              network: network.id
+            });
+            const did = legacyDIDResponse?.data?.did;
+
+            if (did) {
+              const accountInfo = await networkApi.get('/get-account-info', { params: { did } });
+              const balance = accountInfo?.data?.account_info?.[0]?.rbt_amount || 0;
+
+              if (balance > 0) {
+                legacyDid = did;
+                break;
+              }
+            }
+          } catch (e) {
+          }
+        }
       } catch (e) {
       }
 
