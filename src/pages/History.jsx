@@ -105,8 +105,9 @@ export default function History({ isModal = false }) {
         END_POINTS.get_transactions_info({ DID: userDetails?.did })
       ];
 
-      // Also fetch transactions from legacy DID if it exists
-      if (userDetails?.legacyDid) {
+      // Only fetch legacy DID transactions for RBT networks (1 or 2) where balance was migrated
+      // For other networks (3, 4), balance wasn't transferred so don't show legacy transactions
+      if (userDetails?.legacyDid && (userDetails?.network === 1 || userDetails?.network === 2)) {
         apiPromises.push(
           END_POINTS.get_transactions_info({ DID: userDetails?.legacyDid })
         );
