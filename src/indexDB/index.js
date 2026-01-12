@@ -172,7 +172,7 @@ const indexDBUtil = {
                         {
                             selected: true,
                             name: 'mainnet',
-                            url: config.RUBIX_MAINNET_BASE_URL
+                            url: config.TRIE_MAINNET_BASE_URL
                         }
                     ],
                 }
@@ -261,7 +261,7 @@ const indexDBUtil = {
                         {
                             selected: true,
                             name: 'mainnet',
-                            url: config.RUBIX_MAINNET_BASE_URL
+                            url: config.TRIE_MAINNET_BASE_URL
                         }
                     ],
                 }
