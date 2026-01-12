@@ -31,7 +31,9 @@ async function loadConfig() {
         if (data.ALLOWED_ORIGINS) {
             config.ALLOWED_ORIGINS = data.ALLOWED_ORIGINS;
         }
+        console.log('[Config] Loaded successfully:', config);
     } catch (error) {
+        console.error('[Config] Failed to load:', error);
     }
 }
 
@@ -43,8 +45,8 @@ export function getConfigPromise() {
     return configLoadedPromise;
 }
 
-// Load config immediately
-loadConfig();
+// Load config immediately and store the promise
+configLoadedPromise = loadConfig();
 
 export const NETWORK_TYPES = {
     RBT: 'RBT',

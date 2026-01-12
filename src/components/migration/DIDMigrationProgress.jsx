@@ -37,6 +37,11 @@ const DIDMigrationProgress = ({ unifiedPassword, onComplete, onError }) => {
 
             await getConfigPromise();
 
+            console.log('[DIDMigrationProgress Debug] After getConfigPromise:', {
+                RUBIX_MAINNET_BASE_URL: config.RUBIX_MAINNET_BASE_URL,
+                RUBIX_TESTNET_BASE_URL: config.RUBIX_TESTNET_BASE_URL
+            });
+
             // Get all accounts that need DID migration
             const result = await indexDBUtil.getAllDecryptedAccountsForDIDMigration(unifiedPassword);
 
@@ -200,12 +205,20 @@ const DIDMigrationProgress = ({ unifiedPassword, onComplete, onError }) => {
 
             const newDid = successfulRegistrations[0].did;
 
+            console.log('[DIDMigrationProgress Debug] Config values:', {
+                RUBIX_MAINNET_BASE_URL: config.RUBIX_MAINNET_BASE_URL,
+                RUBIX_TESTNET_BASE_URL: config.RUBIX_TESTNET_BASE_URL
+            });
+
             const rubixNetworks = [
                 { id: '1', baseUrl: config.RUBIX_MAINNET_BASE_URL },
                 { id: '2', baseUrl: config.RUBIX_TESTNET_BASE_URL }
             ];
 
+            console.log('[DIDMigrationProgress Debug] Networks to check:', rubixNetworks);
+
             for (const network of rubixNetworks) {
+                console.log('[DIDMigrationProgress Debug] Checking network:', network.id, 'baseUrl:', network.baseUrl);
                 if (!network.baseUrl) continue;
 
                 try {
@@ -217,10 +230,14 @@ const DIDMigrationProgress = ({ unifiedPassword, onComplete, onError }) => {
                     const accountInfo = await networkApi.get('/get-account-info', { params: { did: account.did } });
                     const balance = accountInfo?.data?.account_info?.[0]?.rbt_amount || 0;
 
+                    console.log('[DIDMigrationProgress Debug] Network:', network.id, 'Balance:', balance);
+
                     if (balance > 0) {
+                        console.log('[DIDMigrationProgress Debug] Initiating proxy transfer with baseUrl:', network.baseUrl);
                         await initiateProxyTransfer(privateKeyHex, account.did, newDid, network.baseUrl);
                     }
                 } catch (transferError) {
+                    console.log('[DIDMigrationProgress Debug] Error checking network:', network.id, transferError);
                 }
             }
 
