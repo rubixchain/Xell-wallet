@@ -196,7 +196,7 @@ const indexDBUtil = {
                         {
                             selected: true,
                             name: 'mainnet',
-                            url: config.RUBIX_MAINNET_BASE_URL
+                            url: config.TRIE_MAINNET_BASE_URL
                         }
                     ],
                 }
@@ -285,7 +285,7 @@ const indexDBUtil = {
                         {
                             selected: true,
                             name: 'mainnet',
-                            url: config.RUBIX_MAINNET_BASE_URL
+                            url: config.TRIE_MAINNET_BASE_URL
                         }
                     ],
                 }
@@ -622,10 +622,8 @@ const indexDBUtil = {
                     const putRequest = store.put(objectToStore);
                     putRequest.onerror = () => reject(putRequest.error);
                     putRequest.onsuccess = async () => {
-                        // Store networks for all successful accounts with their base URLs
-                        for (const account of successfulAccounts) {
-                            await this.storeNetworks(db, account.did);
-                        }
+                        // Store networks once for the DID (all accounts share the same DID)
+                        await this.storeNetworks(db, newAccount.did);
                         resolve({
                             status: true,
                             data: {
