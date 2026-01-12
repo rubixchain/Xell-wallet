@@ -393,6 +393,21 @@ const indexDBUtil = {
                     id: "1",
                     name: "RUBIX_MAINNET",
                     baseUrl: config.RUBIX_MAINNET_BASE_URL
+                },
+                {
+                    id: "2",
+                    name: "RUBIX_TESTNET",
+                    baseUrl: config.RUBIX_TESTNET_BASE_URL
+                },
+                {
+                    id: "3",
+                    name: "TRIE_TESTNET",
+                    baseUrl: config.TRIE_TESTNET_BASE_URL
+                },
+                {
+                    id: "4",
+                    name: "TRIE_MAINNET",
+                    baseUrl: config.TRIE_MAINNET_BASE_URL
                 }
             ];
 
@@ -484,10 +499,8 @@ const indexDBUtil = {
                     const putRequest = store.put(objectToStore);
                     putRequest.onerror = () => reject(putRequest.error);
                     putRequest.onsuccess = async () => {
-                        // Store networks for all successful accounts with their base URLs
-                        for (const account of successfulAccounts) {
-                            await this.storeNetworks(db, account.did);
-                        }
+                        // Store networks once for the DID (all accounts share the same DID)
+                        await this.storeNetworks(db, newAccount.did);
                         resolve({
                             status: true,
                             data: {
