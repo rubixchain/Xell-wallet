@@ -34,7 +34,6 @@ async function loadConfig() {
             config.ALLOWED_ORIGINS = data.ALLOWED_ORIGINS;
         }
     } catch (error) {
-        console.error('Failed to load remote config:', error);
     }
 }
 

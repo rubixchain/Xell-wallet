@@ -99,12 +99,6 @@ const ImportWallet = () => {
         return
       }
 
-      console.log('🔑 Key Derivation Debug:');
-      console.log('  New Compressed:', keys.compressedPublicKey);
-      console.log('  New Uncompressed:', keys.uncompressedPublicKey);
-      console.log('  Legacy Compressed:', keys.legacyCompressedPublicKey);
-      console.log('  Legacy Uncompressed:', keys.legacyUncompressedPublicKey);
-
       let legacyDid = null;
       try {
         const legacyDIDResponse = await END_POINTS.create_wallet({
@@ -112,16 +106,13 @@ const ImportWallet = () => {
           network: "1"
         });
         legacyDid = legacyDIDResponse?.did || legacyDIDResponse?.data?.did;
-        console.log('🔍 ImportWallet - Legacy DID (compressed):', legacyDid);
 
         const uncompressedResponse = await END_POINTS.create_wallet({
           public_key: keys.legacyUncompressedPublicKey,
           network: "1"
         });
         const uncompressedDid = uncompressedResponse?.did || uncompressedResponse?.data?.did;
-        console.log('🔍 ImportWallet - Legacy DID (uncompressed):', uncompressedDid);
       } catch (e) {
-        console.log('⚠️ ImportWallet - Failed to get legacy DID:', e.message);
       }
 
       toast.success('Phrase verified successfully')

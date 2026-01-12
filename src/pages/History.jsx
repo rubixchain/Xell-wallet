@@ -101,21 +101,15 @@ export default function History({ isModal = false }) {
       setIsLoading(true);
       setTransactionsFilter([]);
 
-      console.log('🔍 History - Current DID:', userDetails?.did);
-      console.log('🔍 History - Legacy DID:', userDetails?.legacyDid);
-
       const apiPromises = [
         END_POINTS.get_transactions_info({ DID: userDetails?.did })
       ];
 
       // Also fetch transactions from legacy DID if it exists
       if (userDetails?.legacyDid) {
-        console.log('✅ History - Fetching legacy DID transactions');
         apiPromises.push(
           END_POINTS.get_transactions_info({ DID: userDetails?.legacyDid })
         );
-      } else {
-        console.log('⚠️ History - No legacy DID found');
       }
 
       const apiResults = await Promise.all(apiPromises);
@@ -134,7 +128,6 @@ export default function History({ isModal = false }) {
               isLegacy: false
             })
           ) || [];
-        console.log(`📊 History - New DID transactions: ${newTransactions.length}`);
         allTransactions = [...allTransactions, ...newTransactions];
       }
 
@@ -148,11 +141,8 @@ export default function History({ isModal = false }) {
               isLegacy: true
             })
           ) || [];
-        console.log(`📊 History - Legacy DID transactions: ${legacyTransactions.length}`);
         allTransactions = [...allTransactions, ...legacyTransactions];
       }
-
-      console.log(`📊 History - Total transactions: ${allTransactions.length}`);
 
       if (allTransactions.length > 0) {
         // Apply filtering

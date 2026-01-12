@@ -420,9 +420,6 @@ const indexDBUtil = {
 
                     if (legacyDid) {
                         newAccount.legacyDid = legacyDid;
-                        console.log('✅ IndexDB.storeToDB - Storing legacyDid:', legacyDid);
-                    } else {
-                        console.log('⚠️ IndexDB.storeToDB - No legacyDid to store');
                     }
 
                     if (needsLegacyMigration) {
@@ -443,7 +440,6 @@ const indexDBUtil = {
                     putRequest.onsuccess = async () => {
                         try {
                             await this.storeNetworks(db, res?.did);
-                            console.log('✅ IndexDB.storeToDB - Returning legacyDid:', legacyDid || null);
                             resolve({
                                 status: true, data: {
                                     username: username,

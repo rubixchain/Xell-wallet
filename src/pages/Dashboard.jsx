@@ -82,9 +82,6 @@ export default function Dashboard() {
         // Default to network 1 if undefined (new wallet defaults to mainnet)
         const networkValue = userDetails?.network ?? 1;
         if (networkValue == 1 || networkValue == 2) {
-          console.log('🔍 Dashboard - Current DID:', userDetails?.did);
-          console.log('🔍 Dashboard - Legacy DID:', userDetails?.legacyDid);
-
           const apiPromises = [
             END_POINTS.get_account_info({ did: userDetails?.did }),
             END_POINTS.get_transactions_info({ DID: userDetails?.did })
@@ -92,26 +89,15 @@ export default function Dashboard() {
 
           // Also fetch transactions from legacy DID if it exists
           if (userDetails?.legacyDid) {
-            console.log('✅ Dashboard - Fetching legacy DID transactions');
             apiPromises.push(
               END_POINTS.get_transactions_info({ DID: userDetails?.legacyDid })
             );
-          } else {
-            console.log('⚠️ Dashboard - No legacy DID found');
           }
 
           const apiResults = await Promise.all(apiPromises);
           const accountinfoApiData = apiResults[0];
           const transactionsApiData = apiResults[1];
           const legacyTransactionsApiData = apiResults[2]; // undefined if no legacy DID
-
-          console.log('📦 Dashboard - API Results:', {
-            newDIDStatus: transactionsApiData?.status,
-            newDIDMessage: transactionsApiData?.message,
-            legacyDIDStatus: legacyTransactionsApiData?.status,
-            legacyDIDMessage: legacyTransactionsApiData?.message,
-            legacyDIDExists: !!legacyTransactionsApiData
-          });
 
           let res = {}
 
@@ -130,7 +116,6 @@ export default function Dashboard() {
               type: txn?.SenderDID == userDetails?.did ? "Sent" : "Received",
               isLegacy: false
             })) || []
-            console.log(`📊 Dashboard - New DID transactions: ${newTransactions.length}`);
             allTransactions = [...allTransactions, ...newTransactions];
           }
 
@@ -140,13 +125,9 @@ export default function Dashboard() {
               type: txn?.SenderDID == userDetails?.legacyDid ? "Sent" : "Received",
               isLegacy: true
             })) || []
-            console.log(`📊 Dashboard - Legacy DID transactions: ${legacyTransactions.length}`);
             allTransactions = [...allTransactions, ...legacyTransactions];
-          } else if (userDetails?.legacyDid) {
-            console.log('❌ Dashboard - Legacy DID API call failed or returned no data');
           }
 
-          console.log(`📊 Dashboard - Total transactions: ${allTransactions.length}`);
           setTransactionsData(allTransactions?.sort((a, b) => b.Epoch - a.Epoch) || [])
         }
         else {
