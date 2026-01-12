@@ -215,10 +215,11 @@ export default function AccountSwitcher() {
             </div>
 
             <div
-              className="max-h-[180px] overflow-y-scroll pr-1"
+              className="max-h-[180px] overflow-y-auto pr-1 [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar]:block [&::-webkit-scrollbar-track]:bg-gray-100 [&::-webkit-scrollbar-track]:dark:bg-gray-700 [&::-webkit-scrollbar-thumb]:bg-gray-300 [&::-webkit-scrollbar-thumb]:dark:bg-gray-500 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:hover:bg-gray-400 [&::-webkit-scrollbar-thumb]:dark:hover:bg-gray-400"
               style={{
                 scrollbarWidth: 'thin',
-                scrollbarColor: '#d1d5db #f3f4f6'
+                scrollbarColor: '#d1d5db #f3f4f6',
+                scrollbarGutter: 'stable'
               }}
             >
               {accounts.map((account) => {
