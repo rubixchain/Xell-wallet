@@ -291,7 +291,7 @@ const SingleAccountDIDMigration = ({ username, unifiedPassword, legacyDid: propL
         const networkId = parseInt(network);
         switch (networkId) {
             case 1:
-                return 'http://localhost:3000';
+                return config.RUBIX_MAINNET_BASE_URL;
             case 2:
                 return config.RUBIX_TESTNET_BASE_URL;
             case 3:

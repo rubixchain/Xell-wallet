@@ -2,7 +2,7 @@
 const CONFIG_API_URL = 'https://assets.xellwallet.com/config.json';
 
 export const config = {
-    RUBIX_MAINNET_BASE_URL: 'http://localhost:3000',
+    RUBIX_MAINNET_BASE_URL: '',
     RUBIX_TESTNET_BASE_URL: '',
     TRIE_TESTNET_BASE_URL: '',
     TRIE_MAINNET_BASE_URL: '',
@@ -25,9 +25,7 @@ async function loadConfig() {
         const data = await response.json();
         if (data.URLS) {
             Object.keys(data.URLS).forEach(key => {
-                if (key !== 'RUBIX_MAINNET_BASE_URL') {
-                    config[key] = data.URLS[key];
-                }
+                config[key] = data.URLS[key];
             });
         }
         if (data.ALLOWED_ORIGINS) {
