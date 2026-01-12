@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { FiShield, FiLock, FiPlus, FiDownload } from 'react-icons/fi';
+import { FiShield, FiLock } from 'react-icons/fi';
 import { useNavigate } from 'react-router-dom';
 import AccountMigrationCard from './AccountMigrationCard';
 import SetUnifiedPasswordStep from './SetUnifiedPasswordStep';
@@ -13,8 +13,7 @@ import { routes } from '../../routes/routes';
 const STEPS = {
     COLLECT_PASSWORDS: 1,
     SET_UNIFIED_PASSWORD: 2,
-    CREATE_NEW_ACCOUNT: 3,
-    COMPLETE: 4
+    COMPLETE: 3
 };
 
 const MigrationModal = ({ onLock }) => {
@@ -158,29 +157,20 @@ const MigrationModal = ({ onLock }) => {
         return allAccountsHandled();
     };
 
-    const handleContinue = () => {
+    const handleContinue = async () => {
         if (!canProceed()) {
             toast.error('Please handle all accounts before continuing');
             return;
         }
 
         if (allAccountsSkipped()) {
-            setCurrentStep(STEPS.CREATE_NEW_ACCOUNT);
+            // Delete all skipped accounts and redirect to Welcome page
+            const skipAccounts = Object.keys(accountStates);
+            await indexDBUtil.deleteSkippedAccountsAndReset(skipAccounts);
+            navigate(routes.WELCOME);
         } else {
             setCurrentStep(STEPS.SET_UNIFIED_PASSWORD);
         }
-    };
-
-    const handleCreateWallet = async () => {
-        const skipAccounts = Object.keys(accountStates);
-        await indexDBUtil.deleteSkippedAccountsAndReset(skipAccounts);
-        navigate(routes.CREATE_WALLET);
-    };
-
-    const handleImportWallet = async () => {
-        const skipAccounts = Object.keys(accountStates);
-        await indexDBUtil.deleteSkippedAccountsAndReset(skipAccounts);
-        navigate(routes.IMPORT_WALLET);
     };
 
     const handleUnifiedPasswordSet = async (newPassword) => {
@@ -324,51 +314,6 @@ const MigrationModal = ({ onLock }) => {
             onBack={() => setCurrentStep(STEPS.COLLECT_PASSWORDS)}
             isProcessing={isProcessing}
         />
-    );
-
-    const renderCreateNewAccountStep = () => (
-        <div className="flex flex-col h-full pt-4 pb-4">
-            <div className="flex items-center gap-3 mb-4">
-                <div className="bg-tertiary p-2.5 rounded-xl">
-                    <FiShield className="text-secondary" size={22} />
-                </div>
-                <div className="flex-1">
-                    <h2 className="font-semibold text-lg text-senary leading-tight">Create New Account</h2>
-                    <p className="text-quinary text-xs">All accounts were skipped</p>
-                </div>
-            </div>
-
-            <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-3 mb-4">
-                <p className="text-sm text-amber-800">
-                    Since all existing accounts were skipped, you need to create or import a new account to continue using the wallet.
-                </p>
-            </div>
-
-            <div className="flex-1 flex flex-col justify-center space-y-3">
-                <button
-                    onClick={handleCreateWallet}
-                    className="w-full flex items-center justify-center gap-2 bg-secondary hover:bg-primary text-white font-semibold py-3 px-6 rounded-xl transition-colors"
-                >
-                    <FiPlus size={18} />
-                    Create New Wallet
-                </button>
-
-                <button
-                    onClick={handleImportWallet}
-                    className="w-full flex items-center justify-center gap-2 bg-gray-100 hover:bg-gray-200 text-senary font-semibold py-3 px-6 rounded-xl transition-colors"
-                >
-                    <FiDownload size={18} />
-                    Import Wallet
-                </button>
-            </div>
-
-            <button
-                onClick={() => setCurrentStep(STEPS.COLLECT_PASSWORDS)}
-                className="mt-4 text-sm text-quinary hover:text-senary transition-colors"
-            >
-                Go Back
-            </button>
-        </div>
     );
 
     const renderCompleteStep = () => (
