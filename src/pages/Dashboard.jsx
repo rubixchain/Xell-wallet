@@ -87,8 +87,8 @@ export default function Dashboard() {
             END_POINTS.get_transactions_info({ DID: userDetails?.did })
           ];
 
-          // Also fetch transactions from legacy DID if it exists
-          if (userDetails?.legacyDid) {
+          // Only fetch legacy DID transactions for Rubix Mainnet (network 1) where balance was migrated
+          if (userDetails?.legacyDid && networkValue === 1) {
             apiPromises.push(
               END_POINTS.get_transactions_info({ DID: userDetails?.legacyDid })
             );

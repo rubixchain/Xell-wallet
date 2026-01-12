@@ -105,9 +105,9 @@ export default function History({ isModal = false }) {
         END_POINTS.get_transactions_info({ DID: userDetails?.did })
       ];
 
-      // Only fetch legacy DID transactions for RBT networks (1 or 2) where balance was migrated
-      // For other networks (3, 4), balance wasn't transferred so don't show legacy transactions
-      if (userDetails?.legacyDid && (userDetails?.network === 1 || userDetails?.network === 2)) {
+      // Only fetch legacy DID transactions for Rubix Mainnet (network 1) where balance was migrated
+      // For other networks, balance wasn't transferred so don't show legacy transactions
+      if (userDetails?.legacyDid && userDetails?.network === 1) {
         apiPromises.push(
           END_POINTS.get_transactions_info({ DID: userDetails?.legacyDid })
         );
