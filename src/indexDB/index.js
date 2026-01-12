@@ -2224,6 +2224,71 @@ const indexDBUtil = {
     },
 
     /**
+     * Delete skipped accounts and reset wallet state for fresh start
+     * Used when all accounts are skipped during password unification
+     * @param {Array} skipAccounts - Array of usernames to delete
+     * @returns {Promise<Object>}
+     */
+    deleteSkippedAccountsAndReset: async function (skipAccounts) {
+        try {
+            const db = await this.initDB();
+            return new Promise((resolve, reject) => {
+                const transaction = db.transaction([this.storeName], 'readwrite');
+                const store = transaction.objectStore(this.storeName);
+                const request = store.get('UserDetails');
+
+                request.onsuccess = () => {
+                    const data = request.result;
+                    if (!data || !data.accounts) {
+                        this.setCurrentVersion(null).then(() => {
+                            localStorage.removeItem('currentUser');
+                            resolve({ status: true, message: 'No accounts to delete' });
+                        });
+                        return;
+                    }
+
+                    const remainingAccounts = data.accounts.filter(
+                        acc => !skipAccounts.includes(acc.username)
+                    );
+
+                    if (remainingAccounts.length === 0) {
+                        const deleteUserRequest = store.delete('UserDetails');
+                        deleteUserRequest.onsuccess = () => {
+                            const deleteNetworkRequest = store.delete('NetworkDetails');
+                            deleteNetworkRequest.onsuccess = () => {
+                                this.setCurrentVersion(null).then(() => {
+                                    localStorage.removeItem('currentUser');
+                                    resolve({ status: true, message: 'All accounts deleted, wallet reset' });
+                                });
+                            };
+                            deleteNetworkRequest.onerror = () => {
+                                this.setCurrentVersion(null).then(() => {
+                                    localStorage.removeItem('currentUser');
+                                    resolve({ status: true, message: 'Accounts deleted' });
+                                });
+                            };
+                        };
+                        deleteUserRequest.onerror = () => reject(deleteUserRequest.error);
+                    } else {
+                        data.accounts = remainingAccounts;
+                        const updateRequest = store.put(data);
+                        updateRequest.onsuccess = () => resolve({
+                            status: true,
+                            message: 'Skipped accounts deleted',
+                            remainingAccounts: remainingAccounts.length
+                        });
+                        updateRequest.onerror = () => reject(updateRequest.error);
+                    }
+                };
+
+                request.onerror = () => reject(request.error);
+            });
+        } catch (error) {
+            throw error;
+        }
+    },
+
+    /**
      * Manually set legacy DID for already-migrated accounts
      * Use this to fix accounts that were migrated before legacyDid storage was implemented
      * @param {string} username

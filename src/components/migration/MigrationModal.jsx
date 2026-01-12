@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { FiShield, FiLock } from 'react-icons/fi';
+import { FiShield, FiLock, FiPlus, FiDownload } from 'react-icons/fi';
+import { useNavigate } from 'react-router-dom';
 import AccountMigrationCard from './AccountMigrationCard';
 import SetUnifiedPasswordStep from './SetUnifiedPasswordStep';
 import ImportMnemonicModal from './ImportMnemonicModal';
@@ -7,19 +8,20 @@ import Card from '../Card';
 import indexDBUtil from '../../indexDB';
 import toast from 'react-hot-toast';
 import { deriveKeysFromMnemonic } from '../../utils/migration';
+import { routes } from '../../routes/routes';
 
-// Migration steps
 const STEPS = {
     COLLECT_PASSWORDS: 1,
     SET_UNIFIED_PASSWORD: 2,
-    COMPLETE: 3
+    CREATE_NEW_ACCOUNT: 3,
+    COMPLETE: 4
 };
 
 const MigrationModal = ({ onLock }) => {
+    const navigate = useNavigate();
     const [currentStep, setCurrentStep] = useState(STEPS.COLLECT_PASSWORDS);
     const [accounts, setAccounts] = useState([]);
     const [accountStates, setAccountStates] = useState({});
-    // accountStates: { username: { status: 'pending'|'validated'|'skipped'|'imported', password: '', mnemonic: '' } }
 
     const [showImportModal, setShowImportModal] = useState(false);
     const [importingAccount, setImportingAccount] = useState(null);
@@ -140,38 +142,51 @@ const MigrationModal = ({ onLock }) => {
         }
     };
 
-    // Check if we can proceed to next step
-    const canProceed = () => {
+    const allAccountsHandled = () => {
         const states = Object.values(accountStates);
-
-        // All accounts must be either validated, imported, or skipped
-        const allHandled = states.every(s =>
+        return states.every(s =>
             s.status === 'validated' || s.status === 'imported' || s.status === 'skipped'
         );
-
-        // At least one account must be validated or imported (not all skipped)
-        const hasValidAccount = states.some(s =>
-            s.status === 'validated' || s.status === 'imported'
-        );
-
-        return allHandled && hasValidAccount;
     };
 
-    // Handle continue to set unified password
+    const allAccountsSkipped = () => {
+        const states = Object.values(accountStates);
+        return states.length > 0 && states.every(s => s.status === 'skipped');
+    };
+
+    const canProceed = () => {
+        return allAccountsHandled();
+    };
+
     const handleContinue = () => {
         if (!canProceed()) {
             toast.error('Please handle all accounts before continuing');
             return;
         }
-        setCurrentStep(STEPS.SET_UNIFIED_PASSWORD);
+
+        if (allAccountsSkipped()) {
+            setCurrentStep(STEPS.CREATE_NEW_ACCOUNT);
+        } else {
+            setCurrentStep(STEPS.SET_UNIFIED_PASSWORD);
+        }
     };
 
-    // Handle unified password set
+    const handleCreateWallet = async () => {
+        const skipAccounts = Object.keys(accountStates);
+        await indexDBUtil.deleteSkippedAccountsAndReset(skipAccounts);
+        navigate(routes.CREATE_WALLET);
+    };
+
+    const handleImportWallet = async () => {
+        const skipAccounts = Object.keys(accountStates);
+        await indexDBUtil.deleteSkippedAccountsAndReset(skipAccounts);
+        navigate(routes.IMPORT_WALLET);
+    };
+
     const handleUnifiedPasswordSet = async (newPassword) => {
         setIsProcessing(true);
 
         try {
-            // Build account data map
             const accountDataMap = {};
             const skipAccounts = [];
 
@@ -185,16 +200,13 @@ const MigrationModal = ({ onLock }) => {
                 }
             });
 
-            // Set unified password and re-encrypt accounts
             const result = await indexDBUtil.setUnifiedPassword(newPassword, accountDataMap, skipAccounts);
 
             if (result.status) {
-                // Check if current user in localStorage was skipped
                 const currentUserStr = localStorage.getItem('currentUser');
                 if (currentUserStr) {
                     const currentUser = JSON.parse(currentUserStr);
                     if (skipAccounts.includes(currentUser.username)) {
-                        // Current user was deleted, switch to first migrated account
                         const firstMigratedUsername = result.migratedAccounts[0];
                         if (firstMigratedUsername) {
                             localStorage.setItem('currentUser', JSON.stringify({
@@ -208,7 +220,6 @@ const MigrationModal = ({ onLock }) => {
                 toast.success('Password unified successfully!');
                 setCurrentStep(STEPS.COMPLETE);
 
-                // Lock wallet and redirect to login
                 setTimeout(() => {
                     if (onLock) onLock();
                 }, 1500);
@@ -222,7 +233,6 @@ const MigrationModal = ({ onLock }) => {
         }
     };
 
-    // Calculate progress
     const getProgress = () => {
         const states = Object.values(accountStates);
         const handled = states.filter(s =>
@@ -231,13 +241,11 @@ const MigrationModal = ({ onLock }) => {
         return { handled, total: states.length };
     };
 
-    // Render step 1: Collect passwords
     const renderCollectPasswordsStep = () => {
         const progress = getProgress();
 
         return (
             <div className="flex flex-col h-full pt-4 pb-4">
-                {/* Header */}
                 <div className="flex items-center gap-3 mb-4">
                     <div className="bg-tertiary p-2.5 rounded-xl">
                         <FiShield className="text-secondary" size={22} />
@@ -248,7 +256,6 @@ const MigrationModal = ({ onLock }) => {
                     </div>
                 </div>
 
-                {/* Progress indicator */}
                 <div className="mb-4">
                     <div className="flex justify-between items-center mb-1.5">
                         <span className="text-xs text-quinary">Progress</span>
@@ -262,14 +269,18 @@ const MigrationModal = ({ onLock }) => {
                     </div>
                 </div>
 
-                {/* Info box - more concise */}
+                <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-3 mb-3">
+                    <p className="text-sm text-amber-800 leading-relaxed">
+                        Your wallet is being updated to a new key format, and thus your DID might look different after the update. But your <span className="font-semibold">Keys & Tokens are safe</span> in the Xell wallet.
+                    </p>
+                </div>
+
                 <div className="bg-tertiary/60 rounded-lg px-3 py-2 mb-3">
                     <p className="text-xs text-senary leading-relaxed">
                         Enter current PIN for each account, or use recovery phrase to verify.
                     </p>
                 </div>
 
-                {/* Account list - takes remaining space */}
                 <div className="flex-1 overflow-y-auto space-y-2.5 mb-4 pr-1">
                     {isLoading ? (
                         <div className="flex justify-center items-center h-32">
@@ -290,7 +301,6 @@ const MigrationModal = ({ onLock }) => {
                     )}
                 </div>
 
-                {/* Continue button - stays at bottom */}
                 <div className="mt-auto">
                     <button
                         onClick={handleContinue}
@@ -308,7 +318,6 @@ const MigrationModal = ({ onLock }) => {
         );
     };
 
-    // Render step 2: Set unified password
     const renderSetUnifiedPasswordStep = () => (
         <SetUnifiedPasswordStep
             onSubmit={handleUnifiedPasswordSet}
@@ -317,7 +326,51 @@ const MigrationModal = ({ onLock }) => {
         />
     );
 
-    // Render step 3: Complete
+    const renderCreateNewAccountStep = () => (
+        <div className="flex flex-col h-full pt-4 pb-4">
+            <div className="flex items-center gap-3 mb-4">
+                <div className="bg-tertiary p-2.5 rounded-xl">
+                    <FiShield className="text-secondary" size={22} />
+                </div>
+                <div className="flex-1">
+                    <h2 className="font-semibold text-lg text-senary leading-tight">Create New Account</h2>
+                    <p className="text-quinary text-xs">All accounts were skipped</p>
+                </div>
+            </div>
+
+            <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-3 mb-4">
+                <p className="text-sm text-amber-800">
+                    Since all existing accounts were skipped, you need to create or import a new account to continue using the wallet.
+                </p>
+            </div>
+
+            <div className="flex-1 flex flex-col justify-center space-y-3">
+                <button
+                    onClick={handleCreateWallet}
+                    className="w-full flex items-center justify-center gap-2 bg-secondary hover:bg-primary text-white font-semibold py-3 px-6 rounded-xl transition-colors"
+                >
+                    <FiPlus size={18} />
+                    Create New Wallet
+                </button>
+
+                <button
+                    onClick={handleImportWallet}
+                    className="w-full flex items-center justify-center gap-2 bg-gray-100 hover:bg-gray-200 text-senary font-semibold py-3 px-6 rounded-xl transition-colors"
+                >
+                    <FiDownload size={18} />
+                    Import Wallet
+                </button>
+            </div>
+
+            <button
+                onClick={() => setCurrentStep(STEPS.COLLECT_PASSWORDS)}
+                className="mt-4 text-sm text-quinary hover:text-senary transition-colors"
+            >
+                Go Back
+            </button>
+        </div>
+    );
+
     const renderCompleteStep = () => (
         <div className="flex flex-col items-center justify-center h-full py-10">
             <div className="bg-green-100 p-6 rounded-full mb-6">
@@ -338,10 +391,10 @@ const MigrationModal = ({ onLock }) => {
             <div className="flex flex-col flex-1 min-h-0">
                 {currentStep === STEPS.COLLECT_PASSWORDS && renderCollectPasswordsStep()}
                 {currentStep === STEPS.SET_UNIFIED_PASSWORD && renderSetUnifiedPasswordStep()}
+                {currentStep === STEPS.CREATE_NEW_ACCOUNT && renderCreateNewAccountStep()}
                 {currentStep === STEPS.COMPLETE && renderCompleteStep()}
             </div>
 
-            {/* Import Mnemonic Modal */}
             {showImportModal && (
                 <ImportMnemonicModal
                     accountName={importingAccount}
