@@ -205,20 +205,11 @@ const DIDMigrationProgress = ({ unifiedPassword, onComplete, onError }) => {
 
             const newDid = successfulRegistrations[0].did;
 
-            console.log('[DIDMigrationProgress Debug] Config values:', {
-                RUBIX_MAINNET_BASE_URL: config.RUBIX_MAINNET_BASE_URL,
-                RUBIX_TESTNET_BASE_URL: config.RUBIX_TESTNET_BASE_URL
-            });
-
             const rubixNetworks = [
-                { id: '1', baseUrl: config.RUBIX_MAINNET_BASE_URL },
-                { id: '2', baseUrl: config.RUBIX_TESTNET_BASE_URL }
+                { id: '1', baseUrl: config.RUBIX_MAINNET_BASE_URL }
             ];
 
-            console.log('[DIDMigrationProgress Debug] Networks to check:', rubixNetworks);
-
             for (const network of rubixNetworks) {
-                console.log('[DIDMigrationProgress Debug] Checking network:', network.id, 'baseUrl:', network.baseUrl);
                 if (!network.baseUrl) continue;
 
                 try {
