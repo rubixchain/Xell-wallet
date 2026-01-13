@@ -31,9 +31,7 @@ async function loadConfig() {
         if (data.ALLOWED_ORIGINS) {
             config.ALLOWED_ORIGINS = data.ALLOWED_ORIGINS;
         }
-        console.log('[Config] Loaded successfully:', config);
     } catch (error) {
-        console.error('[Config] Failed to load:', error);
     }
 }
 

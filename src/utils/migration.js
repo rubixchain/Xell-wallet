@@ -265,9 +265,6 @@ export async function initiateProxyTransfer(privateKeyHex, senderDid, receiverDi
             };
         }
 
-        console.log('[initiateProxyTransfer Debug] networkBaseUrl received:', networkBaseUrl);
-        console.log('[initiateProxyTransfer Debug] Full URL will be:', `${networkBaseUrl}/initiate-proxy-rbt-transfer`);
-
         const axios = (await import('axios')).default;
 
         const encryptedPK = await encryptForProxy(privateKeyHex);
