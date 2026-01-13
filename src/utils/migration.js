@@ -258,6 +258,13 @@ export async function initiateMigrationTransfer(privateKeyHex, senderDid, receiv
  */
 export async function initiateProxyTransfer(privateKeyHex, senderDid, receiverDid, networkBaseUrl) {
     try {
+        if (!networkBaseUrl) {
+            return {
+                success: false,
+                message: 'Network base URL is not configured'
+            };
+        }
+
         console.log('[initiateProxyTransfer Debug] networkBaseUrl received:', networkBaseUrl);
         console.log('[initiateProxyTransfer Debug] Full URL will be:', `${networkBaseUrl}/initiate-proxy-rbt-transfer`);
 
