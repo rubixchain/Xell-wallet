@@ -387,7 +387,7 @@ const SingleAccountDIDMigration = ({ username, unifiedPassword, legacyDid: propL
             case MIGRATION_STEPS.REGISTERING_DID:
                 return 'Registering DID on network...';
             case MIGRATION_STEPS.TRANSFERRING_BALANCE:
-                return 'Transferring balance...';
+                return 'Updating...';
             case MIGRATION_STEPS.UPDATING_STORAGE:
                 return 'Updating local storage...';
             case MIGRATION_STEPS.COMPLETE:
@@ -411,7 +411,7 @@ const SingleAccountDIDMigration = ({ username, unifiedPassword, legacyDid: propL
                     <h2 className="font-semibold text-xl text-senary mb-2">Consensus Failed</h2>
                     <p className="text-quinary text-sm text-center mb-4">@{username}</p>
                     <p className="text-quinary text-sm text-center mb-6">
-                        Please retry to complete your balance transfer.
+                        Please retry to complete your upgrade.
                     </p>
                 </div>
                 <button
@@ -422,7 +422,7 @@ const SingleAccountDIDMigration = ({ username, unifiedPassword, legacyDid: propL
                     {isRetrying ? (
                         <span className="flex items-center justify-center gap-2">
                             <span className="animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full"></span>
-                            Transferring...
+                            Updating...
                         </span>
                     ) : (
                         'Retry'
