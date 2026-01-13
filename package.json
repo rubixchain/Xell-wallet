@@ -1,7 +1,7 @@
 {
   "name": "xell-wallet",
   "private": false,
-  "version": "2.0.3",
+  "version": "2.1.0",
   "type": "module",
   "description": "A self-custodial cryptocurrency wallet built as a browser extension for Rubix and Trie networks",
   "keywords": [
