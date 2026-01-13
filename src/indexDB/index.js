@@ -6,7 +6,7 @@ import * as ecc from 'tiny-secp256k1';
 import secp256k1 from 'secp256k1';
 import { generateSignature } from "../utils";
 import CryptoJS from 'crypto-js';
-import { config, NETWORK_TYPES } from "../../config";
+import { config, NETWORK_TYPES, getConfigPromise } from "../../config";
 import axios from "axios";
 
 // Initialize BIP32 with tiny-secp256k1

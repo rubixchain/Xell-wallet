@@ -194,13 +194,11 @@ const SingleAccountDIDMigration = ({ username, unifiedPassword, legacyDid: propL
             const oldDid = effectiveLegacyDid || account.did;
 
             console.log('[Migration Debug] Config loaded:', {
-                RUBIX_MAINNET_BASE_URL: config.RUBIX_MAINNET_BASE_URL,
-                RUBIX_TESTNET_BASE_URL: config.RUBIX_TESTNET_BASE_URL
+                RUBIX_MAINNET_BASE_URL: config.RUBIX_MAINNET_BASE_URL
             });
 
             const rubixNetworks = [
-                { id: '1', baseUrl: config.RUBIX_MAINNET_BASE_URL },
-                { id: '2', baseUrl: config.RUBIX_TESTNET_BASE_URL }
+                { id: '1', baseUrl: config.RUBIX_MAINNET_BASE_URL }
             ];
 
             console.log('[Migration Debug] Networks to check:', rubixNetworks);
@@ -331,7 +329,7 @@ const SingleAccountDIDMigration = ({ username, unifiedPassword, legacyDid: propL
             const preRetryBalance = preRetryInfo?.data?.account_info?.[0]?.rbt_amount || 0;
 
             if (preRetryBalance > 0) {
-                const transferResult = await initiateProxyTransfer(privateKeyHex, oldDid, receiverDid);
+                const transferResult = await initiateProxyTransfer(privateKeyHex, oldDid, receiverDid, networkBaseUrl);
 
                 if (!transferResult.success) {
                     setError(transferResult.message || 'Transfer failed. Please retry.');
