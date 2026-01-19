@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { FiRefreshCw, FiCheck, FiX, FiLoader } from 'react-icons/fi';
-import { initiateProxyTransfer } from '../../utils/migration';
+import { initiateProxyTransfer, removestaleDid } from '../../utils/migration';
 import { END_POINTS } from '../../api/endpoints';
 import { config, getConfigPromise } from '../../../config';
 
@@ -41,6 +41,7 @@ const LegacyBalanceTransfer = ({ legacyDid, legacyPrivateKey, newDid, onComplete
             const result = await initiateProxyTransfer(legacyPrivateKey, legacyDid, newDid, config.RUBIX_MAINNET_BASE_URL);
 
             if (result.success) {
+                await removestaleDid(legacyDid, config.RUBIX_MAINNET_BASE_URL);
                 setProgress(100);
                 if (legacyBalance <= 0) {
                     setCurrentStep(MIGRATION_STEPS.NO_BALANCE);

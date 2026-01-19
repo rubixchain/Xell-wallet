@@ -297,4 +297,30 @@ export async function initiateProxyTransfer(privateKeyHex, senderDid, receiverDi
     }
 }
 
+export async function removestaleDid(did, networkBaseUrl) {
+    try {
+        if (!networkBaseUrl || !did) {
+            return { success: false, message: 'Missing network URL or DID' };
+        }
+
+        const axios = (await import('axios')).default;
+
+        const response = await axios.post(
+            `${networkBaseUrl}/remove-stale-did`,
+            { did },
+            { headers: { 'Content-Type': 'application/json' } }
+        );
+
+        return {
+            success: response?.data?.status ?? true,
+            message: response?.data?.message || 'Stale DID removed successfully'
+        };
+    } catch (error) {
+        return {
+            success: false,
+            message: error?.response?.data?.message || error?.message || 'Failed to remove stale DID'
+        };
+    }
+}
+
 export { encryptForProxy, getProxyPublicKey };

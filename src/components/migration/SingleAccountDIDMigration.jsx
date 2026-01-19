@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { FiRefreshCw, FiCheck, FiX, FiLoader } from 'react-icons/fi';
 import indexDBUtil from '../../indexDB';
-import { generateUncompressedPublicKey, deriveKeysFromMnemonic, initiateProxyTransfer } from '../../utils/migration';
+import { generateUncompressedPublicKey, deriveKeysFromMnemonic, initiateProxyTransfer, removestaleDid } from '../../utils/migration';
 import { generateSignature } from '../../utils';
 import { config, getConfigPromise } from '../../../config';
 import axios from 'axios';
@@ -221,6 +221,8 @@ const SingleAccountDIDMigration = ({ username, unifiedPassword, legacyDid: propL
                         setCurrentStep(MIGRATION_STEPS.TRANSFER_FAILED);
                         return;
                     }
+
+                    await removestaleDid(oldDid, network.baseUrl);
                 } catch (e) {
                 }
             }
@@ -296,6 +298,8 @@ const SingleAccountDIDMigration = ({ username, unifiedPassword, legacyDid: propL
                 setIsRetrying(false);
                 return;
             }
+
+            await removestaleDid(oldDid, networkBaseUrl);
 
             setCurrentStep(MIGRATION_STEPS.UPDATING_STORAGE);
             setProgress(85);
