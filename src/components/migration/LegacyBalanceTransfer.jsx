@@ -38,21 +38,24 @@ const LegacyBalanceTransfer = ({ legacyDid, legacyPrivateKey, newDid, onComplete
             setCurrentStep(MIGRATION_STEPS.TRANSFERRING);
             setProgress(60);
 
-            const result = await initiateProxyTransfer(legacyPrivateKey, legacyDid, newDid, config.RUBIX_MAINNET_BASE_URL);
+            if (legacyBalance > 0) {
+                const result = await initiateProxyTransfer(legacyPrivateKey, legacyDid, newDid, config.RUBIX_MAINNET_BASE_URL);
 
-            if (result.success) {
+                if (!result.success) {
+                    setError(result.message);
+                    setCurrentStep(MIGRATION_STEPS.FAILED);
+                    return;
+                }
+
                 await removestaleDid(legacyDid, config.RUBIX_MAINNET_BASE_URL);
                 setProgress(100);
-                if (legacyBalance <= 0) {
-                    setCurrentStep(MIGRATION_STEPS.NO_BALANCE);
-                    setTimeout(() => onSkip(), 1500);
-                } else {
-                    setCurrentStep(MIGRATION_STEPS.COMPLETE);
-                    setTimeout(() => onComplete(), 1500);
-                }
+                setCurrentStep(MIGRATION_STEPS.COMPLETE);
+                setTimeout(() => onComplete(), 1500);
             } else {
-                setError(result.message);
-                setCurrentStep(MIGRATION_STEPS.FAILED);
+                await removestaleDid(legacyDid, config.RUBIX_MAINNET_BASE_URL);
+                setProgress(100);
+                setCurrentStep(MIGRATION_STEPS.NO_BALANCE);
+                setTimeout(() => onSkip(), 1500);
             }
         } catch (err) {
             setError(err.message);

@@ -203,23 +203,33 @@ const SingleAccountDIDMigration = ({ username, unifiedPassword, legacyDid: propL
                     setCurrentStep(MIGRATION_STEPS.TRANSFERRING_BALANCE);
                     setProgress(75);
 
-                    const transferCtx = {
-                        privateKeyHex: legacyPrivateKeyHex,
-                        oldDid: oldDid,
-                        newDid: generatedNewDid,
-                        networkBaseUrl: network.baseUrl,
-                        account,
-                        newPublicKey,
-                        newPrivateKey: privateKeyHex
-                    };
-                    setTransferContext(transferCtx);
+                    const networkApi = axios.create({
+                        baseURL: network.baseUrl,
+                        headers: { 'Content-Type': 'application/json' }
+                    });
 
-                    const transferResult = await initiateProxyTransfer(legacyPrivateKeyHex, oldDid, generatedNewDid, network.baseUrl);
+                    const accountInfo = await networkApi.get('/get-account-info', { params: { did: oldDid } });
+                    const balance = accountInfo?.data?.account_info?.[0]?.rbt_amount || 0;
 
-                    if (!transferResult.success) {
-                        setError(transferResult.message || 'Transfer failed. Please retry.');
-                        setCurrentStep(MIGRATION_STEPS.TRANSFER_FAILED);
-                        return;
+                    if (balance > 0) {
+                        const transferCtx = {
+                            privateKeyHex: legacyPrivateKeyHex,
+                            oldDid: oldDid,
+                            newDid: generatedNewDid,
+                            networkBaseUrl: network.baseUrl,
+                            account,
+                            newPublicKey,
+                            newPrivateKey: privateKeyHex
+                        };
+                        setTransferContext(transferCtx);
+
+                        const transferResult = await initiateProxyTransfer(legacyPrivateKeyHex, oldDid, generatedNewDid, network.baseUrl);
+
+                        if (!transferResult.success) {
+                            setError(transferResult.message || 'Transfer failed. Please retry.');
+                            setCurrentStep(MIGRATION_STEPS.TRANSFER_FAILED);
+                            return;
+                        }
                     }
 
                     await removestaleDid(oldDid, network.baseUrl);

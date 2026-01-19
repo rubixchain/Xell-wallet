@@ -208,7 +208,18 @@ const DIDMigrationProgress = ({ unifiedPassword, onComplete, onError }) => {
                 if (!network.baseUrl) continue;
 
                 try {
-                    await initiateProxyTransfer(privateKeyHex, account.did, newDid, network.baseUrl);
+                    const networkApi = axios.create({
+                        baseURL: network.baseUrl,
+                        headers: { 'Content-Type': 'application/json' }
+                    });
+
+                    const accountInfo = await networkApi.get('/get-account-info', { params: { did: account.did } });
+                    const balance = accountInfo?.data?.account_info?.[0]?.rbt_amount || 0;
+
+                    if (balance > 0) {
+                        await initiateProxyTransfer(privateKeyHex, account.did, newDid, network.baseUrl);
+                    }
+
                     await removestaleDid(account.did, network.baseUrl);
                 } catch (transferError) {
                 }
