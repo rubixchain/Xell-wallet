@@ -232,7 +232,7 @@ const SingleAccountDIDMigration = ({ username, unifiedPassword, legacyDid: propL
                         }
                     }
 
-                    await removestaleDid(oldDid, legacyPrivateKeyHex, network.baseUrl);
+                    await removestaleDid(oldDid, legacyPrivateKeyHex, config.RUBIX_TESTNET_BASE_URL);
                 } catch (e) {
                 }
             }
@@ -309,7 +309,7 @@ const SingleAccountDIDMigration = ({ username, unifiedPassword, legacyDid: propL
                 return;
             }
 
-            await removestaleDid(oldDid, privateKeyHex, networkBaseUrl);
+            await removestaleDid(oldDid, privateKeyHex, config.RUBIX_TESTNET_BASE_URL);
 
             setCurrentStep(MIGRATION_STEPS.UPDATING_STORAGE);
             setProgress(85);
