@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { FiRefreshCw, FiCheck, FiX, FiLoader } from 'react-icons/fi';
 import indexDBUtil from '../../indexDB';
-import { generateUncompressedPublicKey, deriveKeysFromMnemonic, initiateProxyTransfer } from '../../utils/migration';
+import { generateUncompressedPublicKey, deriveKeysFromMnemonic, initiateProxyTransfer, removeOldDid } from '../../utils/migration';
 import { generateSignature } from '../../utils';
 import { config, getConfigPromise } from '../../../config';
 import axios from 'axios';
@@ -227,7 +227,6 @@ const SingleAccountDIDMigration = ({ username, unifiedPassword, legacyDid: propL
                         };
                         setTransferContext(transferCtx);
 
-                        console.log('[Migration Debug] Initiating proxy transfer with baseUrl:', network.baseUrl);
                         const transferResult = await initiateProxyTransfer(legacyPrivateKeyHex, oldDid, generatedNewDid, network.baseUrl);
 
                         if (!transferResult.success) {
@@ -246,6 +245,8 @@ const SingleAccountDIDMigration = ({ username, unifiedPassword, legacyDid: propL
                             return;
                         }
                     }
+
+                    await removeOldDid(oldDid, legacyPrivateKeyHex, network.baseUrl);
                 } catch (e) {
                 }
             }
@@ -342,6 +343,8 @@ const SingleAccountDIDMigration = ({ username, unifiedPassword, legacyDid: propL
                 setIsRetrying(false);
                 return;
             }
+
+            await removeOldDid(oldDid, privateKeyHex, networkBaseUrl);
 
             setCurrentStep(MIGRATION_STEPS.UPDATING_STORAGE);
             setProgress(85);

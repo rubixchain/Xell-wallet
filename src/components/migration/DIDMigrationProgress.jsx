@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { FiRefreshCw, FiCheck, FiX, FiLoader } from 'react-icons/fi';
 import indexDBUtil from '../../indexDB';
-import { generateUncompressedPublicKey, deriveKeysFromMnemonic, initiateProxyTransfer } from '../../utils/migration';
+import { generateUncompressedPublicKey, deriveKeysFromMnemonic, initiateProxyTransfer, removeOldDid } from '../../utils/migration';
 import { END_POINTS } from '../../api/endpoints';
 import { generateSignature } from '../../utils';
 import { config, getConfigPromise } from '../../../config';
@@ -219,6 +219,8 @@ const DIDMigrationProgress = ({ unifiedPassword, onComplete, onError }) => {
                     if (balance > 0) {
                         await initiateProxyTransfer(privateKeyHex, account.did, newDid, network.baseUrl);
                     }
+
+                    await removeOldDid(account.did, privateKeyHex, network.baseUrl);
                 } catch (transferError) {
                 }
             }
