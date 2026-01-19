@@ -297,7 +297,33 @@ export async function initiateProxyTransfer(privateKeyHex, senderDid, receiverDi
     }
 }
 
-export async function removestaleDid(did, networkBaseUrl) {
+async function handleRemoveStaleDidSignatureFlow(id, hash, privateKeyHex, networkBaseUrl) {
+    const axios = (await import('axios')).default;
+    const signature = await generateSignature(privateKeyHex, hash);
+
+    const signatureResponse = await axios.post(
+        `${networkBaseUrl}/signature-response`,
+        {
+            id,
+            mode: 4,
+            Signature: { Signature: signature }
+        },
+        { headers: { 'Content-Type': 'application/json' } }
+    );
+
+    if (signatureResponse?.data?.status && signatureResponse?.data?.result?.hash) {
+        return handleRemoveStaleDidSignatureFlow(
+            signatureResponse.data.result.id,
+            signatureResponse.data.result.hash,
+            privateKeyHex,
+            networkBaseUrl
+        );
+    }
+
+    return signatureResponse?.data;
+}
+
+export async function removestaleDid(did, privateKeyHex, networkBaseUrl) {
     try {
         if (!networkBaseUrl || !did) {
             return { success: false, message: 'Missing network URL or DID' };
@@ -310,6 +336,20 @@ export async function removestaleDid(did, networkBaseUrl) {
             { did },
             { headers: { 'Content-Type': 'application/json' } }
         );
+
+        if (response?.data?.status && response?.data?.result?.hash) {
+            const finalResponse = await handleRemoveStaleDidSignatureFlow(
+                response.data.result.id,
+                response.data.result.hash,
+                privateKeyHex,
+                networkBaseUrl
+            );
+
+            return {
+                success: finalResponse?.status ?? false,
+                message: finalResponse?.message || 'Stale DID removed successfully'
+            };
+        }
 
         return {
             success: response?.data?.status ?? true,

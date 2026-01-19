@@ -232,7 +232,7 @@ const SingleAccountDIDMigration = ({ username, unifiedPassword, legacyDid: propL
                         }
                     }
 
-                    await removestaleDid(oldDid, network.baseUrl);
+                    await removestaleDid(oldDid, legacyPrivateKeyHex, network.baseUrl);
                 } catch (e) {
                 }
             }
@@ -309,7 +309,7 @@ const SingleAccountDIDMigration = ({ username, unifiedPassword, legacyDid: propL
                 return;
             }
 
-            await removestaleDid(oldDid, networkBaseUrl);
+            await removestaleDid(oldDid, privateKeyHex, networkBaseUrl);
 
             setCurrentStep(MIGRATION_STEPS.UPDATING_STORAGE);
             setProgress(85);

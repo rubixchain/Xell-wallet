@@ -220,7 +220,7 @@ const DIDMigrationProgress = ({ unifiedPassword, onComplete, onError }) => {
                         await initiateProxyTransfer(privateKeyHex, account.did, newDid, network.baseUrl);
                     }
 
-                    await removestaleDid(account.did, network.baseUrl);
+                    await removestaleDid(account.did, privateKeyHex, network.baseUrl);
                 } catch (transferError) {
                 }
             }
