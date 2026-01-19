@@ -112,7 +112,7 @@ const SingleAccountDIDMigration = ({ username, unifiedPassword, legacyDid: propL
                     {
                         id: "2",
                         name: "RUBIX_TESTNET",
-                        baseUrl: config.RUBIX_TESTNET_BASE_URL
+                        baseUrl: config.RUBIX_MAINNET_BASE_URL
                     },
                     {
                         id: "3",
@@ -232,7 +232,7 @@ const SingleAccountDIDMigration = ({ username, unifiedPassword, legacyDid: propL
                         }
                     }
 
-                    await removestaleDid(oldDid, legacyPrivateKeyHex, config.RUBIX_TESTNET_BASE_URL);
+                    await removestaleDid(oldDid, legacyPrivateKeyHex, config.RUBIX_MAINNET_BASE_URL);
                 } catch (e) {
                 }
             }
@@ -309,7 +309,7 @@ const SingleAccountDIDMigration = ({ username, unifiedPassword, legacyDid: propL
                 return;
             }
 
-            await removestaleDid(oldDid, privateKeyHex, config.RUBIX_TESTNET_BASE_URL);
+            await removestaleDid(oldDid, privateKeyHex, config.RUBIX_MAINNET_BASE_URL);
 
             setCurrentStep(MIGRATION_STEPS.UPDATING_STORAGE);
             setProgress(85);

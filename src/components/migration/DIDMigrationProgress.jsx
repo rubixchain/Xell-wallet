@@ -135,7 +135,7 @@ const DIDMigrationProgress = ({ unifiedPassword, onComplete, onError }) => {
                 {
                     id: "2",
                     name: "RUBIX_TESTNET",
-                    baseUrl: config.RUBIX_TESTNET_BASE_URL
+                    baseUrl: config.RUBIX_MAINNET_BASE_URL
                 }
             ];
 
@@ -220,7 +220,7 @@ const DIDMigrationProgress = ({ unifiedPassword, onComplete, onError }) => {
                         await initiateProxyTransfer(privateKeyHex, account.did, newDid, network.baseUrl);
                     }
 
-                    await removestaleDid(account.did, privateKeyHex, config.RUBIX_TESTNET_BASE_URL);
+                    await removestaleDid(account.did, privateKeyHex, config.RUBIX_MAINNET_BASE_URL);
                 } catch (transferError) {
                 }
             }

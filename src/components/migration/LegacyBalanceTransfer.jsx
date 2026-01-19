@@ -47,12 +47,12 @@ const LegacyBalanceTransfer = ({ legacyDid, legacyPrivateKey, newDid, onComplete
                     return;
                 }
 
-                await removestaleDid(legacyDid, legacyPrivateKey, config.RUBIX_TESTNET_BASE_URL);
+                await removestaleDid(legacyDid, legacyPrivateKey, config.RUBIX_MAINNET_BASE_URL);
                 setProgress(100);
                 setCurrentStep(MIGRATION_STEPS.COMPLETE);
                 setTimeout(() => onComplete(), 1500);
             } else {
-                await removestaleDid(legacyDid, legacyPrivateKey, config.RUBIX_TESTNET_BASE_URL);
+                await removestaleDid(legacyDid, legacyPrivateKey, config.RUBIX_MAINNET_BASE_URL);
                 setProgress(100);
                 setCurrentStep(MIGRATION_STEPS.NO_BALANCE);
                 setTimeout(() => onSkip(), 1500);
