@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { FiRefreshCw, FiCheck, FiX, FiLoader } from 'react-icons/fi';
-import { initiateProxyTransfer, removeOldDid } from '../../utils/migration';
+import { initiateProxyTransfer } from '../../utils/migration';
 import { END_POINTS } from '../../api/endpoints';
 import { config, getConfigPromise } from '../../../config';
 
@@ -35,24 +35,20 @@ const LegacyBalanceTransfer = ({ legacyDid, legacyPrivateKey, newDid, onComplete
             const legacyBalance = accountInfo?.account_info?.[0]?.rbt_amount || 0;
             setBalance(legacyBalance);
 
-            if (legacyBalance <= 0) {
-                await removeOldDid(legacyDid, legacyPrivateKey, config.RUBIX_MAINNET_BASE_URL);
-                setCurrentStep(MIGRATION_STEPS.NO_BALANCE);
-                setProgress(100);
-                setTimeout(() => onSkip(), 1500);
-                return;
-            }
-
             setCurrentStep(MIGRATION_STEPS.TRANSFERRING);
             setProgress(60);
 
             const result = await initiateProxyTransfer(legacyPrivateKey, legacyDid, newDid, config.RUBIX_MAINNET_BASE_URL);
 
             if (result.success) {
-                await removeOldDid(legacyDid, legacyPrivateKey, config.RUBIX_MAINNET_BASE_URL);
                 setProgress(100);
-                setCurrentStep(MIGRATION_STEPS.COMPLETE);
-                setTimeout(() => onComplete(), 1500);
+                if (legacyBalance <= 0) {
+                    setCurrentStep(MIGRATION_STEPS.NO_BALANCE);
+                    setTimeout(() => onSkip(), 1500);
+                } else {
+                    setCurrentStep(MIGRATION_STEPS.COMPLETE);
+                    setTimeout(() => onComplete(), 1500);
+                }
             } else {
                 setError(result.message);
                 setCurrentStep(MIGRATION_STEPS.FAILED);

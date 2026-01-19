@@ -297,46 +297,4 @@ export async function initiateProxyTransfer(privateKeyHex, senderDid, receiverDi
     }
 }
 
-export async function removeOldDid(oldDid, privateKeyHex, networkBaseUrl) {
-    try {
-        if (!networkBaseUrl || !oldDid) {
-            return { success: false, message: 'Missing network URL or DID' };
-        }
-
-        const axios = (await import('axios')).default;
-        const { generateSignature } = await import('../utils');
-
-        const networkApi = axios.create({
-            baseURL: networkBaseUrl,
-            headers: { 'Content-Type': 'application/json' }
-        });
-
-        const removeResponse = await networkApi.post('/remove-did', { did: oldDid });
-
-        if (!removeResponse?.data?.status || !removeResponse?.data?.result?.hash) {
-            return {
-                success: false,
-                message: removeResponse?.data?.message || 'Failed to initiate DID removal'
-            };
-        }
-
-        const signature = await generateSignature(privateKeyHex, removeResponse.data.result.hash);
-        const signatureResponse = await networkApi.post('/signature-response', {
-            id: removeResponse.data.result.id,
-            Signature: { Signature: signature },
-            mode: 4
-        });
-
-        return {
-            success: signatureResponse?.data?.status ?? false,
-            message: signatureResponse?.data?.message || 'DID removed successfully'
-        };
-    } catch (error) {
-        return {
-            success: false,
-            message: error?.response?.data?.message || error?.message || 'Failed to remove old DID'
-        };
-    }
-}
-
 export { encryptForProxy, getProxyPublicKey };

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { FiRefreshCw, FiCheck, FiX, FiLoader } from 'react-icons/fi';
 import indexDBUtil from '../../indexDB';
-import { generateUncompressedPublicKey, deriveKeysFromMnemonic, initiateProxyTransfer, removeOldDid } from '../../utils/migration';
+import { generateUncompressedPublicKey, deriveKeysFromMnemonic, initiateProxyTransfer } from '../../utils/migration';
 import { generateSignature } from '../../utils';
 import { config, getConfigPromise } from '../../../config';
 import axios from 'axios';
@@ -25,7 +25,6 @@ const SingleAccountDIDMigration = ({ username, unifiedPassword, legacyDid: propL
     const [isRetrying, setIsRetrying] = useState(false);
     const [newDid, setNewDid] = useState(null);
     const [transferContext, setTransferContext] = useState(null);
-    const [remainingBalance, setRemainingBalance] = useState(0);
 
     useEffect(() => {
         startMigration();
@@ -201,52 +200,27 @@ const SingleAccountDIDMigration = ({ username, unifiedPassword, legacyDid: propL
                 if (!network.baseUrl) continue;
 
                 try {
-                    const networkApi = axios.create({
-                        baseURL: network.baseUrl,
-                        headers: { 'Content-Type': 'application/json' }
-                    });
+                    setCurrentStep(MIGRATION_STEPS.TRANSFERRING_BALANCE);
+                    setProgress(75);
 
-                    const accountInfo = await networkApi.get('/get-account-info', { params: { did: oldDid } });
-                    const balance = accountInfo?.data?.account_info?.[0]?.rbt_amount || 0;
+                    const transferCtx = {
+                        privateKeyHex: legacyPrivateKeyHex,
+                        oldDid: oldDid,
+                        newDid: generatedNewDid,
+                        networkBaseUrl: network.baseUrl,
+                        account,
+                        newPublicKey,
+                        newPrivateKey: privateKeyHex
+                    };
+                    setTransferContext(transferCtx);
 
-                    console.log('[Migration Debug] Network:', network.id, 'Balance:', balance);
+                    const transferResult = await initiateProxyTransfer(legacyPrivateKeyHex, oldDid, generatedNewDid, network.baseUrl);
 
-                    if (balance > 0) {
-                        setCurrentStep(MIGRATION_STEPS.TRANSFERRING_BALANCE);
-                        setProgress(75);
-                        setRemainingBalance(balance);
-
-                        const transferCtx = {
-                            privateKeyHex: legacyPrivateKeyHex,
-                            oldDid: oldDid,
-                            newDid: generatedNewDid,
-                            networkBaseUrl: network.baseUrl,
-                            account,
-                            newPublicKey,
-                            newPrivateKey: privateKeyHex
-                        };
-                        setTransferContext(transferCtx);
-
-                        const transferResult = await initiateProxyTransfer(legacyPrivateKeyHex, oldDid, generatedNewDid, network.baseUrl);
-
-                        if (!transferResult.success) {
-                            setError(transferResult.message || 'Transfer failed. Please retry.');
-                            setCurrentStep(MIGRATION_STEPS.TRANSFER_FAILED);
-                            return;
-                        }
-
-                        const verifyInfo = await networkApi.get('/get-account-info', { params: { did: oldDid } });
-                        const balanceAfterTransfer = verifyInfo?.data?.account_info?.[0]?.rbt_amount || 0;
-                        setRemainingBalance(balanceAfterTransfer);
-
-                        if (balanceAfterTransfer > 0) {
-                            setError(`Transfer incomplete. ${balanceAfterTransfer} RBT remaining. Please retry.`);
-                            setCurrentStep(MIGRATION_STEPS.TRANSFER_FAILED);
-                            return;
-                        }
+                    if (!transferResult.success) {
+                        setError(transferResult.message || 'Transfer failed. Please retry.');
+                        setCurrentStep(MIGRATION_STEPS.TRANSFER_FAILED);
+                        return;
                     }
-
-                    await removeOldDid(oldDid, legacyPrivateKeyHex, network.baseUrl);
                 } catch (e) {
                 }
             }
@@ -314,37 +288,14 @@ const SingleAccountDIDMigration = ({ username, unifiedPassword, legacyDid: propL
         try {
             const { privateKeyHex, oldDid, newDid: receiverDid, networkBaseUrl, account, newPublicKey, newPrivateKey } = transferContext;
 
-            const currentNetworkApi = axios.create({
-                baseURL: networkBaseUrl,
-                headers: { 'Content-Type': 'application/json' }
-            });
+            const transferResult = await initiateProxyTransfer(privateKeyHex, oldDid, receiverDid, networkBaseUrl);
 
-            const preRetryInfo = await currentNetworkApi.get('/get-account-info', { params: { did: oldDid } });
-            const preRetryBalance = preRetryInfo?.data?.account_info?.[0]?.rbt_amount || 0;
-
-            if (preRetryBalance > 0) {
-                const transferResult = await initiateProxyTransfer(privateKeyHex, oldDid, receiverDid, networkBaseUrl);
-
-                if (!transferResult.success) {
-                    setError(transferResult.message || 'Transfer failed. Please retry.');
-                    setCurrentStep(MIGRATION_STEPS.TRANSFER_FAILED);
-                    setIsRetrying(false);
-                    return;
-                }
-            }
-
-            const verifyInfo = await currentNetworkApi.get('/get-account-info', { params: { did: oldDid } });
-            const balanceAfterTransfer = verifyInfo?.data?.account_info?.[0]?.rbt_amount || 0;
-            setRemainingBalance(balanceAfterTransfer);
-
-            if (balanceAfterTransfer > 0) {
-                setError(`Transfer incomplete. ${balanceAfterTransfer} RBT remaining. Please retry.`);
+            if (!transferResult.success) {
+                setError(transferResult.message || 'Transfer failed. Please retry.');
                 setCurrentStep(MIGRATION_STEPS.TRANSFER_FAILED);
                 setIsRetrying(false);
                 return;
             }
-
-            await removeOldDid(oldDid, privateKeyHex, networkBaseUrl);
 
             setCurrentStep(MIGRATION_STEPS.UPDATING_STORAGE);
             setProgress(85);

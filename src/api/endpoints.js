@@ -69,9 +69,6 @@ export const END_POINTS = {
     get_ft_txn_by_did: (params) => {
         return api.get('get-ft-txn-by-did', { params })
     },
-    remove_did: (params) => {
-        return api.post('remove-did', params)
-    },
 
     // Proxy server endpoint for DID migration balance transfer
     initiate_proxy_rbt_transfer: async (data) => {
