@@ -2004,6 +2004,13 @@ const indexDBUtil = {
                                     // Update the DID reference in NetworkDetails
                                     networkData.networks[oldDidIndex].did = migrationData.newDid;
 
+                                    // Update selected network to Rubix Mainnet (id: 1)
+                                    if (networkData.networks[oldDidIndex].networks) {
+                                        networkData.networks[oldDidIndex].networks.forEach(net => {
+                                            net.selected = (net.id === 1);
+                                        });
+                                    }
+
                                     const updateNetworkRequest = store.put(networkData);
                                     updateNetworkRequest.onsuccess = () => resolve({ status: true });
                                     updateNetworkRequest.onerror = () => reject(updateNetworkRequest.error);
