@@ -31,6 +31,7 @@ const ImportWallet = () => {
   const [importedFile, setImportedFile] = useState(null);
   const [fileContent, setFileContent] = useState('');
   const [recoveryPhrase, setRecoveryPhrase] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
   const inputRef = useRef(null);
   const navigate = useNavigate()
   const location = useLocation()
@@ -90,6 +91,7 @@ const ImportWallet = () => {
       return toast.error('Invalid mnemonics')
     }
 
+    setIsLoading(true);
     try {
       const keys = deriveKeysFromMnemonic(trimed);
 
@@ -98,6 +100,7 @@ const ImportWallet = () => {
 
       if (isNewKeyExists?.status || isLegacyKeyExists?.status) {
         toast.error('This wallet already exists in your accounts')
+        setIsLoading(false);
         return
       }
 
@@ -155,6 +158,7 @@ const ImportWallet = () => {
       })
     } catch (error) {
       toast.error('Failed to derive keys from mnemonic')
+      setIsLoading(false);
     }
   };
 
@@ -200,13 +204,20 @@ const ImportWallet = () => {
       </div> */}
       <button
         onClick={handleContinue}
-        className={`w-full py-3 mt-5 rounded-lg font-medium bg-primary text-white ${importedFile
+        className={`w-full py-3 mt-5 rounded-lg font-medium bg-primary text-white ${importedFile && !isLoading
           ? 'opacity-1'
           : 'opacity-20'
           }`}
-        disabled={!importedFile}
+        disabled={!importedFile || isLoading}
       >
-        Continue
+        {isLoading ? (
+          <span className="flex items-center justify-center gap-2">
+            <span className="animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full"></span>
+            Processing...
+          </span>
+        ) : (
+          'Continue'
+        )}
       </button>
     </div>
   );
@@ -229,13 +240,20 @@ const ImportWallet = () => {
 
         <button
           onClick={handleContinue}
-          className={`w-full py-3 rounded-lg font-medium bg-primary text-white ${recoveryPhrase.trim()
+          className={`w-full py-3 rounded-lg font-medium bg-primary text-white ${recoveryPhrase.trim() && !isLoading
             ? 'opacity-1'
             : 'opacity-20'
             }`}
-          disabled={!recoveryPhrase.trim()}
+          disabled={!recoveryPhrase.trim() || isLoading}
         >
-          Continue
+          {isLoading ? (
+            <span className="flex items-center justify-center gap-2">
+              <span className="animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full"></span>
+              Processing...
+            </span>
+          ) : (
+            'Continue'
+          )}
         </button>
       </div>
     </div>

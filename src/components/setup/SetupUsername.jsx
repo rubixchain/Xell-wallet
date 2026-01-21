@@ -8,9 +8,9 @@ export default function SetupUsername({ onSubmit }) {
   const { userDetails } = useContext(UserContext)
   const [username, setUsername] = useState(userDetails?.username || '');
   const [error, setError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
-
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
     if (username.length < 3) {
@@ -23,7 +23,12 @@ export default function SetupUsername({ onSubmit }) {
       return;
     }
 
-    onSubmit(username);
+    setIsLoading(true);
+    try {
+      await onSubmit(username);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -66,8 +71,15 @@ export default function SetupUsername({ onSubmit }) {
           )}
         </div>
 
-        <Button type="submit" disabled={!username.trim()}>
-          Continue
+        <Button type="submit" disabled={!username.trim() || isLoading}>
+          {isLoading ? (
+            <span className="flex items-center justify-center gap-2">
+              <span className="animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full"></span>
+              Processing...
+            </span>
+          ) : (
+            'Continue'
+          )}
         </Button>
       </form>
     </div>
