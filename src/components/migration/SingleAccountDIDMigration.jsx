@@ -193,7 +193,8 @@ const SingleAccountDIDMigration = ({ username, unifiedPassword, legacyDid: propL
             const oldDid = effectiveLegacyDid || account.did;
 
             const rubixNetworks = [
-                { id: '1', baseUrl: "http://localhost:8000/api" }
+                { id: '1', baseUrl: "http://localhost:8000/api" },
+                { id: '2', baseUrl: "http://localhost:8000/api" }
             ];
 
             for (const network of rubixNetworks) {

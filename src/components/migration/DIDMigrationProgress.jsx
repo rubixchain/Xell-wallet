@@ -201,7 +201,8 @@ const DIDMigrationProgress = ({ unifiedPassword, onComplete, onError }) => {
             const newDid = successfulRegistrations[0].did;
 
             const rubixNetworks = [
-                { id: '1', baseUrl: "http://localhost:8000/api" }
+                { id: '1', baseUrl: "http://localhost:8000/api" },
+                { id: '2', baseUrl: "http://localhost:8000/api" }
             ];
 
             for (const network of rubixNetworks) {
