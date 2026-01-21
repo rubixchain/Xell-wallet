@@ -201,8 +201,7 @@ const DIDMigrationProgress = ({ unifiedPassword, onComplete, onError }) => {
             const newDid = successfulRegistrations[0].did;
 
             const rubixNetworks = [
-                { id: '1', baseUrl: config.RUBIX_MAINNET_BASE_URL },
-                { id: '2', baseUrl: config.RUBIX_TESTNET_BASE_URL }
+                { id: '1', baseUrl: config.RUBIX_MAINNET_BASE_URL }
             ];
 
             for (const network of rubixNetworks) {

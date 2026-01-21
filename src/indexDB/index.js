@@ -2332,6 +2332,67 @@ const indexDBUtil = {
         } catch (error) {
             throw error;
         }
+    },
+
+    isNetworkRegistrationVerified: async function (username) {
+        try {
+            const db = await this.initDB();
+            return new Promise((resolve) => {
+                const transaction = db.transaction([this.storeName], 'readonly');
+                const store = transaction.objectStore(this.storeName);
+                const request = store.get('UserDetails');
+
+                request.onsuccess = () => {
+                    const data = request.result;
+                    if (!data || !data.accounts) {
+                        resolve(false);
+                        return;
+                    }
+
+                    const account = data.accounts.find(acc => acc.username === username);
+                    resolve(account?.networkRegistrationVerified === true);
+                };
+
+                request.onerror = () => resolve(false);
+            });
+        } catch (error) {
+            return false;
+        }
+    },
+
+    setNetworkRegistrationVerified: async function (username) {
+        try {
+            const db = await this.initDB();
+            return new Promise((resolve, reject) => {
+                const transaction = db.transaction([this.storeName], 'readwrite');
+                const store = transaction.objectStore(this.storeName);
+                const request = store.get('UserDetails');
+
+                request.onsuccess = () => {
+                    const data = request.result;
+                    if (!data || !data.accounts) {
+                        resolve({ status: false, message: 'No accounts found' });
+                        return;
+                    }
+
+                    const accountIndex = data.accounts.findIndex(acc => acc.username === username);
+                    if (accountIndex === -1) {
+                        resolve({ status: false, message: 'Account not found' });
+                        return;
+                    }
+
+                    data.accounts[accountIndex].networkRegistrationVerified = true;
+
+                    const updateRequest = store.put(data);
+                    updateRequest.onsuccess = () => resolve({ status: true });
+                    updateRequest.onerror = () => reject(updateRequest.error);
+                };
+
+                request.onerror = () => reject(request.error);
+            });
+        } catch (error) {
+            throw error;
+        }
     }
 };
 

@@ -15,8 +15,7 @@ function uint8ArrayToHex(uint8Array) {
 
 export const MIGRATION_VERSIONS = {
     PRE_MIGRATION: 4,
-    UNIFIED_PASSWORD_DONE: 5,
-    FULLY_MIGRATED: 6
+    UNIFIED_PASSWORD_DONE: 5
 };
 
 export const ACCOUNT_MIGRATION_STATUS = {
@@ -130,7 +129,7 @@ export function checkMigrationRequired(version) {
     return {
         needsUnifiedPassword: versionNum <= MIGRATION_VERSIONS.PRE_MIGRATION,
         needsDIDMigration: versionNum === MIGRATION_VERSIONS.UNIFIED_PASSWORD_DONE,
-        isFullyMigrated: versionNum >= MIGRATION_VERSIONS.FULLY_MIGRATED
+        isFullyMigrated: versionNum >= MIGRATION_VERSIONS.UNIFIED_PASSWORD_DONE
     };
 }
 

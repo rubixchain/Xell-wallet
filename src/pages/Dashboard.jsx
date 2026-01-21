@@ -16,6 +16,7 @@ import { NETWORK_TYPES } from "../../config.js"
 import indexDBUtil from '../indexDB';
 import { useNavigate } from 'react-router-dom';
 import { routes } from '../routes/routes';
+import useNetworkRegistrationCheck from '../hooks/useNetworkRegistrationCheck';
 
 const Tabs = ({ activeTab, setActiveTab }) => (
   <div className="flex justify-between my-4 border-b border-gray-300">
@@ -42,6 +43,8 @@ export default function Dashboard() {
   const [isTransactionCompleted, setIsTransactionCompleted] = useState(false)
   const [activeTab, setActiveTab] = useState('Tokens');
   const navigate = useNavigate();
+
+  useNetworkRegistrationCheck(userDetails);
 
   useEffect(() => {
     const checkPendingMigration = async () => {
