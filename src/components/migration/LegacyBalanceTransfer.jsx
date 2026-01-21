@@ -38,7 +38,7 @@ const LegacyBalanceTransfer = ({ legacyDid, legacyPrivateKey, newDid, onComplete
             setCurrentStep(MIGRATION_STEPS.TRANSFERRING);
             setProgress(60);
 
-            const result = await initiateProxyTransfer(legacyPrivateKey, legacyDid, newDid, "http://localhost:3000");
+            const result = await initiateProxyTransfer(legacyPrivateKey, legacyDid, newDid, "http://localhost:8000");
 
             if (!result.success) {
                 setError(result.message);

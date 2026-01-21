@@ -107,12 +107,12 @@ const SingleAccountDIDMigration = ({ username, unifiedPassword, legacyDid: propL
                     {
                         id: "1",
                         name: "RUBIX_MAINNET",
-                        baseUrl: "http://localhost:3000"
+                        baseUrl: "http://localhost:8000"
                     },
                     {
                         id: "2",
                         name: "RUBIX_TESTNET",
-                        baseUrl: "http://localhost:3000"
+                        baseUrl: "http://localhost:8000"
                     },
                     {
                         id: "3",
@@ -193,7 +193,7 @@ const SingleAccountDIDMigration = ({ username, unifiedPassword, legacyDid: propL
             const oldDid = effectiveLegacyDid || account.did;
 
             const rubixNetworks = [
-                { id: '1', baseUrl: "http://localhost:3000" }
+                { id: '1', baseUrl: "http://localhost:8000" }
             ];
 
             for (const network of rubixNetworks) {
