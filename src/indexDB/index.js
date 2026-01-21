@@ -1974,12 +1974,13 @@ const indexDBUtil = {
 
                     // Replace old data with new data completely
                     // Note: isMigrated is NOT set here - it will be set separately after full migration verification
+                    // Network is set to 1 (Rubix Mainnet) after migration
                     data.accounts[accountIndex] = {
                         privatekey: encryptedNewPrivateKey,
                         publickey: migrationData.newPublicKey,
                         username: data.accounts[accountIndex].username,
                         did: migrationData.newDid,
-                        network: data.accounts[accountIndex].network,
+                        network: 1,
                         createdAt: data.accounts[accountIndex].createdAt,
                         mnemonics: data.accounts[accountIndex].mnemonics,
                         legacyDid: oldDid
