@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { FiRefreshCw, FiCheck, FiX, FiLoader } from 'react-icons/fi';
 import indexDBUtil from '../../indexDB';
-import { generateUncompressedPublicKey, deriveKeysFromMnemonic, initiateProxyTransfer, removestaleDid } from '../../utils/migration';
+import { generateUncompressedPublicKey, deriveKeysFromMnemonic, initiateProxyTransfer } from '../../utils/migration';
 import { generateSignature } from '../../utils';
 import { config, getConfigPromise } from '../../../config';
 import axios from 'axios';
@@ -107,12 +107,12 @@ const SingleAccountDIDMigration = ({ username, unifiedPassword, legacyDid: propL
                     {
                         id: "1",
                         name: "RUBIX_MAINNET",
-                        baseUrl: config.RUBIX_MAINNET_BASE_URL
+                        baseUrl: "http://localhost:3000"
                     },
                     {
                         id: "2",
                         name: "RUBIX_TESTNET",
-                        baseUrl: config.RUBIX_MAINNET_BASE_URL
+                        baseUrl: "http://localhost:3000"
                     },
                     {
                         id: "3",
@@ -193,7 +193,7 @@ const SingleAccountDIDMigration = ({ username, unifiedPassword, legacyDid: propL
             const oldDid = effectiveLegacyDid || account.did;
 
             const rubixNetworks = [
-                { id: '1', baseUrl: config.RUBIX_MAINNET_BASE_URL }
+                { id: '1', baseUrl: "http://localhost:3000" }
             ];
 
             for (const network of rubixNetworks) {
@@ -203,36 +203,24 @@ const SingleAccountDIDMigration = ({ username, unifiedPassword, legacyDid: propL
                     setCurrentStep(MIGRATION_STEPS.TRANSFERRING_BALANCE);
                     setProgress(75);
 
-                    const networkApi = axios.create({
-                        baseURL: network.baseUrl,
-                        headers: { 'Content-Type': 'application/json' }
-                    });
+                    const transferCtx = {
+                        privateKeyHex: legacyPrivateKeyHex,
+                        oldDid: oldDid,
+                        newDid: generatedNewDid,
+                        networkBaseUrl: network.baseUrl,
+                        account,
+                        newPublicKey,
+                        newPrivateKey: privateKeyHex
+                    };
+                    setTransferContext(transferCtx);
 
-                    const accountInfo = await networkApi.get('/get-account-info', { params: { did: oldDid } });
-                    const balance = accountInfo?.data?.account_info?.[0]?.rbt_amount || 0;
+                    const transferResult = await initiateProxyTransfer(legacyPrivateKeyHex, oldDid, generatedNewDid, network.baseUrl);
 
-                    if (balance > 0) {
-                        const transferCtx = {
-                            privateKeyHex: legacyPrivateKeyHex,
-                            oldDid: oldDid,
-                            newDid: generatedNewDid,
-                            networkBaseUrl: network.baseUrl,
-                            account,
-                            newPublicKey,
-                            newPrivateKey: privateKeyHex
-                        };
-                        setTransferContext(transferCtx);
-
-                        const transferResult = await initiateProxyTransfer(legacyPrivateKeyHex, oldDid, generatedNewDid, network.baseUrl);
-
-                        if (!transferResult.success) {
-                            setError(transferResult.message || 'Transfer failed. Please retry.');
-                            setCurrentStep(MIGRATION_STEPS.TRANSFER_FAILED);
-                            return;
-                        }
+                    if (!transferResult.success) {
+                        setError(transferResult.message || 'Transfer failed. Please retry.');
+                        setCurrentStep(MIGRATION_STEPS.TRANSFER_FAILED);
+                        return;
                     }
-
-                    await removestaleDid(oldDid, legacyPrivateKeyHex, config.RUBIX_MAINNET_BASE_URL);
                 } catch (e) {
                 }
             }
@@ -308,8 +296,6 @@ const SingleAccountDIDMigration = ({ username, unifiedPassword, legacyDid: propL
                 setIsRetrying(false);
                 return;
             }
-
-            await removestaleDid(oldDid, privateKeyHex, config.RUBIX_MAINNET_BASE_URL);
 
             setCurrentStep(MIGRATION_STEPS.UPDATING_STORAGE);
             setProgress(85);

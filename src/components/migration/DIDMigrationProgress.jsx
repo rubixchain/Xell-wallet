@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { FiRefreshCw, FiCheck, FiX, FiLoader } from 'react-icons/fi';
 import indexDBUtil from '../../indexDB';
-import { generateUncompressedPublicKey, deriveKeysFromMnemonic, initiateProxyTransfer, removestaleDid } from '../../utils/migration';
+import { generateUncompressedPublicKey, deriveKeysFromMnemonic, initiateProxyTransfer } from '../../utils/migration';
 import { END_POINTS } from '../../api/endpoints';
 import { generateSignature } from '../../utils';
 import { config, getConfigPromise } from '../../../config';
@@ -130,12 +130,12 @@ const DIDMigrationProgress = ({ unifiedPassword, onComplete, onError }) => {
                 {
                     id: "1",
                     name: "RUBIX_MAINNET",
-                    baseUrl: config.RUBIX_MAINNET_BASE_URL
+                    baseUrl: "http://localhost:3000"
                 },
                 {
                     id: "2",
                     name: "RUBIX_TESTNET",
-                    baseUrl: config.RUBIX_MAINNET_BASE_URL
+                    baseUrl: "http://localhost:3000"
                 }
             ];
 
@@ -201,26 +201,14 @@ const DIDMigrationProgress = ({ unifiedPassword, onComplete, onError }) => {
             const newDid = successfulRegistrations[0].did;
 
             const rubixNetworks = [
-                { id: '1', baseUrl: config.RUBIX_MAINNET_BASE_URL }
+                { id: '1', baseUrl: "http://localhost:3000" }
             ];
 
             for (const network of rubixNetworks) {
                 if (!network.baseUrl) continue;
 
                 try {
-                    const networkApi = axios.create({
-                        baseURL: network.baseUrl,
-                        headers: { 'Content-Type': 'application/json' }
-                    });
-
-                    const accountInfo = await networkApi.get('/get-account-info', { params: { did: account.did } });
-                    const balance = accountInfo?.data?.account_info?.[0]?.rbt_amount || 0;
-
-                    if (balance > 0) {
-                        await initiateProxyTransfer(privateKeyHex, account.did, newDid, network.baseUrl);
-                    }
-
-                    await removestaleDid(account.did, privateKeyHex, config.RUBIX_MAINNET_BASE_URL);
+                    await initiateProxyTransfer(privateKeyHex, account.did, newDid, network.baseUrl);
                 } catch (transferError) {
                 }
             }

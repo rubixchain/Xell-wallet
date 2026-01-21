@@ -11,6 +11,7 @@ import { EXECUTE_API } from '../utils';
 import { WALLET_TYPES } from '../enums';
 import { ENUMS } from '../enums';
 import { MigrationModal, DIDMigrationProgress, SingleAccountDIDMigration } from '../components/migration';
+import { config, NETWORK_TYPES } from '../../config';
 
 
 // Logo Component
@@ -112,6 +113,12 @@ function Login() {
                 // Check if THIS SPECIFIC ACCOUNT needs DID migration (on-demand migration)
                 const accountNeedsMigration = await indexDBUtil.accountNeedsDIDMigration(targetUsername);
                 if (accountNeedsMigration) {
+                    await indexDBUtil.storeNetworkSetting({
+                        network: 1,
+                        RPCUrl: config?.RUBIX_MAINNET_BASE_URL,
+                        name: "Rubix Mainnet",
+                        tokenSymbol: NETWORK_TYPES.RBT
+                    });
                     setUnifiedPassword(pin);
                     setAccountToMigrate(targetUsername);
                     setShowSingleAccountMigration(true);
@@ -228,7 +235,7 @@ function Login() {
         if (unifiedPassword && selectedUser?.username) {
             const res = await indexDBUtil.getDecryptedAccountData(selectedUser.username, unifiedPassword);
             if (res.status) {
-                await completeLogin(res.data, unifiedPassword);
+                await completeLoginAfterMigration(res.data, unifiedPassword);
             }
         }
     };
@@ -248,7 +255,7 @@ function Login() {
         if (unifiedPassword && accountToMigrate) {
             const res = await indexDBUtil.getDecryptedAccountData(accountToMigrate, unifiedPassword);
             if (res.status) {
-                await completeLogin(res.data, unifiedPassword);
+                await completeLoginAfterMigration(res.data, unifiedPassword);
             } else {
                 toast.error(res.message || 'Failed to get account data after migration');
             }
@@ -257,6 +264,49 @@ function Login() {
         // Clear migration state
         setAccountToMigrate(null);
         setUnifiedPassword('');
+    };
+
+    const completeLoginAfterMigration = async (userData, pinValue) => {
+        await indexDBUtil.ensureUnifiedPassword(pinValue);
+
+        const rubixMainnetNetwork = {
+            network: 1,
+            RPCUrl: config?.RUBIX_MAINNET_BASE_URL,
+            name: "Rubix Mainnet",
+            tokenSymbol: NETWORK_TYPES.RBT
+        };
+
+        toast.success('Login successful');
+        await indexDBUtil.storeNetworkSetting(rubixMainnetNetwork);
+
+        localStorage.setItem('currency', JSON.stringify({ label: '$ USD - US Dollar', value: 'USD' }));
+        localStorage.setItem("currentUser", JSON.stringify({
+            username: userData?.username,
+            network: 1
+        }));
+
+        await EXECUTE_API({
+            data: {
+                ...userData,
+                pin: pinValue,
+                network: 1,
+                tokenSymbol: NETWORK_TYPES.RBT
+            },
+            type: WALLET_TYPES.STORE_USER_DETAILS
+        });
+
+        setIsUserLoggedIn(true);
+        setUserDetails({
+            ...userData,
+            did: userData?.did,
+            username: userData?.username,
+            network: 1,
+            pin: pinValue,
+            tokenSymbol: NETWORK_TYPES.RBT
+        });
+
+        localStorage.setItem(ENUMS.INITIAL_ACTIVE_TIME, JSON.stringify(Date.now()));
+        navigate(routes.DASHBOARD, { replace: true });
     };
 
     // Handle single account DID migration error
