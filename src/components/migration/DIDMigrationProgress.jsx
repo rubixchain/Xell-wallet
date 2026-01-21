@@ -4,7 +4,7 @@ import indexDBUtil from '../../indexDB';
 import { generateUncompressedPublicKey, deriveKeysFromMnemonic, initiateProxyTransfer } from '../../utils/migration';
 import { END_POINTS } from '../../api/endpoints';
 import { generateSignature } from '../../utils';
-import { config, getConfigPromise } from '../../../config';
+import { getConfigPromise } from '../../../config';
 import axios from 'axios';
 import toast from 'react-hot-toast';
 
@@ -130,12 +130,12 @@ const DIDMigrationProgress = ({ unifiedPassword, onComplete, onError }) => {
                 {
                     id: "1",
                     name: "RUBIX_MAINNET",
-                    baseUrl: "http://localhost:8000"
+                    baseUrl: "http://localhost:8000/api"
                 },
                 {
                     id: "2",
                     name: "RUBIX_TESTNET",
-                    baseUrl: "http://localhost:8000"
+                    baseUrl: "http://localhost:8000/api"
                 }
             ];
 
@@ -201,7 +201,7 @@ const DIDMigrationProgress = ({ unifiedPassword, onComplete, onError }) => {
             const newDid = successfulRegistrations[0].did;
 
             const rubixNetworks = [
-                { id: '1', baseUrl: "http://localhost:8000" }
+                { id: '1', baseUrl: "http://localhost:8000/api" }
             ];
 
             for (const network of rubixNetworks) {

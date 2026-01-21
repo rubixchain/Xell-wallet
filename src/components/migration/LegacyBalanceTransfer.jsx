@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { FiRefreshCw, FiCheck, FiX, FiLoader } from 'react-icons/fi';
 import { initiateProxyTransfer } from '../../utils/migration';
 import { END_POINTS } from '../../api/endpoints';
-import { config, getConfigPromise } from '../../../config';
+import { getConfigPromise } from '../../../config';
 
 const MIGRATION_STEPS = {
     CHECKING_BALANCE: 'checking_balance',
@@ -38,7 +38,7 @@ const LegacyBalanceTransfer = ({ legacyDid, legacyPrivateKey, newDid, onComplete
             setCurrentStep(MIGRATION_STEPS.TRANSFERRING);
             setProgress(60);
 
-            const result = await initiateProxyTransfer(legacyPrivateKey, legacyDid, newDid, "http://localhost:8000");
+            const result = await initiateProxyTransfer(legacyPrivateKey, legacyDid, newDid, "http://localhost:8000/api");
 
             if (!result.success) {
                 setError(result.message);
