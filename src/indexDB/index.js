@@ -1753,16 +1753,23 @@ const indexDBUtil = {
 
                         // Decrypt mnemonic if exists
                         let decryptedMnemonic = null;
-                        if (account.mnemonics) {
+                        if (account.mnemonics && account.mnemonics.trim() !== '') {
                             const mnBytes = CryptoJS.AES.decrypt(account.mnemonics, password);
                             decryptedMnemonic = mnBytes.toString(CryptoJS.enc.Utf8);
                         }
+
+                        const hasMnemonics = !!(
+                            account.mnemonics &&
+                            account.mnemonics.trim() !== '' &&
+                            decryptedMnemonic &&
+                            decryptedMnemonic.trim() !== ''
+                        );
 
                         resolve({
                             valid: true,
                             decryptedPrivateKey,
                             decryptedMnemonic,
-                            hasMnemonics: !!account.mnemonics && !!decryptedMnemonic,
+                            hasMnemonics,
                             account: {
                                 username: account.username,
                                 did: account.did,
