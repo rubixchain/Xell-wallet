@@ -131,11 +131,6 @@ export default function NetworkSwitcher() {
         if (!didRegistrationResult) {
           throw new Error('DID registration failed');
         }
-      } else {
-        const didRegistrationResult = await handleDidRegistration(userDetails.did);
-        if (!didRegistrationResult) {
-          throw new Error('DID registration failed');
-        }
       }
       // Change selected network
       const res = await indexDBUtil.changeSelectedNetwork(userDetails.did, network.id);
