@@ -35,6 +35,8 @@ const AccountMigrationCard = ({
                 const result = await onPasswordValidate(updatedPin);
                 if (!result.success) {
                     setError(result.message || 'Invalid PIN');
+                } else if (result.needsMnemonic) {
+                    onImportClick();
                 }
             } catch {
                 setError('Validation failed');
@@ -71,6 +73,14 @@ const AccountMigrationCard = ({
                 </span>
             );
         }
+        if (status === 'needs_mnemonic') {
+            return (
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700">
+                    <FiKey size={12} />
+                    Needs phrase
+                </span>
+            );
+        }
         if (status === 'skipped') {
             return (
                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700">
@@ -99,6 +109,37 @@ const AccountMigrationCard = ({
                             aria-label="Undo skip"
                         >
                             Undo
+                        </button>
+                    </div>
+                </div>
+            );
+        }
+
+        if (status === 'needs_mnemonic') {
+            return (
+                <div className="py-2 ml-12">
+                    <div className="bg-amber-50 border border-amber-200 rounded-lg p-2.5 mb-2">
+                        <p className="text-xs text-amber-700">
+                            PIN verified. Recovery phrase required to complete migration.
+                        </p>
+                    </div>
+                    <div className="flex items-center gap-3">
+                        <button
+                            onClick={onImportClick}
+                            className="inline-flex items-center gap-1.5 text-xs font-medium bg-secondary text-white px-3 py-1.5 rounded-lg hover:bg-primary transition-colors"
+                            type="button"
+                            aria-label="Enter recovery phrase"
+                        >
+                            <FiKey size={12} />
+                            Enter recovery phrase
+                        </button>
+                        <button
+                            onClick={handleSkipClick}
+                            className="text-xs text-gray-500 hover:text-gray-700 transition-colors"
+                            type="button"
+                            aria-label="Skip this account"
+                        >
+                            Skip account
                         </button>
                     </div>
                 </div>
@@ -156,6 +197,7 @@ const AccountMigrationCard = ({
     };
 
     const isCompleted = status === 'validated' || status === 'imported';
+    const needsAction = status === 'needs_mnemonic';
 
     return (
         <div
@@ -164,7 +206,9 @@ const AccountMigrationCard = ({
                     ? 'bg-tertiary/50 border-secondary/20 p-3'
                     : status === 'skipped'
                         ? 'bg-amber-50/50 border-amber-200/50 p-3.5'
-                        : 'bg-white border-gray-200 hover:border-gray-300 p-3.5'
+                        : needsAction
+                            ? 'bg-amber-50/30 border-amber-300 p-3.5'
+                            : 'bg-white border-gray-200 hover:border-gray-300 p-3.5'
             }`}
             role="group"
             aria-label={`Account ${account.username}`}
@@ -175,10 +219,14 @@ const AccountMigrationCard = ({
                         ? 'bg-secondary/10'
                         : status === 'skipped'
                             ? 'bg-amber-100'
-                            : 'bg-gray-100'
+                            : needsAction
+                                ? 'bg-amber-100'
+                                : 'bg-gray-100'
                 }`}>
                     {isCompleted ? (
                         <FiCheck size={16} className="text-secondary" />
+                    ) : needsAction ? (
+                        <FiKey size={16} className="text-amber-600" />
                     ) : (
                         <FiUser
                             size={16}
@@ -195,7 +243,7 @@ const AccountMigrationCard = ({
                         {account.did ? `${account.did.slice(0, 8)}...${account.did.slice(-6)}` : 'No DID'}
                     </p>
                 </div>
-                {status === 'pending' && (
+                {status === 'pending' && !needsAction && (
                     <button
                         onClick={handleSkipClick}
                         className="text-xs text-gray-400 hover:text-gray-600 transition-colors flex-shrink-0"

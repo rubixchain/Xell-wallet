@@ -55,12 +55,23 @@ const MigrationModal = ({ onLock }) => {
         }
     };
 
-    // Handle password validation for an account
     const handlePasswordValidation = async (username, password) => {
         try {
             const result = await indexDBUtil.validateAccountPassword(username, password);
 
             if (result.valid) {
+                if (!result.hasMnemonics) {
+                    setAccountStates(prev => ({
+                        ...prev,
+                        [username]: {
+                            ...prev[username],
+                            status: 'needs_mnemonic',
+                            password: password
+                        }
+                    }));
+                    return { success: true, needsMnemonic: true };
+                }
+
                 setAccountStates(prev => ({
                     ...prev,
                     [username]: {
@@ -97,23 +108,17 @@ const MigrationModal = ({ onLock }) => {
         setShowImportModal(true);
     };
 
-    // Handle mnemonic import
     const handleMnemonicImport = async (mnemonic) => {
         if (!importingAccount) return { success: false, message: 'No account selected' };
 
         try {
-            // Derive keys from mnemonic
             const keys = deriveKeysFromMnemonic(mnemonic);
-
-            // Find the account we're trying to import for
             const targetAccount = accounts.find(acc => acc.username === importingAccount);
 
             if (!targetAccount) {
                 return { success: false, message: 'Account not found' };
             }
 
-            // Check if the mnemonic matches this account's public key
-            // Try all possible derivation methods (new BIP32 and legacy)
             const isNewBIP32Match = targetAccount.publickey === keys.compressedPublicKey ||
                                      targetAccount.publickey === keys.uncompressedPublicKey;
             const isLegacyMatch = targetAccount.publickey === keys.legacyCompressedPublicKey ||
@@ -123,12 +128,14 @@ const MigrationModal = ({ onLock }) => {
                 return { success: false, message: 'Recovery phrase does not match this account' };
             }
 
-            // Success - update account state
+            const currentState = accountStates[importingAccount];
+            const wasNeedingMnemonic = currentState?.status === 'needs_mnemonic';
+
             setAccountStates(prev => ({
                 ...prev,
                 [importingAccount]: {
                     status: 'imported',
-                    password: '',
+                    password: wasNeedingMnemonic ? currentState.password : '',
                     mnemonic: mnemonic
                 }
             }));
@@ -145,7 +152,7 @@ const MigrationModal = ({ onLock }) => {
         const states = Object.values(accountStates);
         return states.every(s =>
             s.status === 'validated' || s.status === 'imported' || s.status === 'skipped'
-        );
+        ) && !states.some(s => s.status === 'needs_mnemonic');
     };
 
     const allAccountsSkipped = () => {
@@ -228,7 +235,8 @@ const MigrationModal = ({ onLock }) => {
         const handled = states.filter(s =>
             s.status === 'validated' || s.status === 'imported' || s.status === 'skipped'
         ).length;
-        return { handled, total: states.length };
+        const needsMnemonic = states.filter(s => s.status === 'needs_mnemonic').length;
+        return { handled, total: states.length, needsMnemonic };
     };
 
     const renderCollectPasswordsStep = () => {

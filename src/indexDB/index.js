@@ -1762,6 +1762,7 @@ const indexDBUtil = {
                             valid: true,
                             decryptedPrivateKey,
                             decryptedMnemonic,
+                            hasMnemonics: !!account.mnemonics && !!decryptedMnemonic,
                             account: {
                                 username: account.username,
                                 did: account.did,
