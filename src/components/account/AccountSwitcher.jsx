@@ -79,6 +79,8 @@ export default function AccountSwitcher() {
       const freshAccountData = freshAccountDataResponse?.status ? freshAccountDataResponse.data : null;
       const accountToUse = freshAccountData || account;
 
+      await indexDBUtil.ensureDefaultNetworksForDID(accountToUse?.did);
+
       let getActivenetwork = await indexDBUtil.getNetworksByDID(accountToUse?.did) || [];
       getActivenetwork = getActivenetwork?.find(item => item?.selected);
 

@@ -1,14 +1,15 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import { config, getConfigPromise } from '../../config';
 import { generateSignature } from '../utils';
 import indexDBUtil from '../indexDB';
 import axios from 'axios';
+import toast from 'react-hot-toast';
 
 const NETWORKS = [
-    { id: '1', name: 'RUBIX_MAINNET', baseUrlKey: 'RUBIX_MAINNET_BASE_URL' },
-    { id: '2', name: 'RUBIX_TESTNET', baseUrlKey: 'RUBIX_TESTNET_BASE_URL' },
-    { id: '3', name: 'TRIE_TESTNET', baseUrlKey: 'TRIE_TESTNET_BASE_URL' },
-    { id: '4', name: 'TRIE_MAINNET', baseUrlKey: 'TRIE_MAINNET_BASE_URL' }
+    { id: '1', name: 'Rubix Mainnet', baseUrlKey: 'RUBIX_MAINNET_BASE_URL' },
+    { id: '2', name: 'Rubix Testnet', baseUrlKey: 'RUBIX_TESTNET_BASE_URL' },
+    { id: '3', name: 'Trie Testnet', baseUrlKey: 'TRIE_TESTNET_BASE_URL' },
+    { id: '4', name: 'Trie Mainnet', baseUrlKey: 'TRIE_MAINNET_BASE_URL' }
 ];
 
 const useNetworkRegistrationCheck = (userDetails) => {
@@ -16,31 +17,31 @@ const useNetworkRegistrationCheck = (userDetails) => {
     const [registrationStatus, setRegistrationStatus] = useState(null);
     const unifiedPassword = userDetails?.pin;
 
-    const checkAndRegisterDID = useCallback(async () => {
+    const refreshDID = useCallback(async () => {
         if (!userDetails?.did || !userDetails?.username || !unifiedPassword) {
-            return;
+            toast.error('User details not available');
+            return { success: false };
         }
 
         try {
-            const alreadyVerified = await indexDBUtil.isNetworkRegistrationVerified(userDetails.username);
-            if (alreadyVerified) {
-                return;
-            }
-
             setIsChecking(true);
+            setRegistrationStatus(null);
             await getConfigPromise();
 
             const accountData = await indexDBUtil.getDecryptedAccountData(userDetails.username, unifiedPassword);
-            if (!accountData?.status || !accountData?.privateKey) {
+            if (!accountData?.status || !accountData?.data?.privateKey) {
+                toast.error('Failed to get account data');
                 setIsChecking(false);
-                return;
+                return { success: false };
             }
 
-            const privateKeyHex = accountData.privateKey;
+            const privateKeyHex = accountData.data.privateKey;
             const publicKey = userDetails.publickey;
             const did = userDetails.did;
 
             const registrationResults = [];
+            let registeredCount = 0;
+            let alreadyRegisteredCount = 0;
 
             for (const network of NETWORKS) {
                 const baseUrl = config[network.baseUrlKey];
@@ -56,7 +57,8 @@ const useNetworkRegistrationCheck = (userDetails) => {
                     const isRegistered = accountInfo?.data?.account_info?.length > 0;
 
                     if (isRegistered) {
-                        registrationResults.push({ network: network.id, status: 'already_registered' });
+                        registrationResults.push({ network: network.id, name: network.name, status: 'already_registered' });
+                        alreadyRegisteredCount++;
                         continue;
                     }
 
@@ -67,7 +69,7 @@ const useNetworkRegistrationCheck = (userDetails) => {
                     didResponse = didResponse.data;
 
                     if (!didResponse?.did) {
-                        registrationResults.push({ network: network.id, status: 'failed', error: 'No DID returned' });
+                        registrationResults.push({ network: network.id, name: network.name, status: 'failed', error: 'No DID returned' });
                         continue;
                     }
 
@@ -75,7 +77,7 @@ const useNetworkRegistrationCheck = (userDetails) => {
                     registerResponse = registerResponse.data;
 
                     if (!registerResponse?.status || !registerResponse?.result?.hash) {
-                        registrationResults.push({ network: network.id, status: 'failed', error: 'Registration failed' });
+                        registrationResults.push({ network: network.id, name: network.name, status: 'failed', error: 'Registration failed' });
                         continue;
                     }
 
@@ -88,12 +90,13 @@ const useNetworkRegistrationCheck = (userDetails) => {
                     signatureResponse = signatureResponse.data;
 
                     if (signatureResponse?.status) {
-                        registrationResults.push({ network: network.id, status: 'registered' });
+                        registrationResults.push({ network: network.id, name: network.name, status: 'registered' });
+                        registeredCount++;
                     } else {
-                        registrationResults.push({ network: network.id, status: 'failed', error: 'Signature failed' });
+                        registrationResults.push({ network: network.id, name: network.name, status: 'failed', error: 'Signature failed' });
                     }
                 } catch (error) {
-                    registrationResults.push({ network: network.id, status: 'failed', error: error.message });
+                    registrationResults.push({ network: network.id, name: network.name, status: 'failed', error: error.message });
                 }
             }
 
@@ -103,20 +106,24 @@ const useNetworkRegistrationCheck = (userDetails) => {
                 r => r.status === 'already_registered' || r.status === 'registered'
             );
 
-            if (allSuccessful) {
-                await indexDBUtil.setNetworkRegistrationVerified(userDetails.username);
+            if (registeredCount > 0) {
+                toast.success(`Registered DID on ${registeredCount} network(s)`);
+            } else if (alreadyRegisteredCount === NETWORKS.length) {
+                toast.success('DID already registered on all networks');
+            } else {
+                toast.error('Failed to register on some networks');
             }
+
+            return { success: allSuccessful, results: registrationResults };
         } catch (error) {
+            toast.error('Failed to refresh DID');
+            return { success: false };
         } finally {
             setIsChecking(false);
         }
     }, [userDetails?.did, userDetails?.username, userDetails?.publickey, unifiedPassword]);
 
-    useEffect(() => {
-        checkAndRegisterDID();
-    }, [checkAndRegisterDID]);
-
-    return { isChecking, registrationStatus };
+    return { isChecking, registrationStatus, refreshDID };
 };
 
 export default useNetworkRegistrationCheck;

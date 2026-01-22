@@ -111,6 +111,8 @@ export const UserProvider = ({ children }) => {
             setUserDetails(currentUser)
             setUserDetails(checkUser?.userDetails)
 
+            await indexDBUtil.ensureDefaultNetworksForDID(checkUser?.userDetails?.did);
+
             let getActivenetwork = await indexDBUtil.getNetworksByDID(checkUser?.userDetails?.did) || []
             getActivenetwork = getActivenetwork?.find(item => item?.selected)
             if (getActivenetwork) {

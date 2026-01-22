@@ -1,5 +1,5 @@
 import { useContext, useEffect, useRef, useState } from 'react';
-import { FiCheck, FiChevronDown, FiEye, FiShieldOff, FiLogOut } from 'react-icons/fi';
+import { FiCheck, FiChevronDown, FiEye } from 'react-icons/fi';
 import SettingCard from './SettingCard';
 import PinSettings from './security/PinSettings';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -108,7 +108,6 @@ export default function SecuritySettings() {
         <SettingCard>
           <PinSettings />
         </SettingCard>
-
       </div>
     </div>
   );

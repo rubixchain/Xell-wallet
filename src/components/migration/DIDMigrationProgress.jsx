@@ -136,6 +136,16 @@ const DIDMigrationProgress = ({ unifiedPassword, onComplete, onError }) => {
                     id: "2",
                     name: "RUBIX_TESTNET",
                     baseUrl: config.RUBIX_TESTNET_BASE_URL
+                },
+                {
+                    id: "3",
+                    name: "TRIE_TESTNET",
+                    baseUrl: config.TRIE_TESTNET_BASE_URL
+                },
+                {
+                    id: "4",
+                    name: "TRIE_MAINNET",
+                    baseUrl: config.TRIE_MAINNET_BASE_URL
                 }
             ];
 

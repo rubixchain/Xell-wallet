@@ -1,4 +1,4 @@
-import { FiShield, FiGlobe, FiKey, FiDollarSign, FiClock } from 'react-icons/fi';
+import { FiShield, FiGlobe, FiKey, FiDollarSign, FiClock, FiRefreshCw } from 'react-icons/fi';
 import NetworkSwitcher from '../network/NetworkSwitcher';
 import AccountSwitcher from '../account/AccountSwitcher';
 import ContentContainer from '../layout/ContentContainer';
@@ -15,16 +15,23 @@ import CurrencySettings from '../settings/CurrencySettings';
 import { AnimatePresence, motion } from 'framer-motion';
 import indexDBUtil from '../../indexDB';
 import { WALLET_TYPES } from '../../enums';
-import History from "../../pages/History"
+import History from "../../pages/History";
+import useNetworkRegistrationCheck from '../../hooks/useNetworkRegistrationCheck';
 
 export default function Header() {
-  const { setUserDetails } = useContext(UserContext);
+  const { setUserDetails, userDetails } = useContext(UserContext);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [modalContent, setModalContent] = useState(null);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const dropdownRef = useRef(null);
   const navigate = useNavigate();
+  const { isChecking, refreshDID } = useNetworkRegistrationCheck(userDetails);
+
+  const handleRefresh = async () => {
+    setDropdownOpen(false);
+    await refreshDID();
+  };
 
   const toggleDropdown = () => {
     setDropdownOpen(!dropdownOpen);
@@ -90,19 +97,24 @@ export default function Header() {
                     </div>
                   ))}
                 </div>
-                <div className="flex items-center justify-between">
-
-                  <button
-                    onClick={() => {
-                      setDropdownOpen(false);
-                      setShowLogoutConfirm(true)
-                    }}
-                    className="px-2 w-full flex items-center  gap-2 text-sm font-medium rounded-sm cursor-pointer hover:bg-gray-200 py-2"
-                  >
-                    <FiLock className="w-4 h-4" />
-                    Lock Wallet
-                  </button>
-                </div>
+                <button
+                  onClick={handleRefresh}
+                  disabled={isChecking}
+                  className="px-2 w-full flex items-center gap-2 text-sm font-medium rounded-sm cursor-pointer hover:bg-gray-200 py-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <FiRefreshCw className={`w-4 h-4 ${isChecking ? 'animate-spin' : ''}`} />
+                  {isChecking ? 'Refreshing...' : 'Refresh'}
+                </button>
+                <button
+                  onClick={() => {
+                    setDropdownOpen(false);
+                    setShowLogoutConfirm(true)
+                  }}
+                  className="px-2 w-full flex items-center gap-2 text-sm font-medium rounded-sm cursor-pointer hover:bg-gray-200 py-2"
+                >
+                  <FiLock className="w-4 h-4" />
+                  Lock Wallet
+                </button>
               </div>
             )}
           </div>
