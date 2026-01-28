@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { FiRefreshCw, FiCheck, FiX, FiLoader } from 'react-icons/fi';
+import { FiRefreshCw, FiCheck, FiX, FiLoader, FiClipboard, FiAlertCircle } from 'react-icons/fi';
 import indexDBUtil from '../../indexDB';
-import { generateUncompressedPublicKey, deriveKeysFromMnemonic, initiateProxyTransfer } from '../../utils/migration';
+import { deriveKeysFromMnemonic, initiateProxyTransfer, validateMnemonic } from '../../utils/migration';
 import { generateSignature } from '../../utils';
 import { config, getConfigPromise } from '../../../config';
 import axios from 'axios';
 
 const MIGRATION_STEPS = {
     PREPARING: 'preparing',
+    MNEMONIC_REQUIRED: 'mnemonic_required',
     GENERATING_KEYS: 'generating_keys',
     REQUESTING_DID: 'requesting_did',
     REGISTERING_DID: 'registering_did',
@@ -25,6 +26,12 @@ const SingleAccountDIDMigration = ({ username, unifiedPassword, legacyDid: propL
     const [isRetrying, setIsRetrying] = useState(false);
     const [newDid, setNewDid] = useState(null);
     const [transferContext, setTransferContext] = useState(null);
+    const [accountData, setAccountData] = useState(null);
+
+    // Mnemonic input state (when no mnemonic stored)
+    const [mnemonicInput, setMnemonicInput] = useState('');
+    const [mnemonicError, setMnemonicError] = useState('');
+    const [isValidatingMnemonic, setIsValidatingMnemonic] = useState(false);
 
     useEffect(() => {
         startMigration();
@@ -49,6 +56,7 @@ const SingleAccountDIDMigration = ({ username, unifiedPassword, legacyDid: propL
                 throw new Error(result.message || 'Failed to load account');
             }
 
+            setAccountData(result.account);
             await migrateAccount(result.account);
         } catch (err) {
             setError(err.message);
@@ -56,8 +64,18 @@ const SingleAccountDIDMigration = ({ username, unifiedPassword, legacyDid: propL
         }
     };
 
-    const migrateAccount = async (account) => {
+    const migrateAccount = async (account, providedMnemonic = null) => {
         try {
+            // Check if mnemonic is available (either from account data or provided by user)
+            const mnemonic = providedMnemonic || account.mnemonic;
+
+            if (!mnemonic) {
+                // No mnemonic available - prompt user to enter recovery phrase
+                setCurrentStep(MIGRATION_STEPS.MNEMONIC_REQUIRED);
+                setProgress(15);
+                return;
+            }
+
             setCurrentStep(MIGRATION_STEPS.GENERATING_KEYS);
             setProgress(20);
 
@@ -68,16 +86,10 @@ const SingleAccountDIDMigration = ({ username, unifiedPassword, legacyDid: propL
             const effectiveLegacyDid = propLegacyDid || account.legacyDid;
             const effectiveLegacyPrivateKey = propLegacyPrivateKey;
 
-            if (account.mnemonic) {
-                const keys = deriveKeysFromMnemonic(account.mnemonic);
-                newPublicKey = keys.uncompressedPublicKey;
-                privateKeyHex = keys.privateKey;
-                legacyPrivateKeyHex = effectiveLegacyPrivateKey || keys.legacyPrivateKey;
-            } else {
-                newPublicKey = generateUncompressedPublicKey(account.privateKey);
-                privateKeyHex = account.privateKey;
-                legacyPrivateKeyHex = effectiveLegacyPrivateKey || account.privateKey;
-            }
+            const keys = deriveKeysFromMnemonic(mnemonic);
+            newPublicKey = keys.uncompressedPublicKey;
+            privateKeyHex = keys.privateKey;
+            legacyPrivateKeyHex = effectiveLegacyPrivateKey || keys.legacyPrivateKey;
 
             if (!privateKeyHex || typeof privateKeyHex !== 'string') {
                 throw new Error('invalid private key, expected hex or 32 bytes, got ' + typeof privateKeyHex);
@@ -330,10 +342,68 @@ const SingleAccountDIDMigration = ({ username, unifiedPassword, legacyDid: propL
         setIsRetrying(false);
     };
 
+    // Handle mnemonic paste from clipboard
+    const handleMnemonicPaste = async () => {
+        try {
+            const text = await navigator.clipboard.readText();
+            setMnemonicInput(text.trim());
+            setMnemonicError('');
+        } catch (err) {
+            setMnemonicError('Failed to paste from clipboard');
+        }
+    };
+
+    // Get word count from mnemonic input
+    const getMnemonicWordCount = () => {
+        if (!mnemonicInput.trim()) return 0;
+        return mnemonicInput.trim().split(/\s+/).length;
+    };
+
+    // Handle mnemonic submission
+    const handleMnemonicSubmit = async () => {
+        setMnemonicError('');
+        setIsValidatingMnemonic(true);
+
+        try {
+            // Validate mnemonic format
+            if (!validateMnemonic(mnemonicInput.trim())) {
+                setMnemonicError('Invalid recovery phrase');
+                setIsValidatingMnemonic(false);
+                return;
+            }
+
+            // Derive keys from provided mnemonic
+            const keys = deriveKeysFromMnemonic(mnemonicInput.trim());
+
+            // Verify the mnemonic matches this account by comparing public keys
+            const accountPublicKey = accountData.publickey;
+            const matchesAccount =
+                accountPublicKey === keys.compressedPublicKey ||
+                accountPublicKey === keys.uncompressedPublicKey ||
+                accountPublicKey === keys.legacyCompressedPublicKey ||
+                accountPublicKey === keys.legacyUncompressedPublicKey;
+
+            if (!matchesAccount) {
+                setMnemonicError('Recovery phrase does not match this account');
+                setIsValidatingMnemonic(false);
+                return;
+            }
+
+            // Mnemonic validated - continue migration with the provided mnemonic
+            setIsValidatingMnemonic(false);
+            await migrateAccount(accountData, mnemonicInput.trim());
+        } catch (err) {
+            setMnemonicError(err.message || 'Invalid recovery phrase');
+            setIsValidatingMnemonic(false);
+        }
+    };
+
     const getStepLabel = () => {
         switch (currentStep) {
             case MIGRATION_STEPS.PREPARING:
                 return 'Preparing upgrade...';
+            case MIGRATION_STEPS.MNEMONIC_REQUIRED:
+                return 'Recovery phrase required';
             case MIGRATION_STEPS.GENERATING_KEYS:
                 return 'Upgrading keys...';
             case MIGRATION_STEPS.REQUESTING_DID:
@@ -354,6 +424,108 @@ const SingleAccountDIDMigration = ({ username, unifiedPassword, legacyDid: propL
                 return 'Processing...';
         }
     };
+
+    // Mnemonic required state - prompt user to enter recovery phrase
+    if (currentStep === MIGRATION_STEPS.MNEMONIC_REQUIRED) {
+        const wordCount = getMnemonicWordCount();
+        const isValidLength = wordCount === 24;
+
+        return (
+            <div className="flex flex-col h-full pt-4 pb-6">
+                {/* Header */}
+                <div className="flex items-center gap-3 mb-6">
+                    <div className="p-3 rounded-xl bg-amber-100">
+                        <FiAlertCircle className="text-amber-600" size={24} />
+                    </div>
+                    <div>
+                        <h2 className="font-semibold text-xl text-senary">Recovery Phrase Required</h2>
+                        <p className="text-quinary text-sm">Enter your recovery phrase to continue</p>
+                    </div>
+                </div>
+
+                {/* Account Info Card */}
+                <div className="mb-4 p-4 bg-tertiary/50 rounded-lg border border-secondary/20">
+                    <p className="text-sm text-quinary mb-1">Account</p>
+                    <p className="font-medium text-senary">@{username}</p>
+                </div>
+
+                {/* Info Banner */}
+                <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4">
+                    <div className="flex items-start space-x-2">
+                        <FiAlertCircle className="w-4 h-4 text-amber-600 mt-0.5 flex-shrink-0" />
+                        <p className="text-xs text-amber-700">
+                            Your recovery phrase is needed to upgrade your wallet keys.
+                            Make sure no one is watching your screen.
+                        </p>
+                    </div>
+                </div>
+
+                {/* Textarea */}
+                <div className="mb-4 flex-1">
+                    <div className="flex items-center justify-between mb-2">
+                        <label className="text-sm font-medium text-senary">
+                            Recovery Phrase
+                        </label>
+                        <button
+                            onClick={handleMnemonicPaste}
+                            className="flex items-center space-x-1 text-xs text-primary hover:text-secondary"
+                        >
+                            <FiClipboard className="w-3 h-3" />
+                            <span>Paste</span>
+                        </button>
+                    </div>
+                    <textarea
+                        value={mnemonicInput}
+                        onChange={(e) => {
+                            setMnemonicInput(e.target.value);
+                            setMnemonicError('');
+                        }}
+                        placeholder="Enter your 24 word recovery phrase..."
+                        className={`
+                            w-full h-32 p-3 text-sm rounded-lg resize-none
+                            border-2 focus:outline-none focus:ring-2
+                            ${mnemonicError
+                                ? 'border-red-500 focus:ring-red-500'
+                                : 'border-gray-200 focus:border-primary focus:ring-primary'
+                            }
+                            bg-surface-low text-senary
+                            placeholder-quinary
+                        `}
+                    />
+
+                    {/* Word Count and Error */}
+                    <div className="flex items-center justify-between mt-2">
+                        <span className={`text-xs ${isValidLength ? 'text-green-500' : 'text-quinary'}`}>
+                            {wordCount} / 24 words
+                        </span>
+                        {mnemonicError && (
+                            <span className="text-xs text-red-500">{mnemonicError}</span>
+                        )}
+                    </div>
+                </div>
+
+                {/* Submit Button */}
+                <button
+                    onClick={handleMnemonicSubmit}
+                    disabled={!isValidLength || isValidatingMnemonic}
+                    className={`w-full py-3 px-6 rounded-lg font-semibold text-white transition-colors ${
+                        isValidLength && !isValidatingMnemonic
+                            ? 'bg-secondary hover:bg-primary'
+                            : 'bg-gray-300 cursor-not-allowed'
+                    }`}
+                >
+                    {isValidatingMnemonic ? (
+                        <span className="flex items-center justify-center gap-2">
+                            <span className="animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full"></span>
+                            Validating...
+                        </span>
+                    ) : (
+                        'Continue Upgrade'
+                    )}
+                </button>
+            </div>
+        );
+    }
 
     if (currentStep === MIGRATION_STEPS.TRANSFER_FAILED) {
         return (
