@@ -108,9 +108,6 @@ const ImportWallet = () => {
       try {
         await getConfigPromise();
 
-        console.log('[ImportWallet] Checking for legacy DID...');
-        console.log('[ImportWallet] Legacy compressed public key:', keys.legacyCompressedPublicKey);
-
         const rubixNetworks = [
           { id: "1", baseUrl: config.RUBIX_MAINNET_BASE_URL },
           { id: "2", baseUrl: config.RUBIX_TESTNET_BASE_URL }
@@ -120,7 +117,6 @@ const ImportWallet = () => {
           if (!network.baseUrl) continue;
 
           try {
-            console.log('[ImportWallet] Checking network:', network.id, network.baseUrl);
             const networkApi = axios.create({
               baseURL: network.baseUrl,
               headers: { 'Content-Type': 'application/json' }
@@ -131,29 +127,16 @@ const ImportWallet = () => {
               network: network.id
             });
             const did = legacyDIDResponse?.data?.did;
-            console.log('[ImportWallet] Legacy DID response:', did);
 
             if (did) {
-              const accountInfo = await networkApi.get('/get-account-info', { params: { did } });
-              const balance = accountInfo?.data?.account_info?.[0]?.rbt_amount || 0;
-              console.log('[ImportWallet] Legacy DID balance:', balance);
-
-              if (balance > 0) {
-                legacyDid = did;
-                console.log('[ImportWallet] Found legacy DID with balance:', legacyDid);
-                break;
-              }
+              legacyDid = did;
+              break;
             }
           } catch (e) {
-            console.log('[ImportWallet] Network check error:', e.message);
           }
         }
       } catch (e) {
-        console.log('[ImportWallet] Legacy DID check failed:', e.message);
       }
-
-      console.log('[ImportWallet] Final legacyDid:', legacyDid);
-      console.log('[ImportWallet] needsLegacyMigration:', !!legacyDid);
 
       toast.success('Phrase verified successfully')
 
