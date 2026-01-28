@@ -12,7 +12,6 @@ import { NETWORK_TYPES } from '../../../config';
 const ShimmerCard = () => (
   <motion.div
     className="flex justify-between items-center [background:linear-gradient(0deg,#033500,#033500),radial-gradient(117.1%_345.76%_at_49.91%_104.8%,rgba(255,227,20,0)_0%,rgba(255,227,20,0.2)_100%),radial-gradient(124.84%_309.96%_at_4.03%_100%,rgba(255,227,20,0.15)_0%,rgba(255,227,20,0)_100%)] [box-shadow:0px_0px_1px_0px_#0000000D,0px_2px_2px_0px_#0000000A,0px_4px_2px_0px_#00000008,0px_7px_3px_0px_#00000003,0px_11px_3px_0px_#00000000] rounded-lg p-4 shadow-md"
-    // variants={containerVariants}
     initial="initial"
     animate="animate"
     transition={{ duration: 0.3 }}
@@ -60,29 +59,23 @@ export default function BalanceCard({ accountInfo, setIsTransactionCompleted }) 
     INR: '₹'
   };
 
-  // Reset and recalculate when accountInfo or network changes
   useEffect(() => {
     if (accountInfo && Object.keys(accountInfo).length > 0) {
-      // Force recalculation when accountInfo changes (network switch)
       setIsLoading(true);
       setTimeout(() => setIsLoading(false), 100);
     }
   }, [accountInfo?.rbt_amount, accountInfo?.ft_count, userDetails?.network]);
 
-  // Reset and recalculate when accountInfo or network changes
   useEffect(() => {
     if (accountInfo && Object.keys(accountInfo).length > 0) {
-      // Force recalculation when accountInfo changes (network switch)
       setIsLoading(true);
       setTimeout(() => setIsLoading(false), 100);
     }
   }, [accountInfo?.rbt_amount, accountInfo?.ft_count, userDetails?.network]);
 
-  // Function to fetch current ticker data via REST API
   const fetchCurrentTickerData = async () => {
-    setIsLoading(true); // Use setIsLoading for REST API fetching
+    setIsLoading(true);
     try {
-      // Fetch current RBTUSDT ticker data from MEXC API
       const response = await fetch('https://www.mexc.com/api/v3/ticker/24hr?symbol=RBTUSDT');
       const data = await response.json();
       
@@ -93,7 +86,6 @@ export default function BalanceCard({ accountInfo, setIsTransactionCompleted }) 
           r: parseFloat(data.priceChangePercent || 0) / 100 // Convert percentage to decimal
         });
       } else {
-        // Set default values if API response is invalid
         setTickerData({
           s: 'RBTUSDT',
           price: 0,
@@ -101,7 +93,6 @@ export default function BalanceCard({ accountInfo, setIsTransactionCompleted }) 
         });
       }
     } catch (error) {
-      // Set default values if API fails
       setTickerData({
         s: 'RBTUSDT',
         price: 0,
@@ -112,7 +103,6 @@ export default function BalanceCard({ accountInfo, setIsTransactionCompleted }) 
     }
   };
 
-  // Fetch initial ticker data immediately when component mounts
   useEffect(() => {
     const networkValue = userDetails?.network ?? (isUserLoggedIn ? 1 : null);
     const shouldFetch = isUserLoggedIn && (Number(networkValue) === 1 || Number(networkValue) === 2);
@@ -145,12 +135,6 @@ export default function BalanceCard({ accountInfo, setIsTransactionCompleted }) 
     toast.success("Copied to clipboard")
   }
 
-  // Show shimmer while fetching balance data
-  // Debug logging to understand the issue
-
-
-  // Check if we have valid account info with balance data
-  // Show balance card if we have accountInfo with any data
   const hasValidBalanceData = accountInfo && Object.keys(accountInfo).length > 0;
 
 
@@ -165,7 +149,6 @@ export default function BalanceCard({ accountInfo, setIsTransactionCompleted }) 
       variants={containerVariants}
       initial="initial"
       animate="animate"
-      // whileHover={{ scale: 1.1 }}
       transition={{ duration: 0.3 }}
     >
       <button
@@ -182,37 +165,6 @@ export default function BalanceCard({ accountInfo, setIsTransactionCompleted }) 
       >
         <FiRefreshCw className="w-4 h-4" />
       </button>
-      {/* <div className="flex items-center justify-between mb-2">
-        <div className="flex items-center space-x-2">
-          <TokenSelector
-            selectedToken={selectedToken}
-            onTokenSelect={setSelectedToken}
-          />
-          <div className="flex items-center space-x-1">
-            <span className="text-white text-xs">{accountInfo?.did?.slice(0, 5) + '....' + accountInfo?.did?.slice(-5)}</span>
-            <motion.button
-              onClick={handleClickCopy}
-              className="text-white/80 hover:text-white"
-              whileHover={{ scale: 1.2 }}
-              whileTap={{ scale: 0.9 }}
-            >
-              <FiCopy className="w-3 h-3" />
-            </motion.button>
-          </div>
-        </div>
-        <motion.button
-          onClick={() => {
-            setIsRotating(true);
-            setIsTransactionCompleted(prev => !prev)
-            setTimeout(() => setIsRotating(false), 1000);
-          }}
-          className="text-white/80 hover:text-white"
-          animate={{ rotate: isRotating ? 180 : 0 }}
-          transition={{ duration: 0.6 }}
-        >
-          <FiRefreshCw className="w-4 h-4" />
-        </motion.button>
-      </div> */}
 
       <motion.div variants={itemVariants} className="space-y-1">
         {Number(userDetails?.network) >= 5 ? (

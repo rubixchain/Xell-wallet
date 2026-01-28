@@ -10,20 +10,17 @@ const ImportMnemonicModal = ({ accountName, onImport, onClose }) => {
     const handleSubmit = async () => {
         const trimmedMnemonic = mnemonic.trim();
 
-        // Basic validation
         if (!trimmedMnemonic) {
             setError('Please enter your recovery phrase');
             return;
         }
 
-        // Check word count
         const words = trimmedMnemonic.split(/\s+/);
         if (words.length !== 24) {
             setError('Recovery phrase must be exactly 24 words');
             return;
         }
 
-        // Validate mnemonic format
         if (!validateMnemonic(trimmedMnemonic)) {
             setError('Invalid recovery phrase format');
             return;
@@ -38,7 +35,6 @@ const ImportMnemonicModal = ({ accountName, onImport, onClose }) => {
             if (!result.success) {
                 setError(result.message || 'Failed to import');
             }
-            // If success, the modal will be closed by parent
         } catch (err) {
             setError(err.message || 'Import failed');
         } finally {

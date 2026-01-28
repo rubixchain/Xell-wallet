@@ -14,7 +14,6 @@ import { MigrationModal, DIDMigrationProgress, SingleAccountDIDMigration } from 
 import { config, NETWORK_TYPES } from '../../config';
 
 
-// Logo Component
 const Logo = () => (
     <div className="flex items-center gap-2">
         <div className="grid grid-cols-2 gap-0.5">
@@ -26,7 +25,6 @@ const Logo = () => (
     </div>
 );
 
-// Main App Component
 function Login() {
     const { setUserDetails, userDetails, setIsUserLoggedIn, websiteInitiated, setWebsiteInitiated } = useContext(UserContext)
     const [attempts, setAttempts] = useState(5);
@@ -35,7 +33,6 @@ function Login() {
     const [selectedUser, setSelectedUser] = useState(null);
     const navigate = useNavigate()
 
-    // Migration states
     const [showMigrationModal, setShowMigrationModal] = useState(false);
     const [showDIDMigration, setShowDIDMigration] = useState(false);
     const [showSingleAccountMigration, setShowSingleAccountMigration] = useState(false);
@@ -60,13 +57,10 @@ function Login() {
 
     }, [userDetails])
 
-    // Check migration status on component mount
     const checkMigrationStatus = async () => {
         try {
             setIsCheckingMigration(true);
 
-            // Check if migration is needed (version <= 4)
-            // Migration includes both password unification and DID migration
             const needsPasswordMigration = await indexDBUtil.needsMigration();
 
             if (needsPasswordMigration) {
@@ -87,11 +81,9 @@ function Login() {
 
     const handleUnlock = async () => {
         if (pin.length === 6) {
-            // Check if we need to use unified password validation
             const hasUnified = await indexDBUtil.hasUnifiedPassword();
 
             if (hasUnified) {
-                // Validate using unified password
                 const isValid = await indexDBUtil.validateUnifiedPassword(pin);
                 if (!isValid) {
                     toast.error('Invalid password');
@@ -102,7 +94,6 @@ function Login() {
                     return;
                 }
 
-                // Get the target username
                 const accounts = await indexDBUtil.getAllAccountsForMigration();
                 if (accounts.length === 0) {
                     toast.error('No accounts found');
@@ -110,7 +101,6 @@ function Login() {
                 }
                 const targetUsername = selectedUser?.username || accounts[0].username;
 
-                // Check if THIS SPECIFIC ACCOUNT needs DID migration (on-demand migration)
                 const accountNeedsMigration = await indexDBUtil.accountNeedsDIDMigration(targetUsername);
                 if (accountNeedsMigration) {
                     await indexDBUtil.storeNetworkSetting({
@@ -125,7 +115,6 @@ function Login() {
                     return;
                 }
 
-                // Account already migrated or no migration needed - proceed to login
                 const res = await indexDBUtil.getDecryptedAccountData(targetUsername, pin);
 
                 if (!res.status) {
@@ -135,7 +124,6 @@ function Login() {
 
                 await completeLogin(res.data, pin);
             } else {
-                // Original login flow (before migration)
                 let res = await indexDBUtil.validateAndGetAccount(selectedUser?.username, pin)
                 if (!res?.status) {
                     toast.error(res?.message)
@@ -203,15 +191,12 @@ function Login() {
         navigate(routes.DASHBOARD, { replace: true })
     };
 
-    // Handle migration modal lock (after unified password is set)
     const handleMigrationLock = async () => {
         setShowMigrationModal(false);
         setPin('');
 
-        // Reload account list to reflect deleted accounts
         const res = await indexDBUtil.getData();
         if (res?.status) {
-            // Update selected user if it was deleted
             const currentUser = localStorage.getItem("currentUser");
             if (currentUser) {
                 const parsedUser = JSON.parse(currentUser);
@@ -227,11 +212,9 @@ function Login() {
         }
     };
 
-    // Handle DID migration complete (bulk - legacy)
     const handleDIDMigrationComplete = async () => {
         setShowDIDMigration(false);
 
-        // Now complete the login
         if (unifiedPassword && selectedUser?.username) {
             const res = await indexDBUtil.getDecryptedAccountData(selectedUser.username, unifiedPassword);
             if (res.status) {
@@ -240,18 +223,15 @@ function Login() {
         }
     };
 
-    // Handle DID migration error (bulk - legacy)
     const handleDIDMigrationError = (error) => {
         toast.error(error);
         setShowDIDMigration(false);
         setUnifiedPassword('');
     };
 
-    // Handle single account DID migration complete
     const handleSingleAccountMigrationComplete = async () => {
         setShowSingleAccountMigration(false);
 
-        // Now complete the login with the migrated account
         if (unifiedPassword && accountToMigrate) {
             const res = await indexDBUtil.getDecryptedAccountData(accountToMigrate, unifiedPassword);
             if (res.status) {
@@ -261,7 +241,6 @@ function Login() {
             }
         }
 
-        // Clear migration state
         setAccountToMigrate(null);
         setUnifiedPassword('');
     };
@@ -309,7 +288,6 @@ function Login() {
         navigate(routes.DASHBOARD, { replace: true });
     };
 
-    // Handle single account DID migration error
     const handleSingleAccountMigrationError = (error) => {
         toast.error(error);
         setShowSingleAccountMigration(false);
@@ -317,7 +295,6 @@ function Login() {
         setUnifiedPassword('');
     };
 
-    // Show loading while checking migration
     if (isCheckingMigration) {
         return (
             <Card>
@@ -329,7 +306,6 @@ function Login() {
         );
     }
 
-    // Show unified password migration modal
     if (showMigrationModal) {
         return (
             <MigrationModal
@@ -338,7 +314,6 @@ function Login() {
         );
     }
 
-    // Show DID migration progress (bulk - legacy)
     if (showDIDMigration) {
         return (
             <Card>
@@ -351,7 +326,6 @@ function Login() {
         );
     }
 
-    // Show single account DID migration (on-demand)
     if (showSingleAccountMigration && accountToMigrate) {
         return (
             <Card>

@@ -9,7 +9,8 @@ import Card from '../components/Card';
 import indexDBUtil from '../indexDB';
 import { deriveKeysFromMnemonic } from '../utils/migration';
 import { END_POINTS } from '../api/endpoints';
-import { config, getConfigPromise } from '../../config';
+import { getConfigPromise } from '../../config';
+import { getLegacyDIDCheckNetworks } from '../utils/networkConfig';
 import axios from 'axios';
 
 
@@ -108,9 +109,7 @@ const ImportWallet = () => {
       try {
         await getConfigPromise();
 
-        const rubixNetworks = [
-          { id: "1", baseUrl: config.RUBIX_MAINNET_BASE_URL }
-        ];
+        const rubixNetworks = getLegacyDIDCheckNetworks();
 
         for (const network of rubixNetworks) {
           if (!network.baseUrl) continue;

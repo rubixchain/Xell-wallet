@@ -2,11 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { FiRefreshCw, FiCheck, FiX, FiLoader } from 'react-icons/fi';
 import indexDBUtil from '../../indexDB';
 import { generateUncompressedPublicKey, deriveKeysFromMnemonic, initiateProxyTransfer } from '../../utils/migration';
-import { END_POINTS } from '../../api/endpoints';
-import { generateSignature } from '../../utils';
-import { config, getConfigPromise } from '../../../config';
-import axios from 'axios';
-import toast from 'react-hot-toast';
+import { getConfigPromise } from '../../../config';
+import { getMigrationNetworks } from '../../utils/networkConfig';
+import { registerDIDOnAllNetworks } from '../../utils/didRegistration';
 
 const MIGRATION_STEPS = {
     PREPARING: 'preparing',
@@ -37,7 +35,6 @@ const DIDMigrationProgress = ({ unifiedPassword, onComplete, onError }) => {
 
             await getConfigPromise();
 
-            // Get all accounts that need DID migration
             const result = await indexDBUtil.getAllDecryptedAccountsForDIDMigration(unifiedPassword);
 
             if (!result.status) {
@@ -45,7 +42,6 @@ const DIDMigrationProgress = ({ unifiedPassword, onComplete, onError }) => {
             }
 
             if (result.accounts.length === 0) {
-                // No accounts to migrate, complete immediately
                 await indexDBUtil.completeDIDMigration();
                 onComplete();
                 return;
@@ -58,7 +54,6 @@ const DIDMigrationProgress = ({ unifiedPassword, onComplete, onError }) => {
                 newPublicKey: null
             })));
 
-            // Start migrating first account
             await migrateAccount(0, result.accounts);
         } catch (err) {
             setError(err.message);
@@ -70,7 +65,6 @@ const DIDMigrationProgress = ({ unifiedPassword, onComplete, onError }) => {
         const accountsToUse = accountsList || accounts;
 
         if (index >= accountsToUse.length) {
-            // All accounts migrated successfully
             await completeMigration();
             return;
         }
@@ -79,7 +73,6 @@ const DIDMigrationProgress = ({ unifiedPassword, onComplete, onError }) => {
         setCurrentAccountIndex(index);
 
         try {
-            // Step 1: Generate new keys
             setCurrentStep(MIGRATION_STEPS.GENERATING_KEYS);
             updateAccountStatus(index, 'migrating');
 
@@ -87,132 +80,42 @@ const DIDMigrationProgress = ({ unifiedPassword, onComplete, onError }) => {
             let privateKeyHex;
 
             if (account.mnemonic) {
-                // Derive from mnemonic - try new method first, fallback to legacy
                 const keys = deriveKeysFromMnemonic(account.mnemonic);
 
-                // Check if current public key matches new or legacy key
                 const currentPubKey = account.publickey;
                 const matchesNew = currentPubKey === keys.compressedPublicKey;
                 const matchesLegacy = currentPubKey === keys.legacyCompressedPublicKey;
 
                 if (matchesLegacy && !matchesNew) {
-                    // Use legacy keys for this account
                     newPublicKey = keys.legacyUncompressedPublicKey;
                     privateKeyHex = keys.legacyPrivateKey;
                 } else {
-                    // Use new BIP32 keys
                     newPublicKey = keys.uncompressedPublicKey;
                     privateKeyHex = keys.privateKey;
                 }
             } else {
-                // Generate from existing private key
                 newPublicKey = generateUncompressedPublicKey(account.privateKey);
                 privateKeyHex = account.privateKey;
             }
 
-            // Validate private key format
             if (!privateKeyHex || typeof privateKeyHex !== 'string') {
                 throw new Error('invalid private key, expected hex or 32 bytes, got ' + typeof privateKeyHex);
             }
 
-            // Ensure privateKeyHex is a clean hex string without spaces or '0x' prefix
             privateKeyHex = privateKeyHex.trim().toLowerCase().replace(/^0x/, '');
 
-            // Validate hex format and length (should be 64 characters for 32 bytes)
             if (!/^[0-9a-f]{64}$/i.test(privateKeyHex)) {
                 throw new Error(`invalid private key format: expected 64 hex characters, got ${privateKeyHex.length} characters`);
             }
 
-            // Step 2: Request and register new DID on all networks
             setCurrentStep(MIGRATION_STEPS.REQUESTING_DID);
 
-            const networks = [
-                {
-                    id: "1",
-                    name: "RUBIX_MAINNET",
-                    baseUrl: config.RUBIX_MAINNET_BASE_URL
-                },
-                {
-                    id: "2",
-                    name: "RUBIX_TESTNET",
-                    baseUrl: config.RUBIX_TESTNET_BASE_URL
-                },
-                {
-                    id: "3",
-                    name: "TRIE_TESTNET",
-                    baseUrl: config.TRIE_TESTNET_BASE_URL
-                },
-                {
-                    id: "4",
-                    name: "TRIE_MAINNET",
-                    baseUrl: config.TRIE_MAINNET_BASE_URL
-                }
-            ];
-
-            // Step 3: Register the new DID on all networks
             setCurrentStep(MIGRATION_STEPS.REGISTERING_DID);
 
-            const registrationPromises = networks.map(async (network) => {
-                try {
-                    const customApi = axios.create({
-                        baseURL: network.baseUrl,
-                        headers: { 'Content-Type': 'application/json' }
-                    });
+            const registrationResult = await registerDIDOnAllNetworks(newPublicKey, privateKeyHex);
+            const newDid = registrationResult.primaryDid;
 
-                    let didResponse = await customApi.post('/request-did-for-pubkey', {
-                        public_key: newPublicKey,
-                        network: network.id
-                    });
-                    didResponse = didResponse.data;
-
-                    if (!didResponse || !didResponse.did) {
-                        return null;
-                    }
-
-                    const newDid = didResponse.did;
-
-                    let registerResponse = await customApi.post('/register-did', { did: newDid });
-                    registerResponse = registerResponse.data;
-
-                    if (!registerResponse || !registerResponse.status) {
-                        return null;
-                    }
-
-                    const signature = await generateSignature(privateKeyHex, registerResponse.result.hash);
-                    let signatureResponse = await customApi.post('/signature-response', {
-                        id: registerResponse.result.id,
-                        Signature: { Signature: signature },
-                        mode: 4
-                    });
-                    signatureResponse = signatureResponse.data;
-
-                    if (!signatureResponse || !signatureResponse.status) {
-                        return null;
-                    }
-
-                    return {
-                        network: network.id,
-                        did: newDid,
-                        status: true,
-                        baseUrl: network.baseUrl
-                    };
-                } catch (error) {
-                    return null;
-                }
-            });
-
-            const registrationResults = await Promise.all(registrationPromises);
-            const successfulRegistrations = registrationResults.filter(result => result !== null);
-
-            if (successfulRegistrations.length === 0) {
-                throw new Error('Failed to register new DID on any network');
-            }
-
-            const newDid = successfulRegistrations[0].did;
-
-            const rubixNetworks = [
-                { id: '1', baseUrl: config.RUBIX_MAINNET_BASE_URL }
-            ];
+            const rubixNetworks = getMigrationNetworks();
 
             for (const network of rubixNetworks) {
                 if (!network.baseUrl) continue;
@@ -223,7 +126,6 @@ const DIDMigrationProgress = ({ unifiedPassword, onComplete, onError }) => {
                 }
             }
 
-            // Step 5: Update local storage
             setCurrentStep(MIGRATION_STEPS.UPDATING_STORAGE);
 
             await indexDBUtil.updateAccountAfterDIDMigration(account.username, {
@@ -233,24 +135,19 @@ const DIDMigrationProgress = ({ unifiedPassword, onComplete, onError }) => {
                 unifiedPassword: unifiedPassword
             });
 
-            // Mark account as fully migrated (only after ALL steps succeed)
             await indexDBUtil.markAccountAsMigrated(account.username);
 
-            // Update local state
             updateAccountStatus(index, 'completed', { newDid, newPublicKey });
 
-            // Update progress
             const progress = ((index + 1) / accountsToUse.length) * 100;
             setOverallProgress(progress);
 
-            // Move to next account
             await migrateAccount(index + 1, accountsToUse);
 
         } catch (err) {
             updateAccountStatus(index, 'failed');
             setError(`Failed to migrate ${account.username}: ${err.message}`);
             setCurrentStep(MIGRATION_STEPS.FAILED);
-            // Don't continue - all or nothing
         }
     };
 
@@ -260,7 +157,6 @@ const DIDMigrationProgress = ({ unifiedPassword, onComplete, onError }) => {
             await indexDBUtil.completeDIDMigration();
             setOverallProgress(100);
 
-            // Notify parent
             setTimeout(() => {
                 onComplete();
             }, 1500);

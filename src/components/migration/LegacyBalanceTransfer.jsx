@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { FiRefreshCw, FiCheck, FiX, FiLoader } from 'react-icons/fi';
 import { initiateProxyTransfer } from '../../utils/migration';
 import { END_POINTS } from '../../api/endpoints';
-import { config, getConfigPromise } from '../../../config';
+import { getConfigPromise } from '../../../config';
+import { getMigrationNetworks } from '../../utils/networkConfig';
 
 const MIGRATION_STEPS = {
     CHECKING_BALANCE: 'checking_balance',
@@ -38,9 +39,7 @@ const LegacyBalanceTransfer = ({ legacyDid, legacyPrivateKey, newDid, onComplete
             setCurrentStep(MIGRATION_STEPS.TRANSFERRING);
             setProgress(60);
 
-            const rubixNetworks = [
-                { id: '1', baseUrl: config.RUBIX_MAINNET_BASE_URL }
-            ];
+            const rubixNetworks = getMigrationNetworks();
 
             let transferSuccess = false;
             let lastError = null;

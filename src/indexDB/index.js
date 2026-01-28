@@ -6,7 +6,8 @@ import * as ecc from 'tiny-secp256k1';
 import secp256k1 from 'secp256k1';
 import { generateSignature } from "../utils";
 import CryptoJS from 'crypto-js';
-import { config, NETWORK_TYPES, getConfigPromise } from "../../config";
+import { getConfigPromise } from "../../config";
+import { getRegistrationNetworks, getAvailableNetworksForStorage } from "../utils/networkConfig";
 import axios from "axios";
 
 // Initialize BIP32 with tiny-secp256k1
@@ -228,68 +229,7 @@ const indexDBUtil = {
             const networkTransaction = db.transaction([this.storeName], 'readwrite');
             const networkStore = networkTransaction.objectStore(this.storeName);
 
-            const availableNetworks = [
-                {
-                    logo: '/network/rubix.png',
-                    name: 'Rubix Mainnet',
-                    default: true,
-                    selected: true,
-                    tokenSymbol: NETWORK_TYPES.RBT,
-                    id: 1,
-                    rpcUrls: [
-                        {
-                            selected: true,
-                            name: 'mainnet',
-                            url: config.RUBIX_MAINNET_BASE_URL
-                        }
-                    ],
-                },
-                {
-                    logo: '/network/rubix.png',
-                    name: 'Rubix Testnet',
-                    default: true,
-                    selected: false,
-                    tokenSymbol: NETWORK_TYPES.RBT,
-                    id: 2,
-                    rpcUrls: [
-                        {
-                            selected: true,
-                            name: 'testnet',
-                            url: config.RUBIX_TESTNET_BASE_URL
-                        }
-                    ],
-                },
-                {
-                    logo: '/network/trie.png',
-                    name: 'Trie Testnet',
-                    default: true,
-                    selected: false,
-                    tokenSymbol: NETWORK_TYPES.TRIE,
-                    id: 3,
-                    rpcUrls: [
-                        {
-                            selected: true,
-                            name: 'testnet',
-                            url: config.TRIE_TESTNET_BASE_URL
-                        }
-                    ],
-                },
-                {
-                    logo: '/network/trie.png',
-                    name: 'Trie Mainnet',
-                    default: true,
-                    selected: false,
-                    tokenSymbol: NETWORK_TYPES.TRI,
-                    id: 4,
-                    rpcUrls: [
-                        {
-                            selected: true,
-                            name: 'mainnet',
-                            url: config.TRIE_MAINNET_BASE_URL
-                        }
-                    ],
-                }
-            ];
+            const availableNetworks = getAvailableNetworksForStorage();
 
             const getRequest = networkStore.get("NetworkDetails");
 
@@ -339,28 +279,7 @@ const indexDBUtil = {
                 encryptionPassword = pin;
             }
 
-            const networks = [
-                {
-                    id: "1",
-                    name: "RUBIX_MAINNET",
-                    baseUrl: config.RUBIX_MAINNET_BASE_URL
-                },
-                {
-                    id: "2",
-                    name: "RUBIX_TESTNET",
-                    baseUrl: config.RUBIX_TESTNET_BASE_URL
-                },
-                {
-                    id: "3",
-                    name: "TRIE_TESTNET",
-                    baseUrl: config.TRIE_TESTNET_BASE_URL
-                },
-                {
-                    id: "4",
-                    name: "TRIE_MAINNET",
-                    baseUrl: config.TRIE_MAINNET_BASE_URL
-                }
-            ];
+            const networks = getRegistrationNetworks();
 
             const accountPromises = networks.map(async (network) => {
                 try {
@@ -529,28 +448,7 @@ const indexDBUtil = {
             }
 
             // Define networks to create accounts on with their base URLs
-            const networks = [
-                {
-                    id: "1",
-                    name: "RUBIX_MAINNET",
-                    baseUrl: config.RUBIX_MAINNET_BASE_URL
-                },
-                {
-                    id: "2",
-                    name: "RUBIX_TESTNET",
-                    baseUrl: config.RUBIX_TESTNET_BASE_URL
-                },
-                {
-                    id: "3",
-                    name: "TRIE_TESTNET",
-                    baseUrl: config.TRIE_TESTNET_BASE_URL
-                },
-                {
-                    id: "4",
-                    name: "TRIE_MAINNET",
-                    baseUrl: config.TRIE_MAINNET_BASE_URL
-                }
-            ];
+            const networks = getRegistrationNetworks();
 
             // Create accounts on all networks in parallel using custom axios instance
             const accountPromises = networks.map(async (network) => {

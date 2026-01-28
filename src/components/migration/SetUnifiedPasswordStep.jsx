@@ -8,11 +8,9 @@ const SetUnifiedPasswordStep = ({ onSubmit, onBack, isProcessing }) => {
     const [confirmPin, setConfirmPin] = useState('');
     const [errors, setErrors] = useState({});
 
-    // Check if PIN has sequential numbers (e.g., 123456, 654321)
     const hasSequentialNumbers = (value) => {
         if (value.length !== 6) return false;
 
-        // Check ascending sequence
         let isAscending = true;
         for (let i = 0; i < value.length - 1; i++) {
             if (parseInt(value[i]) + 1 !== parseInt(value[i + 1])) {
@@ -21,7 +19,6 @@ const SetUnifiedPasswordStep = ({ onSubmit, onBack, isProcessing }) => {
             }
         }
 
-        // Check descending sequence
         let isDescending = true;
         for (let i = 0; i < value.length - 1; i++) {
             if (parseInt(value[i]) - 1 !== parseInt(value[i + 1])) {
@@ -33,13 +30,11 @@ const SetUnifiedPasswordStep = ({ onSubmit, onBack, isProcessing }) => {
         return isAscending || isDescending;
     };
 
-    // Check if PIN has repeating digits (e.g., 111111, 222222)
     const hasRepeatingDigits = (value) => {
         if (value.length !== 6) return false;
         return value.split('').every(digit => digit === value[0]);
     };
 
-    // Check if PIN meets requirements
     const isPinWeak = (value) => {
         if (value.length !== 6) return false;
         return hasSequentialNumbers(value) || hasRepeatingDigits(value);

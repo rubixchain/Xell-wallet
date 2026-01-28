@@ -79,7 +79,6 @@ export default function Dashboard() {
         setAccountInfo({})
         setSelectedTokens([])
         setTransactionsData([])
-        // Default to network 1 if undefined (new wallet defaults to mainnet)
         const networkValue = userDetails?.network ?? 1;
         if (networkValue == 1 || networkValue == 2) {
           const apiPromises = [
@@ -87,7 +86,6 @@ export default function Dashboard() {
             END_POINTS.get_transactions_info({ DID: userDetails?.did })
           ];
 
-          // Only fetch legacy DID transactions for Rubix Mainnet (network 1) where balance was migrated
           if (userDetails?.legacyDid && networkValue === 1) {
             apiPromises.push(
               END_POINTS.get_transactions_info({ DID: userDetails?.legacyDid })
@@ -107,7 +105,6 @@ export default function Dashboard() {
           setAccountInfo(res)
           setSelectedTokens([])
 
-          // Merge transactions from both new and legacy DIDs
           let allTransactions = [];
 
           if (transactionsApiData?.status) {
@@ -144,8 +141,6 @@ export default function Dashboard() {
             ftinfoData = ftinfoData?.filter(res => res?.creator_did == "bafybmifzar4metqgkm4ivtnvabmiouyi32y2x2ikpi5h4tflrfug2ghi5q")
           }
 
-          // Handle case where API returns empty array for Trie networks
-          // If no tokens found, create a default object with 0 balance
           if (!ftinfoData || ftinfoData.length === 0) {
             setAccountInfo({ ft_count: 0 });
           } else {
@@ -193,16 +188,6 @@ export default function Dashboard() {
           <div className="flex justify-around mt-4">
             <ActionButtons setIsTransactionCompleted={setIsTransactionCompleted} accountInfo={accountInfo} />
           </div>
-
-          {/* <Tabs activeTab={activeTab} setActiveTab={setActiveTab} />
-          {activeTab === 'Tokens' && (
-            <>
-              <TokenList className="grid grid-cols-1 gap-4 mt-6" />
-            </>
-          )}
-          {activeTab === 'History' && (
-            <History />
-          )} */}
 
           <RecentTransactions transactionsData={transactionsData} />
         </div>

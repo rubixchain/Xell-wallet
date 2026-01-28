@@ -27,7 +27,6 @@ const MigrationModal = ({ onLock }) => {
     const [isLoading, setIsLoading] = useState(true);
     const [isProcessing, setIsProcessing] = useState(false);
 
-    // Load accounts on mount
     useEffect(() => {
         loadAccounts();
     }, []);
@@ -38,7 +37,6 @@ const MigrationModal = ({ onLock }) => {
             const accountList = await indexDBUtil.getAllAccountsForMigration();
             setAccounts(accountList);
 
-            // Initialize account states
             const initialStates = {};
             accountList.forEach(acc => {
                 initialStates[acc.username] = {
@@ -89,7 +87,6 @@ const MigrationModal = ({ onLock }) => {
         }
     };
 
-    // Handle skip checkbox toggle
     const handleSkipToggle = (username, isSkipped) => {
         setAccountStates(prev => ({
             ...prev,
@@ -102,7 +99,6 @@ const MigrationModal = ({ onLock }) => {
         }));
     };
 
-    // Handle import button click
     const handleImportClick = (username) => {
         setImportingAccount(username);
         setShowImportModal(true);
@@ -171,7 +167,6 @@ const MigrationModal = ({ onLock }) => {
         }
 
         if (allAccountsSkipped()) {
-            // Delete all skipped accounts and redirect to Welcome page
             const skipAccounts = Object.keys(accountStates);
             await indexDBUtil.deleteSkippedAccountsAndReset(skipAccounts);
             navigate(routes.WELCOME);

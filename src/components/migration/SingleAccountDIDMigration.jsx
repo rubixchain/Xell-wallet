@@ -2,9 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { FiRefreshCw, FiCheck, FiX, FiLoader, FiClipboard, FiAlertCircle } from 'react-icons/fi';
 import indexDBUtil from '../../indexDB';
 import { deriveKeysFromMnemonic, initiateProxyTransfer, validateMnemonic } from '../../utils/migration';
-import { generateSignature } from '../../utils';
-import { config, getConfigPromise } from '../../../config';
-import axios from 'axios';
+import { getConfigPromise } from '../../../config';
+import { getMigrationNetworks } from '../../utils/networkConfig';
+import { registerDIDOnAllNetworks } from '../../utils/didRegistration';
 
 const MIGRATION_STEPS = {
     PREPARING: 'preparing',
@@ -27,8 +27,6 @@ const SingleAccountDIDMigration = ({ username, unifiedPassword, legacyDid: propL
     const [newDid, setNewDid] = useState(null);
     const [transferContext, setTransferContext] = useState(null);
     const [accountData, setAccountData] = useState(null);
-
-    // Mnemonic input state (when no mnemonic stored)
     const [mnemonicInput, setMnemonicInput] = useState('');
     const [mnemonicError, setMnemonicError] = useState('');
     const [isValidatingMnemonic, setIsValidatingMnemonic] = useState(false);
@@ -66,11 +64,9 @@ const SingleAccountDIDMigration = ({ username, unifiedPassword, legacyDid: propL
 
     const migrateAccount = async (account, providedMnemonic = null) => {
         try {
-            // Check if mnemonic is available (either from account data or provided by user)
             const mnemonic = providedMnemonic || account.mnemonic;
 
             if (!mnemonic) {
-                // No mnemonic available - prompt user to enter recovery phrase
                 setCurrentStep(MIGRATION_STEPS.MNEMONIC_REQUIRED);
                 setProgress(15);
                 return;
@@ -115,98 +111,18 @@ const SingleAccountDIDMigration = ({ username, unifiedPassword, legacyDid: propL
                 setCurrentStep(MIGRATION_STEPS.REQUESTING_DID);
                 setProgress(40);
 
-                const networks = [
-                    {
-                        id: "1",
-                        name: "RUBIX_MAINNET",
-                        baseUrl: config.RUBIX_MAINNET_BASE_URL
-                    },
-                    {
-                        id: "2",
-                        name: "RUBIX_TESTNET",
-                        baseUrl: config.RUBIX_TESTNET_BASE_URL
-                    },
-                    {
-                        id: "3",
-                        name: "TRIE_TESTNET",
-                        baseUrl: config.TRIE_TESTNET_BASE_URL
-                    },
-                    {
-                        id: "4",
-                        name: "TRIE_MAINNET",
-                        baseUrl: config.TRIE_MAINNET_BASE_URL
-                    }
-                ];
-
                 setCurrentStep(MIGRATION_STEPS.REGISTERING_DID);
                 setProgress(50);
 
-                const registrationPromises = networks.map(async (network) => {
-                    try {
-                        const customApi = axios.create({
-                            baseURL: network.baseUrl,
-                            headers: { 'Content-Type': 'application/json' }
-                        });
-
-                        let didResponse = await customApi.post('/request-did-for-pubkey', {
-                            public_key: newPublicKey,
-                            network: network.id
-                        });
-                        didResponse = didResponse.data;
-
-                        if (!didResponse || !didResponse.did) {
-                            return null;
-                        }
-
-                        const newDid = didResponse.did;
-
-                        let registerResponse = await customApi.post('/register-did', { did: newDid });
-                        registerResponse = registerResponse.data;
-
-                        if (!registerResponse || !registerResponse.status) {
-                            return null;
-                        }
-
-                        const signature = await generateSignature(privateKeyHex, registerResponse.result.hash);
-                        let signatureResponse = await customApi.post('/signature-response', {
-                            id: registerResponse.result.id,
-                            Signature: { Signature: signature },
-                            mode: 4
-                        });
-                        signatureResponse = signatureResponse.data;
-
-                        if (!signatureResponse || !signatureResponse.status) {
-                            return null;
-                        }
-
-                        return {
-                            network: network.id,
-                            did: newDid,
-                            status: true,
-                            baseUrl: network.baseUrl
-                        };
-                    } catch (error) {
-                        return null;
-                    }
-                });
-
-                const registrationResults = await Promise.all(registrationPromises);
-                const successfulRegistrations = registrationResults.filter(result => result !== null);
-
-                if (successfulRegistrations.length === 0) {
-                    throw new Error('Failed to register new DID on any network');
-                }
-
-                generatedNewDid = successfulRegistrations[0].did;
+                const registrationResult = await registerDIDOnAllNetworks(newPublicKey, privateKeyHex);
+                generatedNewDid = registrationResult.primaryDid;
                 setNewDid(generatedNewDid);
                 setProgress(70);
             }
 
             const oldDid = effectiveLegacyDid || account.did;
 
-            const rubixNetworks = [
-                { id: '1', baseUrl: config.RUBIX_MAINNET_BASE_URL }
-            ];
+            const rubixNetworks = getMigrationNetworks();
 
             for (const network of rubixNetworks) {
                 if (!network.baseUrl) continue;
@@ -342,7 +258,6 @@ const SingleAccountDIDMigration = ({ username, unifiedPassword, legacyDid: propL
         setIsRetrying(false);
     };
 
-    // Handle mnemonic paste from clipboard
     const handleMnemonicPaste = async () => {
         try {
             const text = await navigator.clipboard.readText();
@@ -353,29 +268,24 @@ const SingleAccountDIDMigration = ({ username, unifiedPassword, legacyDid: propL
         }
     };
 
-    // Get word count from mnemonic input
     const getMnemonicWordCount = () => {
         if (!mnemonicInput.trim()) return 0;
         return mnemonicInput.trim().split(/\s+/).length;
     };
 
-    // Handle mnemonic submission
     const handleMnemonicSubmit = async () => {
         setMnemonicError('');
         setIsValidatingMnemonic(true);
 
         try {
-            // Validate mnemonic format
             if (!validateMnemonic(mnemonicInput.trim())) {
                 setMnemonicError('Invalid recovery phrase');
                 setIsValidatingMnemonic(false);
                 return;
             }
 
-            // Derive keys from provided mnemonic
             const keys = deriveKeysFromMnemonic(mnemonicInput.trim());
 
-            // Verify the mnemonic matches this account by comparing public keys
             const accountPublicKey = accountData.publickey;
             const matchesAccount =
                 accountPublicKey === keys.compressedPublicKey ||
@@ -389,7 +299,6 @@ const SingleAccountDIDMigration = ({ username, unifiedPassword, legacyDid: propL
                 return;
             }
 
-            // Mnemonic validated - continue migration with the provided mnemonic
             setIsValidatingMnemonic(false);
             await migrateAccount(accountData, mnemonicInput.trim());
         } catch (err) {
@@ -425,14 +334,12 @@ const SingleAccountDIDMigration = ({ username, unifiedPassword, legacyDid: propL
         }
     };
 
-    // Mnemonic required state - prompt user to enter recovery phrase
     if (currentStep === MIGRATION_STEPS.MNEMONIC_REQUIRED) {
         const wordCount = getMnemonicWordCount();
         const isValidLength = wordCount === 24;
 
         return (
             <div className="flex flex-col h-full pt-4 pb-6">
-                {/* Header */}
                 <div className="flex items-center gap-3 mb-6">
                     <div className="p-3 rounded-xl bg-amber-100">
                         <FiAlertCircle className="text-amber-600" size={24} />

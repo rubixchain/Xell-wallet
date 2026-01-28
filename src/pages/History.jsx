@@ -9,7 +9,7 @@ import { TransactionsContext } from '../context/transactionContext';
 import { END_POINTS } from '../api/endpoints';
 import { UserContext } from '../context/userContext';
 import { NETWORK_TYPES } from '../../config';
-import { useNavigate } from 'react-router-dom'; //  ADDED
+import { useNavigate } from 'react-router-dom';
 import { normalizeEpoch } from '../utils/utils';
 
 export default function History({ isModal = false }) {
@@ -24,10 +24,10 @@ export default function History({ isModal = false }) {
   const [inputValue, setInputValue] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
-  const navigate = useNavigate(); //  ADDED
+  const navigate = useNavigate();
 
   const handleBack = () => {
-    navigate("/dashboard"); //  CHANGE if you have a ROUTES constant
+    navigate("/dashboard");
   };
 
   const filterData = (filterData) => {
@@ -105,8 +105,6 @@ export default function History({ isModal = false }) {
         END_POINTS.get_transactions_info({ DID: userDetails?.did })
       ];
 
-      // Only fetch legacy DID transactions for Rubix Mainnet (network 1) where balance was migrated
-      // For other networks, balance wasn't transferred so don't show legacy transactions
       if (userDetails?.legacyDid && userDetails?.network === 1) {
         apiPromises.push(
           END_POINTS.get_transactions_info({ DID: userDetails?.legacyDid })
@@ -146,7 +144,6 @@ export default function History({ isModal = false }) {
       }
 
       if (allTransactions.length > 0) {
-        // Apply filtering
         const filteredTxns = allTransactions.filter((item) => {
           const meetsTypeCheck = selectedType === "All" || item?.type === selectedType;
           const matchesInput =
@@ -169,7 +166,6 @@ export default function History({ isModal = false }) {
     }
   };
 
-  // Non-RBT networks (3, 4, etc.)
   useEffect(() => {
 
 
@@ -177,7 +173,6 @@ export default function History({ isModal = false }) {
     triggerFtAPI();
   }, [displayedRange, selectedType, inputValue, userDetails?.did, userDetails?.network]);
 
-  // RBT network (1, 2)
   useEffect(() => {
 
 
@@ -187,14 +182,12 @@ export default function History({ isModal = false }) {
 
   return (
     <div className={`${isModal ? "" : "min-h-screen bg-gray-50 dark:bg-gray-900"}`}>
-      {/*  Show header only if not in modal */}
       {!isModal && <Header />}
 
       <div className={`space-y-6 ${isModal ? "" : "p-4 sm:p-10"} w-full`}>
         <main className={`w-full ${isModal ? "" : "flex justify-center"}`}>
           <div className="w-full space-y-6 bg-white dark:bg-gray-800 shadow-xl p-4 transition-colors">
 
-            {/*  BACK BUTTON only if NOT modal */}
             {!isModal && (
               <button
                 onClick={handleBack}
