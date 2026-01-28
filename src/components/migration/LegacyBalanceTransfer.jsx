@@ -38,7 +38,35 @@ const LegacyBalanceTransfer = ({ legacyDid, legacyPrivateKey, newDid, onComplete
             setCurrentStep(MIGRATION_STEPS.TRANSFERRING);
             setProgress(60);
 
-            const result = await initiateProxyTransfer(legacyPrivateKey, legacyDid, newDid, config.RUBIX_MAINNET_BASE_URL);
+            const rubixNetworks = [
+                { id: '1', baseUrl: config.RUBIX_MAINNET_BASE_URL },
+                { id: '2', baseUrl: config.RUBIX_TESTNET_BASE_URL }
+            ];
+
+            let transferSuccess = false;
+            let lastError = null;
+
+            for (const network of rubixNetworks) {
+                if (!network.baseUrl) continue;
+                try {
+                    const result = await initiateProxyTransfer(legacyPrivateKey, legacyDid, newDid, network.baseUrl);
+                    if (result.success) {
+                        transferSuccess = true;
+                        break;
+                    }
+                    lastError = result.message;
+                } catch (e) {
+                    lastError = e.message;
+                }
+            }
+
+            if (!transferSuccess && lastError) {
+                setError(lastError);
+                setCurrentStep(MIGRATION_STEPS.FAILED);
+                return;
+            }
+
+            const result = { success: transferSuccess };
 
             if (!result.success) {
                 setError(result.message);
