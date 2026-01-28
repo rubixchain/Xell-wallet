@@ -296,9 +296,21 @@ const indexDBUtil = {
             getRequest.onsuccess = () => {
                 const existingData = getRequest.result || { id: "NetworkDetails", networks: [] };
 
+                const seenDids = new Set();
+                const uniqueNetworks = existingData.networks.filter(entry => {
+                    if (seenDids.has(entry.did)) {
+                        return false;
+                    }
+                    seenDids.add(entry.did);
+                    return true;
+                });
+                existingData.networks = uniqueNetworks;
+
                 const existingIndex = existingData.networks.findIndex(entry => entry.did === did);
                 if (existingIndex !== -1) {
-                    resolve();
+                    const networkPutRequest = networkStore.put(existingData);
+                    networkPutRequest.onerror = () => reject(networkPutRequest.error);
+                    networkPutRequest.onsuccess = () => resolve();
                     return;
                 }
 
@@ -2359,6 +2371,54 @@ const indexDBUtil = {
             });
         } catch (error) {
             throw error;
+        }
+    },
+
+    cleanupDuplicateNetworks: async function () {
+        try {
+            const db = await this.initDB();
+            return new Promise((resolve, reject) => {
+                const transaction = db.transaction([this.storeName], 'readwrite');
+                const store = transaction.objectStore(this.storeName);
+                const request = store.get("NetworkDetails");
+
+                request.onsuccess = () => {
+                    const data = request.result;
+                    if (!data || !data.networks || data.networks.length === 0) {
+                        resolve({ status: true, message: 'No networks to clean', removed: 0 });
+                        return;
+                    }
+
+                    const originalCount = data.networks.length;
+                    const seenDids = new Set();
+                    const uniqueNetworks = data.networks.filter(entry => {
+                        if (seenDids.has(entry.did)) {
+                            return false;
+                        }
+                        seenDids.add(entry.did);
+                        return true;
+                    });
+
+                    const removedCount = originalCount - uniqueNetworks.length;
+
+                    if (removedCount === 0) {
+                        resolve({ status: true, message: 'No duplicates found', removed: 0 });
+                        return;
+                    }
+
+                    data.networks = uniqueNetworks;
+
+                    const updateRequest = store.put(data);
+                    updateRequest.onsuccess = () => {
+                        resolve({ status: true, message: `Removed ${removedCount} duplicate entries`, removed: removedCount });
+                    };
+                    updateRequest.onerror = () => reject(updateRequest.error);
+                };
+
+                request.onerror = () => reject(request.error);
+            });
+        } catch (error) {
+            return { status: false, message: error.message, removed: 0 };
         }
     }
 };

@@ -39,8 +39,7 @@ const LegacyBalanceTransfer = ({ legacyDid, legacyPrivateKey, newDid, onComplete
             setProgress(60);
 
             const rubixNetworks = [
-                { id: '1', baseUrl: config.RUBIX_MAINNET_BASE_URL },
-                { id: '2', baseUrl: config.RUBIX_TESTNET_BASE_URL }
+                { id: '1', baseUrl: config.RUBIX_MAINNET_BASE_URL }
             ];
 
             let transferSuccess = false;

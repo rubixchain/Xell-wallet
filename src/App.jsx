@@ -38,6 +38,7 @@ function App() {
           }))
         }
         await indexDBUtil.encryptData()
+        await indexDBUtil.cleanupDuplicateNetworks()
         await updateVersion()
       } catch (error) {
         // Still allow app to render even if initialization fails
