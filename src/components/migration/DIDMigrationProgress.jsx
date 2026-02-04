@@ -9,6 +9,7 @@ import { registerDIDOnAllNetworks } from '../../utils/didRegistration';
 const MIGRATION_STEPS = {
     PREPARING: 'preparing',
     GENERATING_KEYS: 'generating_keys',
+    REGISTERING_OLD_DID: 'registering_old_did',
     REQUESTING_DID: 'requesting_did',
     REGISTERING_DID: 'registering_did',
     UPDATING_STORAGE: 'updating_storage',
@@ -108,6 +109,25 @@ const DIDMigrationProgress = ({ unifiedPassword, onComplete, onError }) => {
                 throw new Error(`invalid private key format: expected 64 hex characters, got ${privateKeyHex.length} characters`);
             }
 
+            setCurrentStep(MIGRATION_STEPS.REGISTERING_OLD_DID);
+
+            let oldPrivateKey = privateKeyHex;
+
+            if (account.mnemonic) {
+                const currentPubKey = account.publickey;
+                const matchesLegacy = currentPubKey === keys.legacyCompressedPublicKey;
+
+                if (matchesLegacy) {
+                    oldPrivateKey = keys.legacyPrivateKey;
+                    const oldPublicKey = keys.legacyUncompressedPublicKey;
+
+                    try {
+                        await registerDIDOnAllNetworks(oldPublicKey, oldPrivateKey);
+                    } catch (regError) {
+                    }
+                }
+            }
+
             setCurrentStep(MIGRATION_STEPS.REQUESTING_DID);
 
             setCurrentStep(MIGRATION_STEPS.REGISTERING_DID);
@@ -187,6 +207,8 @@ const DIDMigrationProgress = ({ unifiedPassword, onComplete, onError }) => {
                 return 'Preparing migration...';
             case MIGRATION_STEPS.GENERATING_KEYS:
                 return 'Generating new keys...';
+            case MIGRATION_STEPS.REGISTERING_OLD_DID:
+                return 'Registering old DID on networks...';
             case MIGRATION_STEPS.REQUESTING_DID:
                 return 'Requesting new DID...';
             case MIGRATION_STEPS.REGISTERING_DID:

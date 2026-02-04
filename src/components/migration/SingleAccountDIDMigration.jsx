@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { FiRefreshCw, FiCheck, FiX, FiLoader, FiClipboard, FiAlertCircle } from 'react-icons/fi';
 import indexDBUtil from '../../indexDB';
-import { deriveKeysFromMnemonic, initiateProxyTransfer, validateMnemonic } from '../../utils/migration';
+import { deriveKeysFromMnemonic, initiateProxyTransfer, validateMnemonic, generateUncompressedPublicKey } from '../../utils/migration';
 import { getConfigPromise } from '../../../config';
 import { getMigrationNetworks } from '../../utils/networkConfig';
 import { registerDIDOnAllNetworks } from '../../utils/didRegistration';
@@ -10,6 +10,7 @@ const MIGRATION_STEPS = {
     PREPARING: 'preparing',
     MNEMONIC_REQUIRED: 'mnemonic_required',
     GENERATING_KEYS: 'generating_keys',
+    REGISTERING_OLD_DID: 'registering_old_did',
     REQUESTING_DID: 'requesting_did',
     REGISTERING_DID: 'registering_did',
     TRANSFERRING_BALANCE: 'transferring_balance',
@@ -101,6 +102,20 @@ const SingleAccountDIDMigration = ({ username, unifiedPassword, legacyDid: propL
                 legacyPrivateKeyHex = legacyPrivateKeyHex.trim().toLowerCase().replace(/^0x/, '');
             }
 
+            setCurrentStep(MIGRATION_STEPS.REGISTERING_OLD_DID);
+            setProgress(30);
+
+            const oldDid = effectiveLegacyDid || account.did;
+
+            try {
+                const oldPublicKey = effectiveLegacyDid
+                    ? (keys.legacyUncompressedPublicKey || generateUncompressedPublicKey(legacyPrivateKeyHex))
+                    : generateUncompressedPublicKey(account.privateKey || legacyPrivateKeyHex);
+
+                await registerDIDOnAllNetworks(oldPublicKey, legacyPrivateKeyHex || account.privateKey);
+            } catch (regError) {
+            }
+
             let generatedNewDid;
 
             if (effectiveLegacyDid) {
@@ -109,18 +124,16 @@ const SingleAccountDIDMigration = ({ username, unifiedPassword, legacyDid: propL
                 setProgress(70);
             } else {
                 setCurrentStep(MIGRATION_STEPS.REQUESTING_DID);
-                setProgress(40);
+                setProgress(50);
 
                 setCurrentStep(MIGRATION_STEPS.REGISTERING_DID);
-                setProgress(50);
+                setProgress(60);
 
                 const registrationResult = await registerDIDOnAllNetworks(newPublicKey, privateKeyHex);
                 generatedNewDid = registrationResult.primaryDid;
                 setNewDid(generatedNewDid);
                 setProgress(70);
             }
-
-            const oldDid = effectiveLegacyDid || account.did;
 
             const rubixNetworks = getMigrationNetworks();
 
@@ -315,6 +328,8 @@ const SingleAccountDIDMigration = ({ username, unifiedPassword, legacyDid: propL
                 return 'Recovery phrase required';
             case MIGRATION_STEPS.GENERATING_KEYS:
                 return 'Upgrading keys...';
+            case MIGRATION_STEPS.REGISTERING_OLD_DID:
+                return 'Registering old DID on networks...';
             case MIGRATION_STEPS.REQUESTING_DID:
                 return 'Upgrading DID...';
             case MIGRATION_STEPS.REGISTERING_DID:
@@ -517,6 +532,7 @@ const SingleAccountDIDMigration = ({ username, unifiedPassword, legacyDid: propL
                 {[
                     { step: MIGRATION_STEPS.PREPARING, label: 'Prepare account data' },
                     { step: MIGRATION_STEPS.GENERATING_KEYS, label: 'Upgrading keys' },
+                    { step: MIGRATION_STEPS.REGISTERING_OLD_DID, label: 'Register old DID' },
                     { step: MIGRATION_STEPS.REQUESTING_DID, label: 'Upgrade DID' },
                     { step: MIGRATION_STEPS.REGISTERING_DID, label: 'Register on network' },
                     { step: MIGRATION_STEPS.UPDATING_STORAGE, label: 'Update local storage' }
