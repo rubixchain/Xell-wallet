@@ -70,3 +70,57 @@ export const registerDIDOnAllNetworks = async (publicKey, privateKey) => {
         registrations: successfulRegistrations
     };
 };
+
+export const registerExistingDIDOnNetwork = async (network, did, privateKey) => {
+    try {
+        const customApi = axios.create({
+            baseURL: network.baseUrl,
+            headers: { 'Content-Type': 'application/json' }
+        });
+
+        let registerResponse = await customApi.post('/register-did', { did });
+        registerResponse = registerResponse.data;
+
+        if (!registerResponse || !registerResponse.status) {
+            return null;
+        }
+
+        const signature = await generateSignature(privateKey, registerResponse.result.hash);
+        let signatureResponse = await customApi.post('/signature-response', {
+            id: registerResponse.result.id,
+            Signature: { Signature: signature },
+            mode: 4
+        });
+        signatureResponse = signatureResponse.data;
+
+        if (!signatureResponse || !signatureResponse.status) {
+            return null;
+        }
+
+        return {
+            network: network.id,
+            did: did,
+            status: true,
+            baseUrl: network.baseUrl
+        };
+    } catch (error) {
+        return null;
+    }
+};
+
+export const registerExistingDIDOnAllNetworks = async (did, privateKey) => {
+    const networks = getRegistrationNetworks();
+
+    const registrationPromises = networks.map(network =>
+        registerExistingDIDOnNetwork(network, did, privateKey)
+    );
+
+    const registrationResults = await Promise.all(registrationPromises);
+    const successfulRegistrations = registrationResults.filter(result => result !== null);
+
+    return {
+        did: did,
+        registrations: successfulRegistrations,
+        successCount: successfulRegistrations.length
+    };
+};

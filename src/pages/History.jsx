@@ -113,7 +113,7 @@ export default function History({ isModal = false }) {
 
       const apiResults = await Promise.all(apiPromises);
       const transactionsApiData = apiResults[0];
-      const legacyTransactionsApiData = apiResults[1]; // undefined if no legacy DID
+      const legacyTransactionsApiData = apiResults[1];
 
       let allTransactions = [];
 

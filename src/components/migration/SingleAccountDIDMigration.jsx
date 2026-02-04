@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { FiRefreshCw, FiCheck, FiX, FiLoader, FiClipboard, FiAlertCircle } from 'react-icons/fi';
 import indexDBUtil from '../../indexDB';
-import { deriveKeysFromMnemonic, initiateProxyTransfer, validateMnemonic, generateUncompressedPublicKey } from '../../utils/migration';
+import { deriveKeysFromMnemonic, initiateProxyTransfer, validateMnemonic } from '../../utils/migration';
 import { getConfigPromise } from '../../../config';
 import { getMigrationNetworks } from '../../utils/networkConfig';
-import { registerDIDOnAllNetworks } from '../../utils/didRegistration';
+import { registerDIDOnAllNetworks, registerExistingDIDOnAllNetworks } from '../../utils/didRegistration';
 
 const MIGRATION_STEPS = {
     PREPARING: 'preparing',
@@ -106,13 +106,10 @@ const SingleAccountDIDMigration = ({ username, unifiedPassword, legacyDid: propL
             setProgress(30);
 
             const oldDid = effectiveLegacyDid || account.did;
+            const oldPrivateKey = legacyPrivateKeyHex || account.privateKey;
 
             try {
-                const oldPublicKey = effectiveLegacyDid
-                    ? (keys.legacyUncompressedPublicKey || generateUncompressedPublicKey(legacyPrivateKeyHex))
-                    : generateUncompressedPublicKey(account.privateKey || legacyPrivateKeyHex);
-
-                await registerDIDOnAllNetworks(oldPublicKey, legacyPrivateKeyHex || account.privateKey);
+                await registerExistingDIDOnAllNetworks(oldDid, oldPrivateKey);
             } catch (regError) {
             }
 

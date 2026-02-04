@@ -4,7 +4,7 @@ import indexDBUtil from '../../indexDB';
 import { generateUncompressedPublicKey, deriveKeysFromMnemonic, initiateProxyTransfer } from '../../utils/migration';
 import { getConfigPromise } from '../../../config';
 import { getMigrationNetworks } from '../../utils/networkConfig';
-import { registerDIDOnAllNetworks } from '../../utils/didRegistration';
+import { registerDIDOnAllNetworks, registerExistingDIDOnAllNetworks } from '../../utils/didRegistration';
 
 const MIGRATION_STEPS = {
     PREPARING: 'preparing',
@@ -111,21 +111,22 @@ const DIDMigrationProgress = ({ unifiedPassword, onComplete, onError }) => {
 
             setCurrentStep(MIGRATION_STEPS.REGISTERING_OLD_DID);
 
+            const oldDid = account.did;
             let oldPrivateKey = privateKeyHex;
 
             if (account.mnemonic) {
+                const keys = deriveKeysFromMnemonic(account.mnemonic);
                 const currentPubKey = account.publickey;
                 const matchesLegacy = currentPubKey === keys.legacyCompressedPublicKey;
 
                 if (matchesLegacy) {
                     oldPrivateKey = keys.legacyPrivateKey;
-                    const oldPublicKey = keys.legacyUncompressedPublicKey;
-
-                    try {
-                        await registerDIDOnAllNetworks(oldPublicKey, oldPrivateKey);
-                    } catch (regError) {
-                    }
                 }
+            }
+
+            try {
+                await registerExistingDIDOnAllNetworks(oldDid, oldPrivateKey);
+            } catch (regError) {
             }
 
             setCurrentStep(MIGRATION_STEPS.REQUESTING_DID);

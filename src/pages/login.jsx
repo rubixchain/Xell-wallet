@@ -180,7 +180,8 @@ function Login() {
             username: userData?.username,
             network: userData?.network,
             pin: pinValue,
-            tokenSymbol: getActivenetwork?.tokenSymbol
+            tokenSymbol: getActivenetwork?.tokenSymbol,
+            legacyDid: userData?.legacyDid || null
         })
 
         localStorage.setItem("currentUser", JSON.stringify({
@@ -281,7 +282,8 @@ function Login() {
             username: userData?.username,
             network: 1,
             pin: pinValue,
-            tokenSymbol: NETWORK_TYPES.RBT
+            tokenSymbol: NETWORK_TYPES.RBT,
+            legacyDid: userData?.legacyDid || null
         });
 
         localStorage.setItem(ENUMS.INITIAL_ACTIVE_TIME, JSON.stringify(Date.now()));
