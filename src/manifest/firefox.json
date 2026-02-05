@@ -1,7 +1,7 @@
 {
     "name": "Xell Extension",
     "description": "A self-custodial crypto wallet built as a browser extension",
-    "version": "2.1.3",
+    "version": "2.1.4",
     "manifest_version": 2,
     "browser_action": {
         "default_popup": "index.html"
