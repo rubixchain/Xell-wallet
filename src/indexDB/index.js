@@ -288,23 +288,22 @@ const indexDBUtil = {
                         headers: { 'Content-Type': 'application/json' }
                     });
 
-                    let res = await customApi.post('/request-did-for-pubkey', { public_key: publickey, network: network.id });
+                    let res = await customApi.post('/rubix/v1/dids/create', { public_key: publickey, password: encryptionPassword });
                     res = res.data;
-                    if (!res) {
+                    if (!res || !res.result?.did) {
                         return null;
                     }
 
-                    let registerDid = await customApi.post('/register-did', { did: res?.did });
+                    let registerDid = await customApi.post(`/rubix/v1/dids/${res.result.did}/register`);
                     registerDid = registerDid.data;
                     if (!registerDid || !registerDid?.status) {
                         return null;
                     }
 
                     let signature = await generateSignature(privatekey, registerDid?.result?.hash);
-                    let signatureResponse = await customApi.post('/signature-response', {
+                    let signatureResponse = await customApi.post('/rubix/v1/signature', {
                         id: registerDid?.result?.id,
-                        Signature: { Signature: signature },
-                        mode: 4
+                        signature: signature
                     });
                     signatureResponse = signatureResponse.data;
 
@@ -314,7 +313,7 @@ const indexDBUtil = {
 
                     return {
                         network: network.id,
-                        did: res?.did,
+                        did: res.result.did,
                         status: true,
                         baseUrl: network.baseUrl
                     };
@@ -458,14 +457,14 @@ const indexDBUtil = {
                         headers: { 'Content-Type': 'application/json' }
                     });
 
-                    let res = await customApi.post('/request-did-for-pubkey', { public_key: publicKey, network: network.id });
+                    let res = await customApi.post('/rubix/v1/dids/create', { public_key: publicKey, password: encryptionPassword });
                     res = res.data;
-                    if (!res) {
+                    if (!res || !res.result?.did) {
 
                         return null;
                     }
 
-                    let registerDid = await customApi.post('/register-did', { did: res?.did });
+                    let registerDid = await customApi.post(`/rubix/v1/dids/${res.result.did}/register`);
                     registerDid = registerDid.data;
                     if (!registerDid || !registerDid?.status) {
 
@@ -473,10 +472,9 @@ const indexDBUtil = {
                     }
 
                     let signature = await generateSignature(privateKey, registerDid?.result?.hash);
-                    let signatureResponse = await customApi.post('/signature-response', {
+                    let signatureResponse = await customApi.post('/rubix/v1/signature', {
                         id: registerDid?.result?.id,
-                        Signature: { Signature: signature },
-                        mode: 4
+                        signature: signature
                     });
                     signatureResponse = signatureResponse.data;
 
@@ -487,7 +485,7 @@ const indexDBUtil = {
 
                     return {
                         network: network.id,
-                        did: res?.did,
+                        did: res.result.did,
                         status: true,
                         baseUrl: network.baseUrl
                     };

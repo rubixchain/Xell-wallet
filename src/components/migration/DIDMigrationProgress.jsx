@@ -133,7 +133,7 @@ const DIDMigrationProgress = ({ unifiedPassword, onComplete, onError }) => {
 
             setCurrentStep(MIGRATION_STEPS.REGISTERING_DID);
 
-            const registrationResult = await registerDIDOnAllNetworks(newPublicKey, privateKeyHex);
+            const registrationResult = await registerDIDOnAllNetworks(newPublicKey, privateKeyHex, unifiedPassword);
             const newDid = registrationResult.primaryDid;
 
             const rubixNetworks = getMigrationNetworks();

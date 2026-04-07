@@ -120,11 +120,11 @@ const ImportWallet = () => {
               headers: { 'Content-Type': 'application/json' }
             });
 
-            const legacyDIDResponse = await networkApi.post('/request-did-for-pubkey', {
+            const legacyDIDResponse = await networkApi.post('/rubix/v1/dids/create', {
               public_key: keys.legacyCompressedPublicKey,
-              network: network.id
+              password: ''
             });
-            const did = legacyDIDResponse?.data?.did;
+            const did = legacyDIDResponse?.data?.result?.did;
 
             if (did) {
               legacyDid = did;

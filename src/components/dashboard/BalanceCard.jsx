@@ -64,14 +64,14 @@ export default function BalanceCard({ accountInfo, setIsTransactionCompleted }) 
       setIsLoading(true);
       setTimeout(() => setIsLoading(false), 100);
     }
-  }, [accountInfo?.rbt_amount, accountInfo?.ft_count, userDetails?.network]);
+  }, [accountInfo?.balance, accountInfo?.ft_count, userDetails?.network]);
 
   useEffect(() => {
     if (accountInfo && Object.keys(accountInfo).length > 0) {
       setIsLoading(true);
       setTimeout(() => setIsLoading(false), 100);
     }
-  }, [accountInfo?.rbt_amount, accountInfo?.ft_count, userDetails?.network]);
+  }, [accountInfo?.balance, accountInfo?.ft_count, userDetails?.network]);
 
   const fetchCurrentTickerData = async () => {
     setIsLoading(true);
@@ -185,7 +185,7 @@ export default function BalanceCard({ accountInfo, setIsTransactionCompleted }) 
               {(() => {
                 const networkValue = userDetails?.network ?? (isUserLoggedIn ? 1 : null);
                 const isRubixNetwork = Number(networkValue) === 1 || Number(networkValue) === 2;
-                const amount = isRubixNetwork ? accountInfo?.rbt_amount : accountInfo?.ft_count;
+                const amount = isRubixNetwork ? accountInfo?.balance : accountInfo?.ft_count;
                 return `${amount || 0} ${userDetails?.tokenSymbol || 'RBT'}`;
               })()}
             </motion.div>

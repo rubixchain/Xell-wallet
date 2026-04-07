@@ -17,8 +17,7 @@ async function generateSignatureApi(id, hash, pk) {
     let signature = await generateSignature(pk, hash)
     let signatureResponse = await END_POINTS.signature_response({
       id: id,
-      Signature: { Signature: signature },
-      mode: 4
+      signature: signature
     })
 
     if (!signatureResponse || !signatureResponse?.status) {

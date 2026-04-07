@@ -43,7 +43,6 @@ export function getConfigPromise() {
     return configLoadedPromise;
 }
 
-// Load config immediately and store the promise
 configLoadedPromise = loadConfig();
 
 export const NETWORK_TYPES = {

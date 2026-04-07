@@ -5,17 +5,17 @@ import axios from 'axios'
 const PROXY_SERVER_URL = 'http://localhost:3000';
 
 export const END_POINTS = {
-    register_did: (params) => {
-        return api.post('register-did', params)
+    register_did: (did) => {
+        return api.post(`rubix/v1/dids/${did}/register`)
     },
     signature_response: (params) => {
-        return api.post('signature-response', params)
+        return api.post('rubix/v1/signature', params)
     },
     create_wallet: (params) => {
-        return api.post('request-did-for-pubkey', params)
+        return api.post('rubix/v1/dids/create', params)
     },
-    get_account_info: (params) => {
-        return api.get('get-account-info', { params })
+    get_account_info: (did) => {
+        return api.get(`rubix/v1/dids/${did}/balances/rbt`)
     },
     get_nfts_info: (params) => {
         return api.get('get-nfts-by-did', { params })

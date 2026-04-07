@@ -32,8 +32,8 @@ const LegacyBalanceTransfer = ({ legacyDid, legacyPrivateKey, newDid, onComplete
 
             await getConfigPromise();
 
-            const accountInfo = await END_POINTS.get_account_info({ did: legacyDid });
-            const legacyBalance = accountInfo?.account_info?.[0]?.rbt_amount || 0;
+            const accountInfo = await END_POINTS.get_account_info(legacyDid);
+            const legacyBalance = accountInfo?.result?.balance || 0;
             setBalance(legacyBalance);
 
             setCurrentStep(MIGRATION_STEPS.TRANSFERRING);

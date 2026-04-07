@@ -49,7 +49,7 @@ export const generateSignature = async (privKeyStr, message) => {
         try {
             const signature = secp256k1.sign(messagebyteArray, privKeyStr);
             const signatureDER = signature.toDERRawBytes();
-            return Array.from(signatureDER);
+            return btoa(String.fromCharCode(...signatureDER));
         } catch (signingErr) {
 
             throw signingErr;

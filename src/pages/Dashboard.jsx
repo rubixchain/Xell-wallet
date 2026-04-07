@@ -82,7 +82,7 @@ export default function Dashboard() {
         const networkValue = userDetails?.network ?? 1;
         if (networkValue == 1 || networkValue == 2) {
           const apiPromises = [
-            END_POINTS.get_account_info({ did: userDetails?.did }),
+            END_POINTS.get_account_info(userDetails?.did),
             END_POINTS.get_transactions_info({ DID: userDetails?.did })
           ];
 
@@ -92,15 +92,15 @@ export default function Dashboard() {
             );
           }
 
-          const apiResults = await Promise.all(apiPromises);
-          const accountinfoApiData = apiResults[0];
-          const transactionsApiData = apiResults[1];
-          const legacyTransactionsApiData = apiResults[2]; // undefined if no legacy DID
+          const apiResults = await Promise.allSettled(apiPromises);
+          const accountinfoApiData = apiResults[0]?.status === 'fulfilled' ? apiResults[0].value : null;
+          const transactionsApiData = apiResults[1]?.status === 'fulfilled' ? apiResults[1].value : null;
+          const legacyTransactionsApiData = apiResults[2]?.status === 'fulfilled' ? apiResults[2]?.value : null;
 
           let res = {}
 
           if (accountinfoApiData?.status) {
-            res = { ...res, ...accountinfoApiData?.account_info[0] }
+            res = { ...res, balance: accountinfoApiData?.result?.balance, pledged: accountinfoApiData?.result?.pledged, locked: accountinfoApiData?.result?.locked }
           }
           setAccountInfo(res)
           setSelectedTokens([])

@@ -178,8 +178,7 @@ async function handleSignatureFlow(id, hash, privateKeyHex, END_POINTS) {
 
     const signatureResponse = await END_POINTS.signature_response({
         id,
-        mode: 4,
-        Signature: { Signature: signature }
+        signature: signature
     });
 
     // Check if more signatures are needed (recursive)

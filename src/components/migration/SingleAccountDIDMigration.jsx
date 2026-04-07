@@ -126,7 +126,7 @@ const SingleAccountDIDMigration = ({ username, unifiedPassword, legacyDid: propL
                 setCurrentStep(MIGRATION_STEPS.REGISTERING_DID);
                 setProgress(60);
 
-                const registrationResult = await registerDIDOnAllNetworks(newPublicKey, privateKeyHex);
+                const registrationResult = await registerDIDOnAllNetworks(newPublicKey, privateKeyHex, unifiedPassword);
                 generatedNewDid = registrationResult.primaryDid;
                 setNewDid(generatedNewDid);
                 setProgress(70);

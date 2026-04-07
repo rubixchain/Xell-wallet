@@ -53,8 +53,8 @@ const useNetworkRegistrationCheck = (userDetails) => {
                         headers: { 'Content-Type': 'application/json' }
                     });
 
-                    const accountInfo = await networkApi.get('/get-account-info', { params: { did } });
-                    const isRegistered = accountInfo?.data?.account_info?.length > 0;
+                    const accountInfo = await networkApi.get(`/rubix/v1/dids/did:${did}/balances/rbt`);
+                    const isRegistered = accountInfo?.data?.status === true;
 
                     if (isRegistered) {
                         registrationResults.push({ network: network.id, name: network.name, status: 'already_registered' });
@@ -62,18 +62,18 @@ const useNetworkRegistrationCheck = (userDetails) => {
                         continue;
                     }
 
-                    let didResponse = await networkApi.post('/request-did-for-pubkey', {
+                    let didResponse = await networkApi.post('/rubix/v1/dids/create', {
                         public_key: publicKey,
-                        network: network.id
+                        password: unifiedPassword
                     });
                     didResponse = didResponse.data;
 
-                    if (!didResponse?.did) {
+                    if (!didResponse?.result?.did) {
                         registrationResults.push({ network: network.id, name: network.name, status: 'failed', error: 'No DID returned' });
                         continue;
                     }
 
-                    let registerResponse = await networkApi.post('/register-did', { did: didResponse.did });
+                    let registerResponse = await networkApi.post(`/rubix/v1/dids/${didResponse.result.did}/register`);
                     registerResponse = registerResponse.data;
 
                     if (!registerResponse?.status || !registerResponse?.result?.hash) {
@@ -82,10 +82,9 @@ const useNetworkRegistrationCheck = (userDetails) => {
                     }
 
                     const signature = await generateSignature(privateKeyHex, registerResponse.result.hash);
-                    let signatureResponse = await networkApi.post('/signature-response', {
+                    let signatureResponse = await networkApi.post('/rubix/v1/signature', {
                         id: registerResponse.result.id,
-                        Signature: { Signature: signature },
-                        mode: 4
+                        signature: signature
                     });
                     signatureResponse = signatureResponse.data;
 

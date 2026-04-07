@@ -2,26 +2,26 @@ import axios from 'axios';
 import { generateSignature } from '../utils';
 import { getRegistrationNetworks } from './networkConfig';
 
-export const registerDIDOnNetwork = async (network, publicKey, privateKey) => {
+export const registerDIDOnNetwork = async (network, publicKey, privateKey, password) => {
     try {
         const customApi = axios.create({
             baseURL: network.baseUrl,
             headers: { 'Content-Type': 'application/json' }
         });
 
-        let didResponse = await customApi.post('/request-did-for-pubkey', {
+        let didResponse = await customApi.post('/rubix/v1/dids/create', {
             public_key: publicKey,
-            network: network.id
+            password: password
         });
         didResponse = didResponse.data;
 
-        if (!didResponse || !didResponse.did) {
+        if (!didResponse || !didResponse.result?.did) {
             return null;
         }
 
-        const newDid = didResponse.did;
+        const newDid = didResponse.result.did;
 
-        let registerResponse = await customApi.post('/register-did', { did: newDid });
+        let registerResponse = await customApi.post(`/rubix/v1/dids/${newDid}/register`);
         registerResponse = registerResponse.data;
 
         if (!registerResponse || !registerResponse.status) {
@@ -29,10 +29,9 @@ export const registerDIDOnNetwork = async (network, publicKey, privateKey) => {
         }
 
         const signature = await generateSignature(privateKey, registerResponse.result.hash);
-        let signatureResponse = await customApi.post('/signature-response', {
+        let signatureResponse = await customApi.post('/rubix/v1/signature', {
             id: registerResponse.result.id,
-            Signature: { Signature: signature },
-            mode: 4
+            signature: signature
         });
         signatureResponse = signatureResponse.data;
 
@@ -51,11 +50,11 @@ export const registerDIDOnNetwork = async (network, publicKey, privateKey) => {
     }
 };
 
-export const registerDIDOnAllNetworks = async (publicKey, privateKey) => {
+export const registerDIDOnAllNetworks = async (publicKey, privateKey, password) => {
     const networks = getRegistrationNetworks();
 
     const registrationPromises = networks.map(network =>
-        registerDIDOnNetwork(network, publicKey, privateKey)
+        registerDIDOnNetwork(network, publicKey, privateKey, password)
     );
 
     const registrationResults = await Promise.all(registrationPromises);
@@ -78,7 +77,7 @@ export const registerExistingDIDOnNetwork = async (network, did, privateKey) => 
             headers: { 'Content-Type': 'application/json' }
         });
 
-        let registerResponse = await customApi.post('/register-did', { did });
+        let registerResponse = await customApi.post(`/rubix/v1/dids/${did}/register`);
         registerResponse = registerResponse.data;
 
         if (!registerResponse || !registerResponse.status) {
@@ -86,10 +85,9 @@ export const registerExistingDIDOnNetwork = async (network, did, privateKey) => 
         }
 
         const signature = await generateSignature(privateKey, registerResponse.result.hash);
-        let signatureResponse = await customApi.post('/signature-response', {
+        let signatureResponse = await customApi.post('/rubix/v1/signature', {
             id: registerResponse.result.id,
-            Signature: { Signature: signature },
-            mode: 4
+            signature: signature
         });
         signatureResponse = signatureResponse.data;
 

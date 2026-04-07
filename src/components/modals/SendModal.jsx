@@ -62,7 +62,7 @@ export default function SendModal({ isOpen, onClose, accountInfo, setIsTransacti
         {
           symbol: 'RBT',
           name: 'RBT',
-          balance: accountInfo?.rbt_amount || '0',
+          balance: accountInfo?.balance || '0',
           ft_name: 'RBT'
         },
         ...selectedTokens.map(token => ({
@@ -76,14 +76,14 @@ export default function SendModal({ isOpen, onClose, accountInfo, setIsTransacti
       // Set RBT as default selected token
       setSelectedToken(tokensWithRBT[0]);
     }
-  }, [userDetails?.tokenSymbol, selectedTokens, accountInfo?.rbt_amount]);
+  }, [userDetails?.tokenSymbol, selectedTokens, accountInfo?.balance]);
 
   // Get combined tokens list for dropdown
   const getAvailableTokens = () => {
     if (!userDetails?.tokenSymbol && selectedTokens && selectedTokens.length > 0) {
       return [
         {
-          ft_count: accountInfo?.rbt_amount || '0',
+          ft_count: accountInfo?.balance || '0',
           ft_name: 'RBT'
         },
         ...selectedTokens.map(token => ({
@@ -160,7 +160,7 @@ export default function SendModal({ isOpen, onClose, accountInfo, setIsTransacti
     if (userDetails?.network == 1 || userDetails?.network == 2) {
       return {
         symbol: 'RBT',
-        balance: accountInfo?.rbt_amount || '0'
+        balance: accountInfo?.balance || '0'
       };
     } else {
       // For other tokens (TRI, TRIE, etc.), use ft_count
@@ -178,8 +178,7 @@ export default function SendModal({ isOpen, onClose, accountInfo, setIsTransacti
       let signature = await generateSignature(pk, hash)
       let signatureResponse = await END_POINTS.signature_response({
         id: id,
-        Signature: { Signature: signature },
-        mode: 4
+        signature: signature
       })
 
       if (!signatureResponse || !signatureResponse?.status) {
