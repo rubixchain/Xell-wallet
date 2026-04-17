@@ -21,7 +21,7 @@ export const registerDIDOnNetwork = async (network, publicKey, privateKey, passw
 
         const newDid = didResponse.result.did;
 
-        let registerResponse = await customApi.post(`/rubix/v1/dids/${newDid}/register`);
+        let registerResponse = await customApi.get(`/rubix/v1/dids/${newDid}/register`);
         registerResponse = registerResponse.data;
 
         if (!registerResponse || !registerResponse.status) {
@@ -77,7 +77,7 @@ export const registerExistingDIDOnNetwork = async (network, did, privateKey) => 
             headers: { 'Content-Type': 'application/json' }
         });
 
-        let registerResponse = await customApi.post(`/rubix/v1/dids/${did}/register`);
+        let registerResponse = await customApi.get(`/rubix/v1/dids/${did}/register`);
         registerResponse = registerResponse.data;
 
         if (!registerResponse || !registerResponse.status) {

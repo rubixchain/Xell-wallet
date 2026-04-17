@@ -4,9 +4,46 @@ import axios from 'axios'
 // Proxy server URL for DID migration balance transfers
 const PROXY_SERVER_URL = 'http://localhost:3000';
 
+const toEpoch = (value) => {
+    if (!value) return 0
+    const parsed = typeof value === 'number' ? value : new Date(value).getTime()
+    if (!parsed || Number.isNaN(parsed)) return 0
+    return Math.floor(parsed / 1000)
+}
+
+const sumTokenValues = (tokens) => {
+    if (!Array.isArray(tokens)) return 0
+    return tokens.reduce((sum, t) => sum + (Number(t?.tokenValue) || 0), 0)
+}
+
+const mapTxToLegacyShape = (tx) => {
+    const info = tx?.Info || {}
+    const tokens = info?.tokens || {}
+    const rbtAmount = sumTokenValues(tokens.rbt)
+    const ftAmount = sumTokenValues(tokens.ft)
+    const epoch = Number(info?.epoch) || toEpoch(tx?.CreatedAt)
+    return {
+        TransactionID: tx?.ID || '',
+        SenderDID: info?.initiator || '',
+        ReceiverDID: info?.owner || '',
+        Amount: rbtAmount || ftAmount || 0,
+        Epoch: epoch,
+        DateTime: tx?.CreatedAt || '',
+        Comment: info?.memo || '',
+        Mode: 0,
+        Status: true
+    }
+}
+
+const normalizeTxHistoryResponse = (response) => {
+    if (!response || response.status !== true) return response
+    const result = Array.isArray(response.result) ? response.result : []
+    return { ...response, TxnDetails: result.map(mapTxToLegacyShape) }
+}
+
 export const END_POINTS = {
     register_did: (did) => {
-        return api.post(`rubix/v1/dids/${did}/register`)
+        return api.get(`rubix/v1/dids/${did}/register`)
     },
     signature_response: (params) => {
         return api.post('rubix/v1/signature', params)
@@ -23,11 +60,26 @@ export const END_POINTS = {
     get_ft_info: (params) => {
         return api.get('get-ft-info-by-did', { params })
     },
-    get_transactions_info: (params) => {
-        return api.get('get-by-did', { params })
+    get_transactions_info: async (params) => {
+        const did = params?.DID || params?.did
+        const response = await api.get(`rubix/v1/tx/${did}/rbt`)
+        return normalizeTxHistoryResponse(response)
     },
     transfer_rtbt: (params) => {
-        return api.post('initiate-rbt-transfer', params)
+        const tokenCount = Number(params?.tokenCount ?? params?.tokenCOunt ?? 0)
+        const body = {
+            initiator: params?.sender,
+            owner: params?.receiver,
+            tokens: {
+                rbt: tokenCount,
+                ft: [],
+                nft: [],
+                smartContract: [],
+                transferNftOwnership: false
+            },
+            memo: params?.comment || ''
+        }
+        return api.post('rubix/v1/tx', body)
     },
     get_rbt_data: async () => {
         // Analytics endpoint - modify this URL to point to your analytics API
@@ -58,7 +110,23 @@ export const END_POINTS = {
         return api.post('execute-nft', data)
     },
     initiate_ft_transfer: (data) => {
-        return api.post('initiate-ft-transfer', data)
+        const body = {
+            initiator: data?.sender,
+            owner: data?.receiver,
+            tokens: {
+                rbt: 0,
+                ft: [{
+                    ftName: data?.ft_name,
+                    creatorDID: data?.creatorDID,
+                    numberOfFts: Number(data?.ft_count) || 0
+                }],
+                nft: [],
+                smartContract: [],
+                transferNftOwnership: false
+            },
+            memo: data?.comment || ''
+        }
+        return api.post('rubix/v1/tx', body)
     },
     create_ft: (data) => {
         return api.post('create-ft', data)
@@ -66,8 +134,10 @@ export const END_POINTS = {
     get_network_details: () => {
         return api.get('getalldid')
     },
-    get_ft_txn_by_did: (params) => {
-        return api.get('get-ft-txn-by-did', { params })
+    get_ft_txn_by_did: async (params) => {
+        const did = params?.DID || params?.did
+        const response = await api.get(`rubix/v1/tx/${did}/ft`)
+        return normalizeTxHistoryResponse(response)
     },
 
     // Proxy server endpoint for DID migration balance transfer

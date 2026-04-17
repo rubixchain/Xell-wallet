@@ -52,14 +52,9 @@ export default function History({ isModal = false }) {
   const triggerFtAPI = async () => {
     try {
       setIsLoading(true);
-      const formatDate = (date) => date.toISOString().split("T")[0];
-
-
 
       const fttxn = await END_POINTS.get_ft_txn_by_did({
         DID: userDetails?.did,
-        StartDate: formatDate(displayedRange.startDate),
-        EndDate: formatDate(displayedRange.endDate),
       });
 
 
@@ -75,12 +70,15 @@ export default function History({ isModal = false }) {
         Epoch: normalizeEpoch(txn?.Epoch, txn?.DateTime),
       })) || [];
 
+      const startMs = new Date(displayedRange.startDate).getTime();
+      const endMs = new Date(displayedRange.endDate).getTime();
 
       const filteredTxns = transactions.filter((item) => {
+        const inTimeRange = item.Epoch >= startMs && item.Epoch <= endMs;
         const meetsTypeCheck = selectedType === "All" || item?.type === selectedType;
         const matchesInput =
           !inputValue || item?.SenderDID?.includes(inputValue) || item?.ReceiverDID?.includes(inputValue);
-        return meetsTypeCheck && matchesInput;
+        return inTimeRange && meetsTypeCheck && matchesInput;
       });
 
 
