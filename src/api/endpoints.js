@@ -41,6 +41,18 @@ const normalizeTxHistoryResponse = (response) => {
     return { ...response, TxnDetails: result.map(mapTxToLegacyShape) }
 }
 
+const normalizeFtInfoResponse = (response) => {
+    if (!response || response.status !== true) return response
+    const result = Array.isArray(response.result) ? response.result : []
+    const ftInfo = result.map(ft => ({
+        ft_name: ft.name,
+        creator_did: ft.creator,
+        ft_count: ft.count,
+        ft_value: ft.value
+    }))
+    return { ...response, ft_info: ftInfo }
+}
+
 export const END_POINTS = {
     register_did: (did) => {
         return api.get(`rubix/v1/dids/${did}/register`)
@@ -51,16 +63,18 @@ export const END_POINTS = {
     create_wallet: (params) => {
         return api.post('rubix/v1/dids/create', params)
     },
-    get_account_info: (did) => {
+    get_rbt_balance: (did) => {
         return api.get(`rubix/v1/dids/${did}/balances/rbt`)
     },
     get_nfts_info: (params) => {
         return api.get('get-nfts-by-did', { params })
     },
-    get_ft_info: (params) => {
-        return api.get('get-ft-info-by-did', { params })
+    get_ft_balance: async (params) => {
+        const did = params?.did || params?.DID
+        const response = await api.get(`rubix/v1/dids/${did}/balances/ft`)
+        return normalizeFtInfoResponse(response)
     },
-    get_transactions_info: async (params) => {
+    get_rbt_transactions: async (params) => {
         const did = params?.DID || params?.did
         const response = await api.get(`rubix/v1/tx/${did}/rbt`)
         return normalizeTxHistoryResponse(response)
@@ -134,7 +148,7 @@ export const END_POINTS = {
     get_network_details: () => {
         return api.get('getalldid')
     },
-    get_ft_txn_by_did: async (params) => {
+    get_ft_transactions: async (params) => {
         const did = params?.DID || params?.did
         const response = await api.get(`rubix/v1/tx/${did}/ft`)
         return normalizeTxHistoryResponse(response)

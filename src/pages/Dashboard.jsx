@@ -82,13 +82,13 @@ export default function Dashboard() {
         const networkValue = userDetails?.network ?? 1;
         if (networkValue == 1 || networkValue == 2) {
           const apiPromises = [
-            END_POINTS.get_account_info(userDetails?.did),
-            END_POINTS.get_transactions_info({ DID: userDetails?.did })
+            END_POINTS.get_rbt_balance(userDetails?.did),
+            END_POINTS.get_rbt_transactions({ DID: userDetails?.did })
           ];
 
           if (userDetails?.legacyDid && networkValue === 1) {
             apiPromises.push(
-              END_POINTS.get_transactions_info({ DID: userDetails?.legacyDid })
+              END_POINTS.get_rbt_transactions({ DID: userDetails?.legacyDid })
             );
           }
 
@@ -129,8 +129,8 @@ export default function Dashboard() {
         }
         else {
           const [ftinfo, fttxn] = await Promise.all([
-            END_POINTS.get_ft_info({ did: userDetails?.did }),
-            END_POINTS.get_ft_txn_by_did({
+            END_POINTS.get_ft_balance({ did: userDetails?.did }),
+            END_POINTS.get_ft_transactions({
               DID: userDetails?.did,
               startDate: new Date("2024-12-02"),
               endDate: new Date()
@@ -144,7 +144,7 @@ export default function Dashboard() {
           if (!ftinfoData || ftinfoData.length === 0) {
             setAccountInfo({ ft_count: 0 });
           } else {
-            
+
             setAccountInfo(ftinfoData[0]);
           }
           if (fttxn?.status) {

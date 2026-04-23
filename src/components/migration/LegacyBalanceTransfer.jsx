@@ -32,7 +32,7 @@ const LegacyBalanceTransfer = ({ legacyDid, legacyPrivateKey, newDid, onComplete
 
             await getConfigPromise();
 
-            const accountInfo = await END_POINTS.get_account_info(legacyDid);
+            const accountInfo = await END_POINTS.get_rbt_balance(legacyDid);
             const legacyBalance = accountInfo?.result?.balance || 0;
             setBalance(legacyBalance);
 

@@ -53,7 +53,7 @@ export default function History({ isModal = false }) {
     try {
       setIsLoading(true);
 
-      const fttxn = await END_POINTS.get_ft_txn_by_did({
+      const fttxn = await END_POINTS.get_ft_transactions({
         DID: userDetails?.did,
       });
 
@@ -100,12 +100,12 @@ export default function History({ isModal = false }) {
       setTransactionsFilter([]);
 
       const apiPromises = [
-        END_POINTS.get_transactions_info({ DID: userDetails?.did })
+        END_POINTS.get_rbt_transactions({ DID: userDetails?.did })
       ];
 
       if (userDetails?.legacyDid && userDetails?.network === 1) {
         apiPromises.push(
-          END_POINTS.get_transactions_info({ DID: userDetails?.legacyDid })
+          END_POINTS.get_rbt_transactions({ DID: userDetails?.legacyDid })
         );
       }
 
