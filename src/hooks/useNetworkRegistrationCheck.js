@@ -73,7 +73,7 @@ const useNetworkRegistrationCheck = (userDetails) => {
                         continue;
                     }
 
-                    let registerResponse = await networkApi.get(`/rubix/v1/dids/${didResponse.result.did}/register`);
+                    let registerResponse = await networkApi.post(`/rubix/v1/dids/${didResponse.result.did}/register`);
                     registerResponse = registerResponse.data;
 
                     if (!registerResponse?.status || !registerResponse?.result?.hash) {

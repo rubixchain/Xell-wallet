@@ -224,11 +224,12 @@ export default function SendModal({ isOpen, onClose, accountInfo, setIsTransacti
       if (isRBT) {
         // RBT Transfer
         let data = {
-          comment: comments,
-          receiver: recipientAddress,
-          sender: accountInfo?.did,
-          tokenCOunt: parseFloat(amount),
-          type: 2
+          initiator: userDetails?.did,
+          owner: recipientAddress,
+          tokens: {
+            rbt: parseFloat(amount)
+          },
+          memo: comments || ''
         }
         let transferRBT = await END_POINTS.transfer_rtbt(data)
         if (!transferRBT || !transferRBT?.status) {
@@ -247,14 +248,16 @@ export default function SendModal({ isOpen, onClose, accountInfo, setIsTransacti
       } else {
         // FT Transfer
         let data = {
-          comment: comments,
-          creatorDID: accountInfo?.creator_did,
-          ft_count: parseFloat(amount),
-          ft_name: accountInfo.ft_name,
-          password: "",
-          quorum_type: 2,
-          receiver: recipientAddress,
-          sender: userDetails?.did
+          initiator: userDetails?.did,
+          owner: recipientAddress,
+          tokens: {
+            ft: [{
+              ftName: accountInfo.ft_name,
+              creatorDID: accountInfo?.creator_did,
+              numberOfFts: parseFloat(amount)
+            }]
+          },
+          memo: comments || ''
         }
         let transferFT = await END_POINTS.initiate_ft_transfer(data)
         if (!transferFT || !transferFT?.status) {

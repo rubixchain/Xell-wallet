@@ -208,10 +208,12 @@ export async function initiateMigrationTransfer(privateKeyHex, senderDid, receiv
 
         // Call initiate-rbt-transfer directly
         const response = await END_POINTS.transfer_rtbt({
-            sender: senderDid,
-            receiver: receiverDid,
-            tokenCount: tokenCount,
-            type: 2
+            initiator: senderDid,
+            owner: receiverDid,
+            tokens: {
+                rbt: tokenCount
+            },
+            memo: ''
         });
 
         // Check if signature is required

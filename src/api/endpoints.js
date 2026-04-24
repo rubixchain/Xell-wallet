@@ -55,7 +55,7 @@ const normalizeFtInfoResponse = (response) => {
 
 export const END_POINTS = {
     register_did: (did) => {
-        return api.get(`rubix/v1/dids/${did}/register`)
+        return api.post(`rubix/v1/dids/${did}/register`)
     },
     signature_response: (params) => {
         return api.post('rubix/v1/signature', params)
@@ -79,20 +79,7 @@ export const END_POINTS = {
         const response = await api.get(`rubix/v1/tx/${did}/rbt`)
         return normalizeTxHistoryResponse(response)
     },
-    transfer_rtbt: (params) => {
-        const tokenCount = Number(params?.tokenCount ?? params?.tokenCOunt ?? 0)
-        const body = {
-            initiator: params?.sender,
-            owner: params?.receiver,
-            tokens: {
-                rbt: tokenCount,
-                ft: [],
-                nft: [],
-                smartContract: [],
-                transferNftOwnership: false
-            },
-            memo: params?.comment || ''
-        }
+    transfer_rtbt: (body) => {
         return api.post('rubix/v1/tx', body)
     },
     get_rbt_data: async () => {
@@ -123,23 +110,7 @@ export const END_POINTS = {
     execute_nft: (data) => {
         return api.post('execute-nft', data)
     },
-    initiate_ft_transfer: (data) => {
-        const body = {
-            initiator: data?.sender,
-            owner: data?.receiver,
-            tokens: {
-                rbt: 0,
-                ft: [{
-                    ftName: data?.ft_name,
-                    creatorDID: data?.creatorDID,
-                    numberOfFts: Number(data?.ft_count) || 0
-                }],
-                nft: [],
-                smartContract: [],
-                transferNftOwnership: false
-            },
-            memo: data?.comment || ''
-        }
+    initiate_ft_transfer: (body) => {
         return api.post('rubix/v1/tx', body)
     },
     create_ft: (data) => {
