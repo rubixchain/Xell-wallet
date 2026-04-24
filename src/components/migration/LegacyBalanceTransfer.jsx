@@ -194,7 +194,7 @@ const LegacyBalanceTransfer = ({ legacyDid, legacyPrivateKey, newDid, onComplete
             {balance > 0 && (currentStep === MIGRATION_STEPS.TRANSFERRING || currentStep === MIGRATION_STEPS.COMPLETE) && (
                 <div className="bg-tertiary border border-secondary/30 rounded-lg p-3 mb-4">
                     <p className="text-xs text-quinary mb-1">Transferring</p>
-                    <p className="text-lg text-secondary font-semibold">{balance} RBT</p>
+                    <p className="text-lg text-secondary font-semibold">{Number(balance).toFixed(3)} RBT</p>
                 </div>
             )}
 

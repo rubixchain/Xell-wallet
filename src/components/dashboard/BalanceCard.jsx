@@ -171,7 +171,7 @@ export default function BalanceCard({ accountInfo, setIsTransactionCompleted }) 
           <>
             <div className="text-[16px] font-bold text-white">Balance</div>
             <div className="text-[18px] font-bold text-yellow-300">
-              {(accountInfo?.ft_count || 0)} {userDetails?.tokenSymbol}
+              {Number(accountInfo?.ft_count || 0).toFixed(3)} {userDetails?.tokenSymbol}
             </div>
           </>
         ) : (
@@ -186,7 +186,7 @@ export default function BalanceCard({ accountInfo, setIsTransactionCompleted }) 
                 const networkValue = userDetails?.network ?? (isUserLoggedIn ? 1 : null);
                 const isRubixNetwork = Number(networkValue) === 1 || Number(networkValue) === 2;
                 const amount = isRubixNetwork ? accountInfo?.balance : accountInfo?.ft_count;
-                return `${amount || 0} ${userDetails?.tokenSymbol || 'RBT'}`;
+                return `${Number(amount || 0).toFixed(3)} ${userDetails?.tokenSymbol || 'RBT'}`;
               })()}
             </motion.div>
           </>

@@ -368,7 +368,7 @@ export default function SendModal({ isOpen, onClose, accountInfo, setIsTransacti
 
 
                 <span className="text-lg font-semibold text-gray-900 dark:text-white">
-                  {currentTokenInfo.balance} {currentTokenInfo.symbol}
+                  {Number(currentTokenInfo.balance).toFixed(3)} {currentTokenInfo.symbol}
                 </span >
 
               </div >

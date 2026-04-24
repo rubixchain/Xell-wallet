@@ -79,7 +79,7 @@ export default function TransactionItem({ type, Status, Amount, Epoch, SenderDID
         <div className="flex flex-col items-end leading-tight">
         {((userDetails?.network == 4) && Amount === 0) ? null : (
                 <div className="font-semibold text-gray-900 dark:text-white text-xl text-senary">
-                  {Amount} {userDetails?.tokenSymbol}
+                  {Number(Amount).toFixed(3)} {userDetails?.tokenSymbol}
                 </div>
               )}
           <div className="flex items-center gap-1 text-[14px] text-quinary font-medium">
