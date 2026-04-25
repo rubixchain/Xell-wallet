@@ -3,6 +3,13 @@ import toast from "react-hot-toast";
 import indexDBUtil from "./indexDB";
 import { config, NETWORK_TYPES } from "../config";
 
+export function formatBalance(value, decimals = 3) {
+    const num = Number(value);
+    if (isNaN(num)) return '0';
+    const fixed = num.toFixed(decimals);
+    return parseFloat(fixed).toString();
+}
+
 export async function convertCurrency(amount, fromCurrency, toCurrency) {
     try {
         const response = await fetch('https://api.exchangerate-api.com/v4/latest/USD');

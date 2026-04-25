@@ -7,6 +7,7 @@ import Modal from '../common/Modal';
 import toast from 'react-hot-toast';
 import { config } from '../../../config';
 import { getTimeAgo, sliceString } from '../../utils/utils';
+import { formatBalance } from '../../utils';
 
 export default function RecentTransactions({ transactionsData }) {
   const { selectedNetwork, userDetails } = useContext(UserContext)
@@ -130,7 +131,7 @@ export default function RecentTransactions({ transactionsData }) {
                 <div className="flex flex-col items-end leading-tight">
                 {((userDetails?.network == 4) && tx.Amount === 0) ? null : (
                 <div className="font-semibold text-gray-900 dark:text-white text-xl text-senary">
-                  {Number(tx.Amount).toFixed(3)} {userDetails?.tokenSymbol}
+                  {formatBalance(tx.Amount)} {userDetails?.tokenSymbol}
                 </div>
               )}
                   <div className="flex items-center gap-1 text-[14px] text-quinary font-medium">

@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion';
 import { FiArrowUpRight, FiArrowDownLeft, FiCopy } from 'react-icons/fi';
 import { getTimeAgo, sliceString } from '../../utils/utils';
+import { formatBalance } from '../../utils';
 import { config } from '../../../config';
 import { useContext } from 'react';
 import { UserContext } from '../../context/userContext';
@@ -79,7 +80,7 @@ export default function TransactionItem({ type, Status, Amount, Epoch, SenderDID
         <div className="flex flex-col items-end leading-tight">
         {((userDetails?.network == 4) && Amount === 0) ? null : (
                 <div className="font-semibold text-gray-900 dark:text-white text-xl text-senary">
-                  {Number(Amount).toFixed(3)} {userDetails?.tokenSymbol}
+                  {formatBalance(Amount)} {userDetails?.tokenSymbol}
                 </div>
               )}
           <div className="flex items-center gap-1 text-[14px] text-quinary font-medium">

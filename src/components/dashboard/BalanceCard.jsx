@@ -1,13 +1,8 @@
 import { motion } from 'framer-motion';
-import { FiArrowLeft, FiCopy, FiRefreshCw, FiTrendingUp } from 'react-icons/fi';
-import { useContext, useEffect, useState, useRef } from 'react';
-import {
-  convertCurrency,
-  generateSignature
-} from "../../utils"
+import { FiRefreshCw } from 'react-icons/fi';
+import { useContext, useEffect, useState } from 'react';
 import { UserContext } from '../../context/userContext';
-import toast from 'react-hot-toast';
-import { NETWORK_TYPES } from '../../../config';
+import { formatBalance } from '../../utils';
 
 const ShimmerCard = () => (
   <motion.div
@@ -44,27 +39,10 @@ const ShimmerCard = () => (
 
 
 export default function BalanceCard({ accountInfo, setIsTransactionCompleted }) {
-  const { isUserLoggedIn, currency, setCurrency, userDetails } = useContext(UserContext)
+  const { isUserLoggedIn, userDetails } = useContext(UserContext)
   const [tickerData, setTickerData] = useState({});
-  const [conversionPrice, setConversionPrice] = useState(0)
   const [isRotating, setIsRotating] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const socketRef = useRef(null);
-
-  const symbolConversion = {
-    USD: '$',
-    EUR: '€',
-    GBP: '£',
-    JPY: '¥',
-    INR: '₹'
-  };
-
-  useEffect(() => {
-    if (accountInfo && Object.keys(accountInfo).length > 0) {
-      setIsLoading(true);
-      setTimeout(() => setIsLoading(false), 100);
-    }
-  }, [accountInfo?.balance, accountInfo?.ft_count, userDetails?.network]);
 
   useEffect(() => {
     if (accountInfo && Object.keys(accountInfo).length > 0) {
@@ -78,12 +56,12 @@ export default function BalanceCard({ accountInfo, setIsTransactionCompleted }) 
     try {
       const response = await fetch('https://www.mexc.com/api/v3/ticker/24hr?symbol=RBTUSDT');
       const data = await response.json();
-      
+
       if (data && data.priceChangePercent) {
         setTickerData({
           s: 'RBTUSDT',
           price: parseFloat(data.lastPrice || 0),
-          r: parseFloat(data.priceChangePercent || 0) / 100 // Convert percentage to decimal
+          r: parseFloat(data.priceChangePercent || 0) / 100
         });
       } else {
         setTickerData({
@@ -106,13 +84,11 @@ export default function BalanceCard({ accountInfo, setIsTransactionCompleted }) 
   useEffect(() => {
     const networkValue = userDetails?.network ?? (isUserLoggedIn ? 1 : null);
     const shouldFetch = isUserLoggedIn && (Number(networkValue) === 1 || Number(networkValue) === 2);
-    
+
     if (shouldFetch) {
       fetchCurrentTickerData();
     }
   }, [isUserLoggedIn, userDetails?.network]);
-
-  const [selectedToken, setSelectedToken] = useState({ symbol: 'RBT', name: 'Xell Token' });
   const containerVariants = {
     initial: { opacity: 0, y: 20 },
     animate: {
@@ -129,11 +105,6 @@ export default function BalanceCard({ accountInfo, setIsTransactionCompleted }) 
     initial: { opacity: 0, x: -10 },
     animate: { opacity: 1, x: 0 }
   };
-
-  const handleClickCopy = () => {
-    navigator.clipboard.writeText(accountInfo?.did)
-    toast.success("Copied to clipboard")
-  }
 
   const hasValidBalanceData = accountInfo && Object.keys(accountInfo).length > 0;
 
@@ -171,7 +142,7 @@ export default function BalanceCard({ accountInfo, setIsTransactionCompleted }) 
           <>
             <div className="text-[16px] font-bold text-white">Balance</div>
             <div className="text-[18px] font-bold text-yellow-300">
-              {Number(accountInfo?.ft_count || 0).toFixed(3)} {userDetails?.tokenSymbol}
+              {formatBalance(accountInfo?.ft_count || 0)} {userDetails?.tokenSymbol}
             </div>
           </>
         ) : (
@@ -186,7 +157,7 @@ export default function BalanceCard({ accountInfo, setIsTransactionCompleted }) 
                 const networkValue = userDetails?.network ?? (isUserLoggedIn ? 1 : null);
                 const isRubixNetwork = Number(networkValue) === 1 || Number(networkValue) === 2;
                 const amount = isRubixNetwork ? accountInfo?.balance : accountInfo?.ft_count;
-                return `${Number(amount || 0).toFixed(3)} ${userDetails?.tokenSymbol || 'RBT'}`;
+                return `${formatBalance(amount || 0)} ${userDetails?.tokenSymbol || 'RBT'}`;
               })()}
             </motion.div>
           </>

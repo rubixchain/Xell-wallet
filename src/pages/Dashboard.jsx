@@ -144,9 +144,9 @@ export default function Dashboard() {
           if (!ftinfoData || ftinfoData.length === 0) {
             setAccountInfo({ ft_count: 0 });
           } else {
-
             setAccountInfo(ftinfoData[0]);
           }
+          setSelectedTokens([])
           if (fttxn?.status) {
             let transactions = fttxn?.TxnDetails?.map((txn) => ({
               ...txn,

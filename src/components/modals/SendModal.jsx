@@ -5,7 +5,7 @@ import Button from '../Button';
 import toast from 'react-hot-toast';
 import { END_POINTS } from '../../api/endpoints';
 import { UserContext } from '../../context/userContext';
-import { generateSignature, isSignatureRoundRequired } from '../../utils';
+import { generateSignature, isSignatureRoundRequired, formatBalance } from '../../utils';
 import indexDBUtil from '../../indexDB';
 import { NETWORK_TYPES } from '../../../config';
 
@@ -166,7 +166,7 @@ export default function SendModal({ isOpen, onClose, accountInfo, setIsTransacti
       // For other tokens (TRI, TRIE, etc.), use ft_count
       return {
         symbol: userDetails.tokenSymbol,
-        balance: accountInfo?.ft_count || '0'
+        balance: formatBalance(accountInfo?.ft_count || 0)
       };
     }
   };
@@ -368,7 +368,7 @@ export default function SendModal({ isOpen, onClose, accountInfo, setIsTransacti
 
 
                 <span className="text-lg font-semibold text-gray-900 dark:text-white">
-                  {Number(currentTokenInfo.balance).toFixed(3)} {currentTokenInfo.symbol}
+                  {formatBalance(currentTokenInfo.balance)} {currentTokenInfo.symbol}
                 </span >
 
               </div >
