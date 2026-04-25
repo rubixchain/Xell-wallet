@@ -270,10 +270,9 @@ export async function initiateProxyTransfer(privateKeyHex, senderDid, receiverDi
         const encryptedPK = await encryptForProxy(privateKeyHex);
 
         const requestPayload = {
-            encryptedpK: encryptedPK,
-            sender: senderDid,
-            receiver: receiverDid,
-            operation_type: 20
+            encryptedPk: encryptedPK,
+            initiator: senderDid,
+            owner: receiverDid
         };
 
         const response = await axios.post(`${networkBaseUrl}/initiate-proxy-rbt-transfer`, requestPayload, {
