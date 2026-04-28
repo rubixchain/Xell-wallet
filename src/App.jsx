@@ -25,6 +25,7 @@ import AddNetwork from './pages/AddNetwork';
 import { updateVersion } from './utils';
 
 function App() {
+  const [isInitializing, setIsInitializing] = useState(true);
 
   useEffect(() => {
     (async () => {
@@ -42,10 +43,19 @@ function App() {
         await updateVersion()
       } catch (error) {
         // Still allow app to render even if initialization fails
+      } finally {
+        setIsInitializing(false);
       }
     })()
   }, []);
 
+  if (isInitializing) {
+    return (
+      <div className="flex items-center justify-center h-screen w-screen bg-surface">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
 
   return (
     <div >

@@ -32,6 +32,12 @@ function Login() {
             // await checkMigrationStatus();
 
             let res = await indexDBUtil.getData()
+
+            if (!res?.status || !res?.data?.length) {
+                navigate(ROUTES.WELCOME, { replace: true })
+                return
+            }
+
             let currentUser = localStorage.getItem("currentUser")
             if (currentUser) {
                 setSelectedUser(JSON.parse(currentUser))
