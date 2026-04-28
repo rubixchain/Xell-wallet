@@ -377,6 +377,7 @@ const indexDBUtil = {
                     putRequest.onsuccess = async () => {
                         try {
                             await this.storeNetworks(db, res?.did);
+                            await this.setCurrentVersion(6);
                             resolve({
                                 status: true, data: {
                                     username: username,
@@ -539,6 +540,7 @@ const indexDBUtil = {
                     putRequest.onsuccess = async () => {
                         // Store networks once for the DID (all accounts share the same DID)
                         await this.storeNetworks(db, newAccount.did);
+                        await this.setCurrentVersion(6);
                         resolve({
                             status: true,
                             data: {
@@ -645,6 +647,7 @@ const indexDBUtil = {
                 request.onsuccess = () => {
                     const data = request.result;
                     if (!data || !data?.accounts?.length) {
+                        resolve({ status: true, message: 'No data to encrypt' });
                         return;
                     }
                     let updatedData = data.accounts.map((item) => {
