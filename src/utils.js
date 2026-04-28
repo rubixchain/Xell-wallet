@@ -1,7 +1,7 @@
 import { secp256k1 } from "@noble/curves/secp256k1";
 import toast from "react-hot-toast";
 import indexDBUtil from "./indexDB";
-import { config, NETWORK_TYPES } from "../config";
+// import { config, NETWORK_TYPES } from "../config";
 
 export function formatBalance(value, decimals = 3) {
     const num = Number(value);
@@ -83,58 +83,63 @@ export const EXECUTE_API = async (data) => {
     }
 };
 
-export const updateVersion = async (version = 4) => {
+export const updateVersion = async () => {
     const currentVersion = await indexDBUtil.getCurrentVersion();
 
-    if ((!currentVersion || !currentVersion?.version) && version == 3) {
-        await indexDBUtil.setCurrentVersion(version);
-        let res = await indexDBUtil.getData("UserDetails");
-        if (!res?.status || !res?.data?.length) {
-            return
-        }
-        if (res?.status) {
-            res?.data?.forEach(async (item) => {
-                await indexDBUtil.storeExistingNetworks(item?.did);
-            });
-        }
-        await indexDBUtil.updateUserAccountNetwork(3)
+    // Old migration logic (v3 -> v4) - COMMENTED OUT
+    // if ((!currentVersion || !currentVersion?.version) && version == 3) {
+    //     await indexDBUtil.setCurrentVersion(version);
+    //     let res = await indexDBUtil.getData("UserDetails");
+    //     if (!res?.status || !res?.data?.length) {
+    //         return
+    //     }
+    //     if (res?.status) {
+    //         res?.data?.forEach(async (item) => {
+    //             await indexDBUtil.storeExistingNetworks(item?.did);
+    //         });
+    //     }
+    //     await indexDBUtil.updateUserAccountNetwork(3)
 
-        const networkMappings = {
-            "1": {
-                network: "1",
-                RPCUrl: config?.RUBIX_MAINNET_BASE_URL,
-                name: "Rubix Mainnet",
-                tokenSymbol: NETWORK_TYPES.RBT
-            },
-            "2": {
-                network: "2",
-                RPCUrl: config?.RUBIX_TESTNET_BASE_URL,
-                name: "Rubix Testnet",
-                tokenSymbol: NETWORK_TYPES.RBT
-            },
-            "3": {
-                network: "3",
-                RPCUrl: config?.TRIE_TESTNET_BASE_URL,
-                name: "Trie Testnet",
-                tokenSymbol: NETWORK_TYPES.TRIE
-            },
-            "4": {
-                network: "4",
-                RPCUrl: config?.TRIE_MAINNET_BASE_URL,
-                name: "Trie Mainnet",
-                tokenSymbol: NETWORK_TYPES.TRI
-            }
-        };
+    //     const networkMappings = {
+    //         "1": {
+    //             network: "1",
+    //             RPCUrl: config?.RUBIX_MAINNET_BASE_URL,
+    //             name: "Rubix Mainnet",
+    //             tokenSymbol: NETWORK_TYPES.RBT
+    //         },
+    //         "2": {
+    //             network: "2",
+    //             RPCUrl: config?.RUBIX_TESTNET_BASE_URL,
+    //             name: "Rubix Testnet",
+    //             tokenSymbol: NETWORK_TYPES.RBT
+    //         },
+    //         "3": {
+    //             network: "3",
+    //             RPCUrl: config?.TRIE_TESTNET_BASE_URL,
+    //             name: "Trie Testnet",
+    //             tokenSymbol: NETWORK_TYPES.TRIE
+    //         },
+    //         "4": {
+    //             network: "4",
+    //             RPCUrl: config?.TRIE_MAINNET_BASE_URL,
+    //             name: "Trie Mainnet",
+    //             tokenSymbol: NETWORK_TYPES.TRI
+    //         }
+    //     };
 
-        const getcurrentNetwork = await indexDBUtil.getNetworkSetting();
-        const networkConfig = networkMappings[getcurrentNetwork?.network || "3"] || networkMappings["3"];
-        await indexDBUtil.storeNetworkSetting(networkConfig);
+    //     const getcurrentNetwork = await indexDBUtil.getNetworkSetting();
+    //     const networkConfig = networkMappings[getcurrentNetwork?.network || "3"] || networkMappings["3"];
+    //     await indexDBUtil.storeNetworkSetting(networkConfig);
+    // }
 
-    }
+    // if (currentVersion?.version == 3 && version == 4) {
+    //     await indexDBUtil.setCurrentVersion(version);
+    //     await indexDBUtil.updateNetwork();
+    // }
 
-    if (currentVersion?.version == 3 && version == 4) {
-        await indexDBUtil.setCurrentVersion(version);
-        await indexDBUtil.updateNetwork();
+    // V6 Migration: Clear everything for new swarm network
+    if (!currentVersion?.version || currentVersion.version <= 5) {
+        await indexDBUtil.clearWalletForNewNetwork();
     }
 }
 

@@ -1380,25 +1380,25 @@ const indexDBUtil = {
         }
     },
 
-    // ==================== MIGRATION FUNCTIONS ====================
+    // ==================== MIGRATION FUNCTIONS (COMMENTED OUT FOR V6) ====================
 
-    /**
-     * Check if migration is needed (version <= 4)
-     * @returns {Promise<boolean>}
-     */
-    needsMigration: async function () {
-        try {
-            const currentVersion = await this.getCurrentVersion();
-            const accounts = await this.getData();
+    // /**
+    //  * Check if migration is needed (version <= 4)
+    //  * @returns {Promise<boolean>}
+    //  */
+    // needsMigration: async function () {
+    //     try {
+    //         const currentVersion = await this.getCurrentVersion();
+    //         const accounts = await this.getData();
 
-            if ((!currentVersion || !currentVersion?.version || currentVersion?.version <= 4) && accounts?.data?.length > 0) {
-                return true;
-            }
-            return false;
-        } catch (error) {
-            return false;
-        }
-    },
+    //         if ((!currentVersion || !currentVersion?.version || currentVersion?.version <= 4) && accounts?.data?.length > 0) {
+    //             return true;
+    //         }
+    //         return false;
+    //     } catch (error) {
+    //         return false;
+    //     }
+    // },
 
 
     /**
@@ -2315,6 +2315,28 @@ const indexDBUtil = {
             });
         } catch (error) {
             return { status: false, message: error.message, removed: 0 };
+        }
+    },
+
+    clearWalletForNewNetwork: async function () {
+        try {
+            const db = await this.initDB();
+            return new Promise((resolve, reject) => {
+                const transaction = db.transaction([this.storeName], 'readwrite');
+                const store = transaction.objectStore(this.storeName);
+
+                const clearRequest = store.clear();
+
+                clearRequest.onsuccess = async () => {
+                    await this.setCurrentVersion(6);
+                    localStorage.clear();
+                    resolve({ status: true, message: 'Wallet reset for new network' });
+                };
+
+                clearRequest.onerror = () => reject(clearRequest.error);
+            });
+        } catch (error) {
+            throw error;
         }
     }
 };

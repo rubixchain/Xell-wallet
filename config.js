@@ -1,11 +1,11 @@
-
 const CONFIG_API_URL = 'https://assets.xellwallet.com/config.json';
 
+// LOCAL TEST ONLY — revert before committing
 export const config = {
-    RUBIX_MAINNET_BASE_URL: '',
-    RUBIX_TESTNET_BASE_URL: '',
-    TRIE_TESTNET_BASE_URL: '',
-    TRIE_MAINNET_BASE_URL: '',
+    RUBIX_MAINNET_BASE_URL: 'http://localhost:20010',
+    RUBIX_TESTNET_BASE_URL: 'http://localhost:20010',
+    TRIE_TESTNET_BASE_URL: 'http://localhost:20010',
+    TRIE_MAINNET_BASE_URL: 'http://localhost:20010',
     RUBIX_TESTNET_TXN_LINK: '',
     RUBIX_MAINNET_TXN_LINK: '',
     TRIE_TESTNET_TXN_LINK: '',
@@ -19,20 +19,22 @@ export const config = {
 // Create a promise that resolves when config is loaded
 let configLoadedPromise = null;
 
+// LOCAL TEST ONLY — remote config fetch disabled; revert before committing
 async function loadConfig() {
-    try {
-        const response = await fetch(CONFIG_API_URL);
-        const data = await response.json();
-        if (data.URLS) {
-            Object.keys(data.URLS).forEach(key => {
-                config[key] = data.URLS[key];
-            });
-        }
-        if (data.ALLOWED_ORIGINS) {
-            config.ALLOWED_ORIGINS = data.ALLOWED_ORIGINS;
-        }
-    } catch (error) {
-    }
+    return;
+    // try {
+    //     const response = await fetch(CONFIG_API_URL);
+    //     const data = await response.json();
+    //     if (data.URLS) {
+    //         Object.keys(data.URLS).forEach(key => {
+    //             config[key] = data.URLS[key];
+    //         });
+    //     }
+    //     if (data.ALLOWED_ORIGINS) {
+    //         config.ALLOWED_ORIGINS = data.ALLOWED_ORIGINS;
+    //     }
+    // } catch (error) {
+    // }
 }
 
 // Function to get config promise
@@ -50,4 +52,3 @@ export const NETWORK_TYPES = {
     TRI: 'TRI',
     TRIE: 'TRIE',
 };
-

@@ -10,39 +10,26 @@ import { ROUTES } from '../utils/constants';
 import { EXECUTE_API } from '../utils';
 import { WALLET_TYPES } from '../enums';
 import { ENUMS } from '../enums';
-import { MigrationModal, DIDMigrationProgress, SingleAccountDIDMigration } from '../components/migration';
-import { config, NETWORK_TYPES } from '../../config';
-
-
-const Logo = () => (
-    <div className="flex items-center gap-2">
-        <div className="grid grid-cols-2 gap-0.5">
-            {[...Array(4)].map((_, i) => (
-                <div key={i} className="w-2 h-2 bg-yellow-300" />
-            ))}
-        </div>
-        <span className="text-2xl font-bold text-primary">Xell</span>
-    </div>
-);
+// import { MigrationModal, DIDMigrationProgress, SingleAccountDIDMigration } from '../components/migration';
+// import { config, NETWORK_TYPES } from '../../config';
 
 function Login() {
-    const { setUserDetails, userDetails, setIsUserLoggedIn, websiteInitiated, setWebsiteInitiated } = useContext(UserContext)
+    const { setUserDetails, userDetails, setIsUserLoggedIn } = useContext(UserContext)
     const [attempts, setAttempts] = useState(5);
     const [pin, setPin] = useState('');
-    const [error, setError] = useState('');
     const [selectedUser, setSelectedUser] = useState(null);
     const navigate = useNavigate()
 
-    const [showMigrationModal, setShowMigrationModal] = useState(false);
-    const [showDIDMigration, setShowDIDMigration] = useState(false);
-    const [showSingleAccountMigration, setShowSingleAccountMigration] = useState(false);
-    const [unifiedPassword, setUnifiedPassword] = useState('');
-    const [isCheckingMigration, setIsCheckingMigration] = useState(true);
-    const [accountToMigrate, setAccountToMigrate] = useState(null);
+    // const [showMigrationModal, setShowMigrationModal] = useState(false);
+    // const [showDIDMigration, setShowDIDMigration] = useState(false);
+    // const [showSingleAccountMigration, setShowSingleAccountMigration] = useState(false);
+    // const [unifiedPassword, setUnifiedPassword] = useState('');
+    // const [isCheckingMigration, setIsCheckingMigration] = useState(true);
+    // const [accountToMigrate, setAccountToMigrate] = useState(null);
 
     useEffect(() => {
         (async () => {
-            await checkMigrationStatus();
+            // await checkMigrationStatus();
 
             let res = await indexDBUtil.getData()
             let currentUser = localStorage.getItem("currentUser")
@@ -57,23 +44,23 @@ function Login() {
 
     }, [userDetails])
 
-    const checkMigrationStatus = async () => {
-        try {
-            setIsCheckingMigration(true);
+    // const checkMigrationStatus = async () => {
+    //     try {
+    //         setIsCheckingMigration(true);
 
-            const needsPasswordMigration = await indexDBUtil.needsMigration();
+    //         const needsPasswordMigration = await indexDBUtil.needsMigration();
 
-            if (needsPasswordMigration) {
-                setShowMigrationModal(true);
-                setIsCheckingMigration(false);
-                return;
-            }
+    //         if (needsPasswordMigration) {
+    //             setShowMigrationModal(true);
+    //             setIsCheckingMigration(false);
+    //             return;
+    //         }
 
-            setIsCheckingMigration(false);
-        } catch (error) {
-            setIsCheckingMigration(false);
-        }
-    };
+    //         setIsCheckingMigration(false);
+    //     } catch (error) {
+    //         setIsCheckingMigration(false);
+    //     }
+    // };
 
     const handlePinComplete = (enteredPin) => {
         setPin(enteredPin);
@@ -81,61 +68,17 @@ function Login() {
 
     const handleUnlock = async () => {
         if (pin.length === 6) {
-            const hasUnified = await indexDBUtil.hasUnifiedPassword();
-
-            if (hasUnified) {
-                const isValid = await indexDBUtil.validateUnifiedPassword(pin);
-                if (!isValid) {
-                    toast.error('Invalid password');
-                    setAttempts(prev => prev - 1);
-                    if (attempts == 1) {
-                        navigate(ROUTES.WELCOME, { replace: true });
-                    }
-                    return;
+            let res = await indexDBUtil.validateAndGetAccount(selectedUser?.username, pin)
+            if (!res?.status) {
+                toast.error(res?.message)
+                setAttempts(prev => prev - 1)
+                if (attempts == 1) {
+                    navigate(ROUTES.WELCOME, { replace: true })
                 }
-
-                const accounts = await indexDBUtil.getAllAccountsForMigration();
-                if (accounts.length === 0) {
-                    toast.error('No accounts found');
-                    return;
-                }
-                const targetUsername = selectedUser?.username || accounts[0].username;
-
-                const accountNeedsMigration = await indexDBUtil.accountNeedsDIDMigration(targetUsername);
-                if (accountNeedsMigration) {
-                    await indexDBUtil.storeNetworkSetting({
-                        network: 1,
-                        RPCUrl: config?.RUBIX_MAINNET_BASE_URL,
-                        name: "Rubix Mainnet",
-                        tokenSymbol: NETWORK_TYPES.RBT
-                    });
-                    setUnifiedPassword(pin);
-                    setAccountToMigrate(targetUsername);
-                    setShowSingleAccountMigration(true);
-                    return;
-                }
-
-                const res = await indexDBUtil.getDecryptedAccountData(targetUsername, pin);
-
-                if (!res.status) {
-                    toast.error(res.message || 'Failed to get account data');
-                    return;
-                }
-
-                await completeLogin(res.data, pin);
-            } else {
-                let res = await indexDBUtil.validateAndGetAccount(selectedUser?.username, pin)
-                if (!res?.status) {
-                    toast.error(res?.message)
-                    setAttempts(prev => prev - 1)
-                    if (attempts == 1) {
-                        navigate(ROUTES.WELCOME, { replace: true })
-                    }
-                    return
-                }
-
-                await completeLogin(res.data, pin);
+                return
             }
+
+            await completeLogin(res.data, pin);
         }
     };
 
@@ -192,154 +135,154 @@ function Login() {
         navigate(routes.DASHBOARD, { replace: true })
     };
 
-    const handleMigrationLock = async () => {
-        setShowMigrationModal(false);
-        setPin('');
+    // const handleMigrationLock = async () => {
+    //     setShowMigrationModal(false);
+    //     setPin('');
 
-        const res = await indexDBUtil.getData();
-        if (res?.status) {
-            const currentUser = localStorage.getItem("currentUser");
-            if (currentUser) {
-                const parsedUser = JSON.parse(currentUser);
-                const userStillExists = res?.data.find(u => u.username === parsedUser.username);
-                if (userStillExists) {
-                    setSelectedUser(parsedUser);
-                } else {
-                    setSelectedUser(res?.data[0]);
-                }
-            } else {
-                setSelectedUser(res?.data[0]);
-            }
-        }
-    };
+    //     const res = await indexDBUtil.getData();
+    //     if (res?.status) {
+    //         const currentUser = localStorage.getItem("currentUser");
+    //         if (currentUser) {
+    //             const parsedUser = JSON.parse(currentUser);
+    //             const userStillExists = res?.data.find(u => u.username === parsedUser.username);
+    //             if (userStillExists) {
+    //                 setSelectedUser(parsedUser);
+    //             } else {
+    //                 setSelectedUser(res?.data[0]);
+    //             }
+    //         } else {
+    //             setSelectedUser(res?.data[0]);
+    //         }
+    //     }
+    // };
 
-    const handleDIDMigrationComplete = async () => {
-        setShowDIDMigration(false);
+    // const handleDIDMigrationComplete = async () => {
+    //     setShowDIDMigration(false);
 
-        if (unifiedPassword && selectedUser?.username) {
-            const res = await indexDBUtil.getDecryptedAccountData(selectedUser.username, unifiedPassword);
-            if (res.status) {
-                await completeLoginAfterMigration(res.data, unifiedPassword);
-            }
-        }
-    };
+    //     if (unifiedPassword && selectedUser?.username) {
+    //         const res = await indexDBUtil.getDecryptedAccountData(selectedUser.username, unifiedPassword);
+    //         if (res.status) {
+    //             await completeLoginAfterMigration(res.data, unifiedPassword);
+    //         }
+    //     }
+    // };
 
-    const handleDIDMigrationError = (error) => {
-        toast.error(error);
-        setShowDIDMigration(false);
-        setUnifiedPassword('');
-    };
+    // const handleDIDMigrationError = (error) => {
+    //     toast.error(error);
+    //     setShowDIDMigration(false);
+    //     setUnifiedPassword('');
+    // };
 
-    const handleSingleAccountMigrationComplete = async () => {
-        setShowSingleAccountMigration(false);
+    // const handleSingleAccountMigrationComplete = async () => {
+    //     setShowSingleAccountMigration(false);
 
-        if (unifiedPassword && accountToMigrate) {
-            const res = await indexDBUtil.getDecryptedAccountData(accountToMigrate, unifiedPassword);
-            if (res.status) {
-                await completeLoginAfterMigration(res.data, unifiedPassword);
-            } else {
-                toast.error(res.message || 'Failed to get account data after migration');
-            }
-        }
+    //     if (unifiedPassword && accountToMigrate) {
+    //         const res = await indexDBUtil.getDecryptedAccountData(accountToMigrate, unifiedPassword);
+    //         if (res.status) {
+    //             await completeLoginAfterMigration(res.data, unifiedPassword);
+    //         } else {
+    //             toast.error(res.message || 'Failed to get account data after migration');
+    //         }
+    //     }
 
-        setAccountToMigrate(null);
-        setUnifiedPassword('');
-    };
+    //     setAccountToMigrate(null);
+    //     setUnifiedPassword('');
+    // };
 
-    const completeLoginAfterMigration = async (userData, pinValue) => {
-        await indexDBUtil.ensureUnifiedPassword(pinValue);
+    // const completeLoginAfterMigration = async (userData, pinValue) => {
+    //     await indexDBUtil.ensureUnifiedPassword(pinValue);
 
-        const rubixMainnetNetwork = {
-            network: 1,
-            RPCUrl: config?.RUBIX_MAINNET_BASE_URL,
-            name: "Rubix Mainnet",
-            tokenSymbol: NETWORK_TYPES.RBT
-        };
+    //     const rubixMainnetNetwork = {
+    //         network: 1,
+    //         RPCUrl: config?.RUBIX_MAINNET_BASE_URL,
+    //         name: "Rubix Mainnet",
+    //         tokenSymbol: NETWORK_TYPES.RBT
+    //     };
 
-        toast.success('Login successful');
-        await indexDBUtil.storeNetworkSetting(rubixMainnetNetwork);
+    //     toast.success('Login successful');
+    //     await indexDBUtil.storeNetworkSetting(rubixMainnetNetwork);
 
-        localStorage.setItem('currency', JSON.stringify({ label: '$ USD - US Dollar', value: 'USD' }));
-        localStorage.setItem("currentUser", JSON.stringify({
-            username: userData?.username,
-            network: 1
-        }));
+    //     localStorage.setItem('currency', JSON.stringify({ label: '$ USD - US Dollar', value: 'USD' }));
+    //     localStorage.setItem("currentUser", JSON.stringify({
+    //         username: userData?.username,
+    //         network: 1
+    //     }));
 
-        await EXECUTE_API({
-            data: {
-                ...userData,
-                pin: pinValue,
-                network: 1,
-                tokenSymbol: NETWORK_TYPES.RBT
-            },
-            type: WALLET_TYPES.STORE_USER_DETAILS
-        });
+    //     await EXECUTE_API({
+    //         data: {
+    //             ...userData,
+    //             pin: pinValue,
+    //             network: 1,
+    //             tokenSymbol: NETWORK_TYPES.RBT
+    //         },
+    //         type: WALLET_TYPES.STORE_USER_DETAILS
+    //     });
 
-        setIsUserLoggedIn(true);
-        setUserDetails({
-            ...userData,
-            did: userData?.did,
-            username: userData?.username,
-            network: 1,
-            pin: pinValue,
-            tokenSymbol: NETWORK_TYPES.RBT,
-            legacyDid: userData?.legacyDid || null
-        });
+    //     setIsUserLoggedIn(true);
+    //     setUserDetails({
+    //         ...userData,
+    //         did: userData?.did,
+    //         username: userData?.username,
+    //         network: 1,
+    //         pin: pinValue,
+    //         tokenSymbol: NETWORK_TYPES.RBT,
+    //         legacyDid: userData?.legacyDid || null
+    //     });
 
-        localStorage.setItem(ENUMS.INITIAL_ACTIVE_TIME, JSON.stringify(Date.now()));
-        navigate(routes.DASHBOARD, { replace: true });
-    };
+    //     localStorage.setItem(ENUMS.INITIAL_ACTIVE_TIME, JSON.stringify(Date.now()));
+    //     navigate(routes.DASHBOARD, { replace: true });
+    // };
 
-    const handleSingleAccountMigrationError = (error) => {
-        toast.error(error);
-        setShowSingleAccountMigration(false);
-        setAccountToMigrate(null);
-        setUnifiedPassword('');
-    };
+    // const handleSingleAccountMigrationError = (error) => {
+    //     toast.error(error);
+    //     setShowSingleAccountMigration(false);
+    //     setAccountToMigrate(null);
+    //     setUnifiedPassword('');
+    // };
 
-    if (isCheckingMigration) {
-        return (
-            <Card>
-                <div className="flex w-full h-full flex-col justify-center items-center">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-                    <p className="mt-4 text-quinary">Loading...</p>
-                </div>
-            </Card>
-        );
-    }
+    // if (isCheckingMigration) {
+    //     return (
+    //         <Card>
+    //             <div className="flex w-full h-full flex-col justify-center items-center">
+    //                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+    //                 <p className="mt-4 text-quinary">Loading...</p>
+    //             </div>
+    //         </Card>
+    //     );
+    // }
 
-    if (showMigrationModal) {
-        return (
-            <MigrationModal
-                onLock={handleMigrationLock}
-            />
-        );
-    }
+    // if (showMigrationModal) {
+    //     return (
+    //         <MigrationModal
+    //             onLock={handleMigrationLock}
+    //         />
+    //     );
+    // }
 
-    if (showDIDMigration) {
-        return (
-            <Card>
-                <DIDMigrationProgress
-                    unifiedPassword={unifiedPassword}
-                    onComplete={handleDIDMigrationComplete}
-                    onError={handleDIDMigrationError}
-                />
-            </Card>
-        );
-    }
+    // if (showDIDMigration) {
+    //     return (
+    //         <Card>
+    //             <DIDMigrationProgress
+    //                 unifiedPassword={unifiedPassword}
+    //                 onComplete={handleDIDMigrationComplete}
+    //                 onError={handleDIDMigrationError}
+    //             />
+    //         </Card>
+    //     );
+    // }
 
-    if (showSingleAccountMigration && accountToMigrate) {
-        return (
-            <Card>
-                <SingleAccountDIDMigration
-                    username={accountToMigrate}
-                    unifiedPassword={unifiedPassword}
-                    onComplete={handleSingleAccountMigrationComplete}
-                    onError={handleSingleAccountMigrationError}
-                />
-            </Card>
-        );
-    }
+    // if (showSingleAccountMigration && accountToMigrate) {
+    //     return (
+    //         <Card>
+    //             <SingleAccountDIDMigration
+    //                 username={accountToMigrate}
+    //                 unifiedPassword={unifiedPassword}
+    //                 onComplete={handleSingleAccountMigrationComplete}
+    //                 onError={handleSingleAccountMigrationError}
+    //             />
+    //         </Card>
+    //     );
+    // }
 
     return (
         <Card>

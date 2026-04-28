@@ -117,11 +117,14 @@ export default function Dashboard() {
           }
 
           if (legacyTransactionsApiData?.status) {
-            const legacyTransactions = legacyTransactionsApiData?.TxnDetails?.filter(res => res?.Mode == 0 || res?.Mode == 1)?.map((txn) => ({
-              ...txn,
-              type: txn?.SenderDID == userDetails?.legacyDid ? "Sent" : "Received",
-              isLegacy: true
-            })) || []
+            const legacyTransactions = legacyTransactionsApiData?.TxnDetails
+              ?.filter(res => res?.Mode == 0 || res?.Mode == 1)
+              ?.filter(txn => !(txn?.SenderDID === userDetails?.legacyDid && txn?.ReceiverDID === userDetails?.did))
+              ?.map((txn) => ({
+                ...txn,
+                type: txn?.SenderDID == userDetails?.legacyDid ? "Sent" : "Received",
+                isLegacy: true
+              })) || []
             allTransactions = [...allTransactions, ...legacyTransactions];
           }
 
