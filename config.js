@@ -1,6 +1,5 @@
 
-const CONFIG_API_URL = 'https://assets.xellwallet.com/config.json';
-
+// Fresh timestamp generated at runtime to bust CDN cache
 export const config = {
     RUBIX_MAINNET_BASE_URL: '',
     RUBIX_TESTNET_BASE_URL: '',
@@ -21,7 +20,11 @@ let configLoadedPromise = null;
 
 async function loadConfig() {
     try {
-        const response = await fetch(CONFIG_API_URL);
+        // CloudFront configured with 5-minute TTL - no manual versioning needed
+        const CONFIG_API_URL = 'https://assets.xellwallet.com/config.json';
+        const response = await fetch(CONFIG_API_URL, {
+            cache: 'no-store'
+        });
         const data = await response.json();
         if (data.URLS) {
             Object.keys(data.URLS).forEach(key => {
@@ -31,7 +34,8 @@ async function loadConfig() {
         if (data.ALLOWED_ORIGINS) {
             config.ALLOWED_ORIGINS = data.ALLOWED_ORIGINS;
         }
-    } catch (error) {
+    } catch (err) {
+        console.error('Failed to load config:', err);
     }
 }
 

@@ -64,11 +64,13 @@ export default function History({ isModal = false }) {
         return;
       }
 
-      const transactions = fttxn?.TxnDetails?.map((txn) => ({
-        ...txn,
-        type: txn?.SenderDID === userDetails?.did ? "Sent" : "Received",
-        Epoch: normalizeEpoch(txn?.Epoch, txn?.DateTime),
-      })) || [];
+      const transactions = fttxn?.TxnDetails
+        ?.filter(txn => txn?.SenderDID !== txn?.ReceiverDID)
+        ?.map((txn) => ({
+          ...txn,
+          type: txn?.SenderDID === userDetails?.did ? "Sent" : "Received",
+          Epoch: normalizeEpoch(txn?.Epoch, txn?.DateTime),
+        })) || [];
 
       const startMs = new Date(displayedRange.startDate).getTime();
       const endMs = new Date(displayedRange.endDate).getTime();
@@ -117,8 +119,10 @@ export default function History({ isModal = false }) {
 
       if (transactionsApiData?.status) {
         const newTransactions =
-          transactionsApiData?.TxnDetails?.filter((res) => res?.Mode === 0 || res?.Mode === 1)?.map(
-            (txn) => ({
+          transactionsApiData?.TxnDetails
+            ?.filter((res) => res?.Mode === 0 || res?.Mode === 1)
+            ?.filter(txn => txn?.SenderDID !== txn?.ReceiverDID)
+            ?.map((txn) => ({
               ...txn,
               type: txn?.SenderDID === userDetails?.did ? "Sent" : "Received",
               Epoch: normalizeEpoch(txn?.Epoch, txn?.DateTime),
@@ -130,8 +134,10 @@ export default function History({ isModal = false }) {
 
       if (legacyTransactionsApiData?.status) {
         const legacyTransactions =
-          legacyTransactionsApiData?.TxnDetails?.filter((res) => res?.Mode === 0 || res?.Mode === 1)?.map(
-            (txn) => ({
+          legacyTransactionsApiData?.TxnDetails
+            ?.filter((res) => res?.Mode === 0 || res?.Mode === 1)
+            ?.filter(txn => txn?.SenderDID !== txn?.ReceiverDID)
+            ?.map((txn) => ({
               ...txn,
               type: txn?.SenderDID === userDetails?.legacyDid ? "Sent" : "Received",
               Epoch: normalizeEpoch(txn?.Epoch, txn?.DateTime),

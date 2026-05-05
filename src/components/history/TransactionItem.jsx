@@ -29,7 +29,8 @@ export default function TransactionItem({ type, Status, Amount, Epoch, SenderDID
     if (!link) {
       return
     }
-    window.open(`${link}${id}`, '_blank')
+    const finalUrl = link.endsWith('/') ? `${link}${id}` : `${link}?tx=${id}`;
+    window.open(finalUrl, '_blank')
   }
   return (
     <motion.div

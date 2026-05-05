@@ -323,7 +323,6 @@ function Login() {
                         onChange={handlePinComplete}
                         value={pin}
                         length={6}
-                        error={error}
                         onComplete={handleUnlock}
                     />
                     {/* <SetupPin onSubmit={handlePinComplete} error={error} /> */}

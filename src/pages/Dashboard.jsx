@@ -108,17 +108,21 @@ export default function Dashboard() {
           let allTransactions = [];
 
           if (transactionsApiData?.status) {
-            const newTransactions = transactionsApiData?.TxnDetails?.filter(res => res?.Mode == 0 || res?.Mode == 1)?.map((txn) => ({
-              ...txn,
-              type: txn?.SenderDID == userDetails?.did ? "Sent" : "Received",
-              isLegacy: false
-            })) || []
+            const newTransactions = transactionsApiData?.TxnDetails
+              ?.filter(res => res?.Mode == 0 || res?.Mode == 1)
+              ?.filter(txn => txn?.SenderDID !== txn?.ReceiverDID)
+              ?.map((txn) => ({
+                ...txn,
+                type: txn?.SenderDID == userDetails?.did ? "Sent" : "Received",
+                isLegacy: false
+              })) || []
             allTransactions = [...allTransactions, ...newTransactions];
           }
 
           if (legacyTransactionsApiData?.status) {
             const legacyTransactions = legacyTransactionsApiData?.TxnDetails
               ?.filter(res => res?.Mode == 0 || res?.Mode == 1)
+              ?.filter(txn => txn?.SenderDID !== txn?.ReceiverDID)
               ?.filter(txn => !(txn?.SenderDID === userDetails?.legacyDid && txn?.ReceiverDID === userDetails?.did))
               ?.map((txn) => ({
                 ...txn,
@@ -151,10 +155,12 @@ export default function Dashboard() {
           }
           setSelectedTokens([])
           if (fttxn?.status) {
-            let transactions = fttxn?.TxnDetails?.map((txn) => ({
-              ...txn,
-              type: txn?.SenderDID == userDetails?.did ? "Sent" : "Received",
-            })) || []
+            let transactions = fttxn?.TxnDetails
+              ?.filter(txn => txn?.SenderDID !== txn?.ReceiverDID)
+              ?.map((txn) => ({
+                ...txn,
+                type: txn?.SenderDID == userDetails?.did ? "Sent" : "Received",
+              })) || []
 
 
             setTransactionsData(transactions.sort((a, b) => b.Epoch - a.Epoch)?.slice(0, 3))

@@ -48,7 +48,8 @@ export default function RecentTransactions({ transactionsData }) {
     if (!link) {
       return
     }
-    window.open(`${link}${id}`, '_blank')
+    const finalUrl = link.endsWith('/') ? `${link}${id}` : `${link}?tx=${id}`;
+    window.open(finalUrl, '_blank')
   }
 
   const handleViewAll = () => {
