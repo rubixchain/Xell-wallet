@@ -18,9 +18,9 @@ const Modal = ({ onClose, children }) => {
     }, [onClose]);
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-2 bg-black bg-opacity-75">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black bg-opacity-75">
             <div ref={modalRef} className="bg-white dark:bg-gray-800 rounded-lg h-[90vh] w-full max-w-[30rem] relative overflow-hidden">
-                <div className="px-2 py-3 h-full flex flex-col">
+                <div className="px-3 py-3 h-full flex flex-col">
                     <button
                         className="absolute top-4 right-4 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 z-10"
                         onClick={onClose}
