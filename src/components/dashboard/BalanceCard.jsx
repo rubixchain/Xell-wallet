@@ -1,6 +1,5 @@
 import { motion } from 'framer-motion';
-import { FiRefreshCw } from 'react-icons/fi';
-import { useContext, useState } from 'react';
+import { useContext } from 'react';
 import { UserContext } from '../../context/userContext';
 
 const ShimmerCard = () => (
@@ -9,9 +8,8 @@ const ShimmerCard = () => (
   </div>
 );
 
-export default function BalanceCard({ accountInfo, setIsTransactionCompleted }) {
+export default function BalanceCard({ accountInfo }) {
   const { userDetails } = useContext(UserContext)
-  const [isRotating, setIsRotating] = useState(false);
 
   const balanceLoaded = accountInfo?.balance !== undefined && accountInfo?.balance !== null;
 
@@ -35,24 +33,6 @@ export default function BalanceCard({ accountInfo, setIsTransactionCompleted }) 
       animate="animate"
       transition={{ duration: 0.3 }}
     >
-      <div className="flex items-center gap-1.5 mb-2">
-        <span className="text-[16px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
-          Total Balance
-        </span>
-        <motion.button
-          onClick={() => {
-            setIsRotating(true);
-            setIsTransactionCompleted(prev => !prev)
-            setTimeout(() => setIsRotating(false), 1000);
-          }}
-          className="text-gray-400 hover:text-gray-700 dark:text-gray-400 dark:hover:text-white p-1 hover:bg-gray-100 dark:hover:bg-white/10 rounded-full transition-colors"
-          animate={{ rotate: isRotating ? 180 : 0 }}
-          transition={{ duration: 0.6 }}
-          aria-label="Refresh balance"
-        >
-          <FiRefreshCw className="w-3.5 h-3.5" />
-        </motion.button>
-      </div>
       <motion.div
         className="flex items-baseline"
         initial={{ scale: 0.85 }}
