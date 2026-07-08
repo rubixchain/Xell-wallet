@@ -232,7 +232,7 @@ export default function AccountSwitcher() {
                                             aria-label={`Switch to ${account.username}`}
                                             tabIndex={0}
                                         >
-                                            <div className={`w-12 h-12 rounded-full flex items-center justify-center text-base font-semibold flex-shrink-0 ${
+                                            <div className={`w-12 h-12 rounded-full flex items-center justify-center text-sm font-semibold flex-shrink-0 ${
                                                 isActive
                                                     ? 'bg-secondary text-white'
                                                     : 'bg-gray-100 dark:bg-gray-600 text-gray-600 dark:text-gray-300'
@@ -241,7 +241,7 @@ export default function AccountSwitcher() {
                                             </div>
                                             <div className="flex-1 min-w-0">
                                                 <div className="flex items-center gap-2">
-                                                    <span className={`text-base font-medium truncate ${
+                                                    <span className={`text-sm font-medium truncate ${
                                                         isActive ? 'text-secondary' : 'text-gray-800 dark:text-gray-200'
                                                     }`}>
                                                         @{account.username}
@@ -255,7 +255,7 @@ export default function AccountSwitcher() {
                                                 </span>
                                             </div>
                                             <div className="flex flex-col items-end flex-shrink-0">
-                                                <span className={`text-base font-semibold ${
+                                                <span className={`text-sm font-semibold ${
                                                     isActive ? 'text-secondary' : 'text-gray-800 dark:text-gray-200'
                                                 }`}>
                                                     {balances[account.did] !== undefined
@@ -275,7 +275,7 @@ export default function AccountSwitcher() {
                                 <button
                                     onClick={handleCreateWallet}
                                     onKeyDown={(e) => e.key === 'Enter' && handleCreateWallet()}
-                                    className="w-full px-4 py-3 flex items-center gap-3 text-base font-medium text-secondary hover:bg-tertiary/50 rounded-lg transition-colors"
+                                    className="w-full px-4 py-3 flex items-center gap-3 text-sm font-medium text-secondary hover:bg-tertiary/50 rounded-lg transition-colors"
                                     aria-label="Create new wallet"
                                     tabIndex={0}
                                 >
@@ -285,7 +285,7 @@ export default function AccountSwitcher() {
                                 <button
                                     onClick={handleImportWallet}
                                     onKeyDown={(e) => e.key === 'Enter' && handleImportWallet()}
-                                    className="w-full px-4 py-3 flex items-center gap-3 text-base font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 rounded-lg transition-colors"
+                                    className="w-full px-4 py-3 flex items-center gap-3 text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700/50 rounded-lg transition-colors"
                                     aria-label="Import wallet"
                                     tabIndex={0}
                                 >

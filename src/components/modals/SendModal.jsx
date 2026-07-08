@@ -354,7 +354,7 @@ export default function SendModal({ isOpen, onClose, accountInfo, setIsTransacti
                       key={i}
                       className="flex items-baseline justify-center gap-2 bg-[#E5E5E540] dark:bg-gray-700/40 rounded-xl py-3 px-4"
                     >
-                      <span className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white shrink-0">
+                      <span className="text-lg font-bold tracking-tight text-gray-900 dark:text-white shrink-0">
                         {row.amount}
                       </span>
                       <span title={asset?.name} className="text-base font-semibold text-gray-400 truncate">{asset?.name}</span>

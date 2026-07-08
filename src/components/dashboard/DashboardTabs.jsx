@@ -57,7 +57,7 @@ export default function DashboardTabs({ tabs, activeTab, onChange }) {
             tabIndex={isActive ? 0 : -1}
             onClick={() => onChange(tab.id)}
             onKeyDown={(e) => handleKeyDown(e, index)}
-            className={`relative flex-1 px-4 py-3 text-sm font-semibold text-center transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-t-lg ${isActive ? 'text-primary' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'}`}
+            className={`relative flex-1 px-4 py-3 text-base font-medium text-center transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-t-lg ${isActive ? 'text-primary' : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'}`}
           >
             {tab.label}
             {isActive && (

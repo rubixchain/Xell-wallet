@@ -73,7 +73,7 @@ export default function TokenList() {
                     </div>
 
                     <div className="text-right shrink-0">
-                        <p className="text-gray-900 dark:text-white text-base font-semibold">
+                        <p className="text-gray-900 dark:text-white text-sm font-semibold">
                             {token?.ft_count}
                         </p>
                         <p className="text-xs text-gray-400 dark:text-gray-500">Balance</p>

@@ -36,7 +36,7 @@ export default function BalanceCard({ accountInfo, setIsTransactionCompleted }) 
       transition={{ duration: 0.3 }}
     >
       <div className="flex items-center gap-1.5 mb-2">
-        <span className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+        <span className="text-[16px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
           Total Balance
         </span>
         <motion.button
@@ -67,7 +67,7 @@ export default function BalanceCard({ accountInfo, setIsTransactionCompleted }) 
           // of flashing 0 (0 is also a valid loaded balance).
           if (!balanceLoaded) {
             return (
-              <div className="relative h-12 w-44 overflow-hidden rounded-lg bg-gray-200 dark:bg-gray-700">
+              <div className="relative h-7 w-28 overflow-hidden rounded-lg bg-gray-200 dark:bg-gray-700">
                 <div className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/70 dark:via-white/10 to-transparent animate-[shimmer_1.5s_infinite]" />
               </div>
             );
@@ -75,8 +75,8 @@ export default function BalanceCard({ accountInfo, setIsTransactionCompleted }) 
           const amount = parseFloat(parseFloat(accountInfo?.balance || 0).toFixed(3));
           return (
             <>
-              <span className="text-5xl font-bold tracking-tight text-primary dark:text-white">{amount}</span>
-              <span className="text-2xl font-semibold text-gray-400 dark:text-white/60 ml-2">{userDetails?.tokenSymbol}</span>
+              <span className="text-[18px] font-bold tracking-tight text-primary dark:text-white">{amount}</span>
+              <span className="text-[18px] font-bold text-gray-400 dark:text-white/60 ml-2">{userDetails?.tokenSymbol}</span>
             </>
           );
         })()}

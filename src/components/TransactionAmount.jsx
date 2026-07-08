@@ -71,7 +71,7 @@ export function TransactionAssets({ assets, amount, symbol, fallbackSymbol, type
         {list.map((a, i) => (
           <div
             key={i}
-            className="flex items-baseline justify-between gap-3 min-w-[140px] max-w-full rounded-md border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-base shadow-md hover:shadow-lg transition-shadow"
+            className="flex items-baseline justify-between gap-3 min-w-[140px] max-w-full rounded-md border border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 px-3 py-2 text-sm shadow-md hover:shadow-lg transition-shadow"
           >
             <span className="font-medium text-gray-600 dark:text-gray-300 break-words min-w-0">
               {a.symbol}

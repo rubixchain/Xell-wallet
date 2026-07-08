@@ -57,7 +57,7 @@ export default function TransactionItem({ type, Status, Amount, Symbol, Assets, 
         </motion.div>
         <div className=''>
           <div className="flex items-center space-x-2 ">
-            <span className="font-semibold text-senary text-base dark:text-white">{type}</span>
+            <span className="font-semibold text-senary text-sm dark:text-white">{type}</span>
             <span className={`text-sm px-2 py-0.5 rounded ${!Status
               ? 'bg-red-100/50 text-red-600'
               : 'bg-green-100/50 text-green-600'
@@ -80,7 +80,7 @@ export default function TransactionItem({ type, Status, Amount, Symbol, Assets, 
         </div>
       </div>
       <div className="ms-8 ">
-        {/* <div className="font-semibold  text-gray-900 dark:text-white text-base text-nowrap  text-senary">{Amount}
+        {/* <div className="font-semibold  text-gray-900 dark:text-white text-sm text-nowrap  text-senary">{Amount}
           <span className=' ms-1'>{userDetails?.tokenSymbol}</span>
         </div> */}
         <TransactionAmount
@@ -92,7 +92,7 @@ export default function TransactionItem({ type, Status, Amount, Symbol, Assets, 
           expanded={expanded}
           onToggle={() => setExpanded((e) => !e)}
         />
-        <div className="flex items-center justify-end space-x-1 text-base text-quinary font-medium">
+        <div className="flex items-center justify-end space-x-1 text-sm text-quinary font-medium">
           <span className='text-sm'>{sliceString(type === 'Sent' ? ReceiverDID : SenderDID, 4)}</span>
           <motion.button
             onClick={() => handleCopy(type === 'Sent' ? ReceiverDID : SenderDID)}

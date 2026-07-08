@@ -52,7 +52,7 @@ export default function RecentTransactions({ transactionsData }) {
       animate="animate"
     >
       <motion.div className="flex items-center justify-between mb-6">
-        <h2 className="text-base font-semibold text-gray-700 dark:text-gray-300">
+        <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300">
           Recent
         </h2>
         {transactionsData?.length > 0 && <motion.button
@@ -101,7 +101,7 @@ export default function RecentTransactions({ transactionsData }) {
               </motion.div>
               <div className=''>
                 <div className="flex items-center space-x-2">
-                  <span className="font-semibold text-senary text-base dark:text-white">{tx.type}</span>
+                  <span className="font-semibold text-senary text-sm dark:text-white">{tx.type}</span>
                   <span className={`text-sm px-2 py-0.5 rounded ${!tx.Status
                     ? 'bg-red-100/50 text-red-600'
                     : 'bg-green-100/50 text-green-600'
