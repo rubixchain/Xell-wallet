@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import { FiCalendar, FiDownload } from "react-icons/fi";
 
 
-function App({ displayedRange, setDisplayedRange, onDownload, hasTransactions }) {
+function App({ displayedRange, setDisplayedRange, onDownload, hasTransactions, isModal = false }) {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
 
@@ -70,9 +70,11 @@ function App({ displayedRange, setDisplayedRange, onDownload, hasTransactions })
     <div className="">
 
       <div className="flex pb-3 border-b-2 flex-row items-start sm:items-center justify-between relative w-full gap-4 sm:gap-0">
-        <h1 className="text-[22px] font-bold text-senary dark:text-white">
-          History
-        </h1>
+        {!isModal && (
+          <h1 className="text-[22px] font-bold text-senary dark:text-white">
+            History
+          </h1>
+        )}
         <div className="flex items-center gap-2">
         <button
           onClick={onDownload}

@@ -1,19 +1,19 @@
 import { motion } from 'framer-motion';
 import { FiArrowUpRight, FiArrowDownLeft, FiCopy } from 'react-icons/fi';
-import { useNavigate } from 'react-router-dom';
-import { routes } from '../../routes/routes';
 import { getTimeAgo, sliceString } from '../../utils/utils';
 import { buildTxnExplorerUrl } from '../../utils/network';
 import { TransactionAmount, TransactionAssets } from '../TransactionAmount';
 import { useContext, useState } from 'react';
 import { UserContext } from '../../context/userContext';
+import History from '../../pages/History';
+import Modal from '../common/Modal';
 import toast from 'react-hot-toast';
 
 export default function RecentTransactions({ transactionsData }) {
   const { userDetails } = useContext(UserContext)
   const [expandedTxns, setExpandedTxns] = useState({})
   const toggleExpanded = (id) => setExpandedTxns((prev) => ({ ...prev, [id]: !prev[id] }))
-  const navigate = useNavigate()
+  const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false)
 
   const containerVariants = {
     initial: { opacity: 0, y: 20 },
@@ -43,6 +43,7 @@ export default function RecentTransactions({ transactionsData }) {
   }
 
   return (
+    <>
     <motion.div
       className=""
       variants={containerVariants}
@@ -54,7 +55,7 @@ export default function RecentTransactions({ transactionsData }) {
           Recent
         </h2>
         {transactionsData?.length > 0 && <motion.button
-          onClick={() => navigate(routes.HISTORY)}
+          onClick={() => setIsHistoryModalOpen(true)}
           className="text-primary bg-[#e5e5e5]/30 rounded-md px-3 py-2 hover:text-primary-light text-sm font-medium pointer"
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
@@ -169,5 +170,11 @@ export default function RecentTransactions({ transactionsData }) {
         })}
       </div>}
     </motion.div>
+    {isHistoryModalOpen && (
+      <Modal onClose={() => setIsHistoryModalOpen(false)}>
+        <History isModal={true} />
+      </Modal>
+    )}
+    </>
   );
 }

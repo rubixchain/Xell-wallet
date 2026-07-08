@@ -151,6 +151,7 @@ export default function History({ isModal = false }) {
               setDisplayedRange={setDisplayedRange}
               onDownload={downloadHistory}
               hasTransactions={tarnsactionsFilter?.length > 0}
+              isModal={isModal}
             />
 
             <HistoryFilters
