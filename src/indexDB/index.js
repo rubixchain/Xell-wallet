@@ -170,36 +170,6 @@ const indexDBUtil = {
                             url: config.RUBIX_TESTNET_BASE_URL
                         }
                     ],
-                },
-                {
-                    logo: '/network/trie.png',
-                    name: 'Trie Testnet',
-                    default: true,
-                    selected: false,
-                    tokenSymbol: NETWORK_TYPES.TRIE,
-                    id: 3,
-                    rpcUrls: [
-                        {
-                            selected: true,
-                            name: 'testnet',
-                            url: config.TRIE_TESTNET_BASE_URL
-                        }
-                    ],
-                },
-                {
-                    logo: '/network/trie.png',
-                    name: 'Trie Mainnet',
-                    default: true,
-                    selected: false,
-                    tokenSymbol: NETWORK_TYPES.TRI,
-                    id: 4,
-                    rpcUrls: [
-                        {
-                            selected: true,
-                            name: 'mainnet',
-                            url: config.TRIE_MAINNET_BASE_URL
-                        }
-                    ],
                 }
             ];
 

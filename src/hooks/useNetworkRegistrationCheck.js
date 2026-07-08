@@ -7,9 +7,7 @@ import toast from 'react-hot-toast';
 
 const NETWORKS = [
     { id: '1', name: 'Rubix Mainnet', baseUrlKey: 'RUBIX_MAINNET_BASE_URL' },
-    { id: '2', name: 'Rubix Testnet', baseUrlKey: 'RUBIX_TESTNET_BASE_URL' },
-    { id: '3', name: 'Trie Testnet', baseUrlKey: 'TRIE_TESTNET_BASE_URL' },
-    { id: '4', name: 'Trie Mainnet', baseUrlKey: 'TRIE_MAINNET_BASE_URL' }
+    { id: '2', name: 'Rubix Testnet', baseUrlKey: 'RUBIX_TESTNET_BASE_URL' }
 ];
 
 const useNetworkRegistrationCheck = (userDetails) => {
