@@ -953,6 +953,109 @@ const indexDBUtil = {
             return { status: false, message: error.message };
         }
     },
+    // One-time migration after merging the TRIE networks into the Rubix networks.
+    // Remaps stored network ids: Trie Mainnet (4) -> Rubix Mainnet (1),
+    // Trie Testnet (3) -> Rubix Testnet (2). Drops the default Trie entries from
+    // each DID's network list, preserves custom networks, and keeps exactly one
+    // network selected. Guarded by its own flag so it runs only once.
+    migrateNetworkIds: async function () {
+        const RUBIX_MAINNET_ID = 1;
+        const RUBIX_TESTNET_ID = 2;
+        const remap = (id) => {
+            const n = Number(id);
+            if (n === 4) return RUBIX_MAINNET_ID;
+            if (n === 3) return RUBIX_TESTNET_ID;
+            return n || id;
+        };
+        const isTrieDefault = (net) => net?.default === true && (Number(net?.id) === 3 || Number(net?.id) === 4);
+
+        try {
+            const db = await this.initDB();
+
+            const alreadyMigrated = await new Promise((resolve, reject) => {
+                const tx = db.transaction([this.storeName], 'readonly');
+                const req = tx.objectStore(this.storeName).get('networkMergeMigrated');
+                req.onerror = () => reject(req.error);
+                req.onsuccess = () => resolve(req.result?.value === true);
+            });
+            if (alreadyMigrated) return { status: true, migrated: false };
+
+            await new Promise((resolve, reject) => {
+                const tx = db.transaction([this.storeName], 'readwrite');
+                const store = tx.objectStore(this.storeName);
+
+                // 1. Accounts: remap each account's stored network id.
+                const userReq = store.get('UserDetails');
+                userReq.onsuccess = () => {
+                    const data = userReq.result;
+                    if (data?.accounts?.length) {
+                        data.accounts = data.accounts.map(acc => ({ ...acc, network: remap(acc.network) }));
+                        store.put(data);
+                    }
+                };
+
+                // 2. Per-DID network lists: drop default Trie nets, keep customs,
+                //    re-point selection to the merged Rubix network.
+                const netReq = store.get('NetworkDetails');
+                netReq.onsuccess = () => {
+                    const data = netReq.result;
+                    if (data?.networks?.length) {
+                        data.networks = data.networks.map(entry => {
+                            const nets = entry?.networks || [];
+                            const selectedTrie = nets.find(n => isTrieDefault(n) && n.selected);
+                            const kept = nets.filter(n => !isTrieDefault(n));
+                            if (selectedTrie) {
+                                const target = remap(selectedTrie.id);
+                                kept.forEach(n => { n.selected = Number(n.id) === target; });
+                            }
+                            if (kept.length && !kept.some(n => n.selected)) {
+                                const main = kept.find(n => Number(n.id) === RUBIX_MAINNET_ID) || kept[0];
+                                main.selected = true;
+                            }
+                            return { ...entry, networks: kept };
+                        });
+                        store.put(data);
+                    }
+                };
+
+                // 3. Global selected-network setting record.
+                const settingReq = store.get('network');
+                settingReq.onsuccess = () => {
+                    const setting = settingReq.result;
+                    if (setting && setting.network != null) {
+                        setting.network = remap(setting.network);
+                        store.put(setting);
+                    }
+                };
+
+                // 4. Mark migrated so this runs only once.
+                store.put({ id: 'networkMergeMigrated', value: true });
+
+                tx.oncomplete = () => resolve();
+                tx.onerror = () => reject(tx.error);
+                tx.onabort = () => reject(tx.error);
+            });
+
+            // 5. localStorage currentUser.network (session pointer).
+            try {
+                const raw = localStorage.getItem('currentUser');
+                if (raw) {
+                    const cu = JSON.parse(raw);
+                    if (cu && cu.network != null) {
+                        cu.network = remap(cu.network);
+                        localStorage.setItem('currentUser', JSON.stringify(cu));
+                    }
+                }
+            } catch (e) {
+                // non-fatal: session pointer will be corrected on next account switch
+            }
+
+            return { status: true, migrated: true };
+        } catch (error) {
+            console.error('migrateNetworkIds failed:', error);
+            return { status: false, migrated: false, error };
+        }
+    },
     addNetworkToDID: async function (did, newNetwork) {
         try {
             const db = await this.initDB();

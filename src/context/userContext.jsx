@@ -35,8 +35,13 @@ export const UserProvider = ({ children }) => {
 
             }
             setCurrency(value)
+
+            // One-time cleanup of pre-merge network data (drops TRIE networks,
+            // remaps ids to the two Rubix networks). Idempotent and non-fatal.
+            await indexDBUtil.migrateNetworkIds()
+
             let currentUser = localStorage.getItem("currentUser")
-            
+
             // Check if running in browser extension context
             if (typeof chrome !== 'undefined' && chrome.storage && chrome.storage.local) {
                 chrome.storage.local.get(["websiteInitiated", "title", "icon"], (result) => {
