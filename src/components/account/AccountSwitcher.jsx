@@ -168,10 +168,10 @@ export default function AccountSwitcher() {
                         {/* Tooltip with full DID */}
                         <span
                             role="tooltip"
-                            className="pointer-events-none absolute left-1/2 top-full z-50 mt-2.5 flex -translate-x-1/2 translate-y-1 flex-col items-center gap-0.5 whitespace-nowrap rounded-lg bg-primary px-3 py-2 opacity-0 shadow-xl ring-1 ring-white/10 transition-all duration-200 ease-out group-hover:translate-y-0 group-hover:opacity-100"
+                            className="pointer-events-none absolute left-1/2 top-full z-50 mt-2.5 flex w-[280px] max-w-[85vw] -translate-x-1/2 translate-y-1 flex-col items-center gap-0.5 rounded-lg bg-primary px-3 py-2 opacity-0 shadow-xl ring-1 ring-white/10 transition-all duration-200 ease-out group-hover:translate-y-0 group-hover:opacity-100"
                         >
                             <span className="text-[10px] font-semibold uppercase tracking-wider text-white/50">Full DID</span>
-                            <span className="font-mono text-xs tracking-tight text-white">{userDetails?.did}</span>
+                            <span className="font-mono text-xs tracking-tight text-white break-all text-center">{userDetails?.did}</span>
                             <span className="absolute bottom-full left-1/2 -translate-x-1/2 border-[5px] border-transparent border-b-primary" />
                         </span>
                     </span>
