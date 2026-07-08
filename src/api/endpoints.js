@@ -113,6 +113,12 @@ export const END_POINTS = {
     initiate_ft_transfer: (body) => {
         return api.post('rubix/v1/tx', body)
     },
+    // Combined RBT + multi-FT transfer. Same endpoint as the single-asset calls
+    // above; the node's tx handler processes the `rbt` and `ft` keys in `tokens`
+    // independently, so one call can move RBT and several FTs at once.
+    initiate_transfer: (body) => {
+        return api.post('rubix/v1/tx', body)
+    },
     create_ft: (data) => {
         return api.post('create-ft', data)
     },
