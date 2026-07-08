@@ -47,7 +47,7 @@ export default function BalanceCard({ accountInfo }) {
           // of flashing 0 (0 is also a valid loaded balance).
           if (!balanceLoaded) {
             return (
-              <div className="relative h-7 w-28 overflow-hidden rounded-lg bg-gray-200 dark:bg-gray-700">
+              <div className="relative h-9 w-32 overflow-hidden rounded-lg bg-gray-200 dark:bg-gray-700">
                 <div className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/70 dark:via-white/10 to-transparent animate-[shimmer_1.5s_infinite]" />
               </div>
             );
@@ -55,8 +55,8 @@ export default function BalanceCard({ accountInfo }) {
           const amount = parseFloat(parseFloat(accountInfo?.balance || 0).toFixed(3));
           return (
             <>
-              <span className="text-[18px] font-bold tracking-tight text-primary dark:text-white">{amount}</span>
-              <span className="text-[18px] font-bold text-gray-400 dark:text-white/60 ml-2">{userDetails?.tokenSymbol}</span>
+              <span className="text-3xl font-bold tracking-tight text-primary dark:text-white">{amount}</span>
+              <span className="text-xl font-bold text-gray-400 dark:text-white/60 ml-2">{userDetails?.tokenSymbol}</span>
             </>
           );
         })()}
