@@ -2,19 +2,14 @@ import Header from '../components/dashboard/Header';
 import HistoryHeader from '../components/history/HistoryHeader';
 import HistoryFilters from '../components/history/HistoryFilters';
 import TransactionList from '../components/history/TransactionList';
-import Navigation from '../components/dashboard/Navigation';
-import ContentContainer from '../components/layout/ContentContainer';
-import { useCallback, useContext, useEffect, useState } from 'react';
-import { TransactionsContext } from '../context/transactionContext';
+import { useContext, useEffect, useState } from 'react';
 import { END_POINTS } from '../api/endpoints';
 import { UserContext } from '../context/userContext';
-import { NETWORK_TYPES } from '../../config';
 import { useNavigate } from 'react-router-dom';
-import { normalizeEpoch } from '../utils/utils';
+import { download } from '../utils/wallet';
 
 export default function History({ isModal = false }) {
   const [tarnsactionsFilter, setTransactionsFilter] = useState([]);
-  const { transactionsData, setTransactionsData } = useContext(TransactionsContext);
   const { userDetails } = useContext(UserContext);
   const [displayedRange, setDisplayedRange] = useState({
     startDate: new Date("2024-12-02"),
@@ -30,140 +25,80 @@ export default function History({ isModal = false }) {
     navigate("/dashboard");
   };
 
-  const filterData = (filterData) => {
-    if (!filterData?.length) return;
+  const filterData = (data) => {
+    if (!data?.length) {
+      setTransactionsFilter([]);
+      return;
+    }
 
-    const endDate = new Date(displayedRange.endDate);
-    const startDate = new Date(displayedRange.startDate);
-    const startEpoch = Math.floor(startDate.getTime() / 1000);
-    const endEpoch = Math.floor(endDate.getTime() / 1000);
+    const startEpoch = Math.floor(new Date(displayedRange.startDate).getTime() / 1000);
+    const endEpoch = Math.floor(new Date(displayedRange.endDate).getTime() / 1000);
 
-    const filteredData = filterData.filter((item) => {
+    const filteredData = data.filter((item) => {
       const inTimeRange = item.Epoch >= startEpoch && item.Epoch <= endEpoch;
+      if (!inTimeRange) return false;
+
       const meetsTypeCheck = selectedType === "All" || item?.type === selectedType;
-      const matchesInput =
-        !inputValue || item?.SenderDID?.includes(inputValue) || item?.ReceiverDID?.includes(inputValue);
-      return inTimeRange && meetsTypeCheck && matchesInput;
+      if (!meetsTypeCheck) return false;
+
+      // Filter by recipient/sender DID OR transaction ID.
+      if (inputValue) {
+        return item?.SenderDID?.includes(inputValue) ||
+          item?.ReceiverDID?.includes(inputValue) ||
+          item?.TransactionID?.includes(inputValue);
+      }
+      return true;
     });
 
-    setTransactionsFilter(filteredData);
+    setTransactionsFilter(filteredData.sort((a, b) => b.Epoch - a.Epoch));
   };
 
-  const triggerFtAPI = async () => {
+  // Post-merge each Rubix network carries both RBT and FT activity, so history
+  // fetches both and merges them into one list (deduped by TransactionID).
+  const fetchAllTransactions = async () => {
     try {
       setIsLoading(true);
+      const formatDate = (date) => date.toISOString().split('T')[0];
 
-      const fttxn = await END_POINTS.get_ft_transactions({
-        DID: userDetails?.did,
+      const [rbtTxn, ftTxn] = await Promise.all([
+        END_POINTS.get_rbt_transactions({ DID: userDetails?.did }),
+        END_POINTS.get_ft_transactions({
+          DID: userDetails?.did,
+          StartDate: formatDate(displayedRange.startDate),
+          EndDate: formatDate(displayedRange.endDate)
+        })
+      ]);
+
+      const mapTxn = (txn) => ({
+        ...txn,
+        type: txn?.SenderDID === userDetails?.did ? "Sent" : "Received",
+        Epoch: txn?.Epoch > 0 ? txn?.Epoch : Math.floor(new Date(txn.DateTime).getTime() / 1000)
       });
 
-
-      if (!fttxn?.status) {
-
-        setTransactionsFilter([]);
-        return;
+      const merged = [];
+      if (rbtTxn?.status) {
+        merged.push(...(rbtTxn?.TxnDetails
+          ?.filter(t => t?.Mode === 0 || t?.Mode === 1)
+          ?.filter(t => t?.SenderDID !== t?.ReceiverDID)
+          ?.map(mapTxn) || []));
+      }
+      if (ftTxn?.status) {
+        merged.push(...(ftTxn?.TxnDetails
+          ?.filter(t => t?.SenderDID !== t?.ReceiverDID)
+          ?.map(mapTxn) || []));
       }
 
-      const transactions = fttxn?.TxnDetails
-        ?.filter(txn => txn?.SenderDID !== txn?.ReceiverDID)
-        ?.map((txn) => ({
-          ...txn,
-          type: txn?.SenderDID === userDetails?.did ? "Sent" : "Received",
-          Epoch: normalizeEpoch(txn?.Epoch, txn?.DateTime),
-        })) || [];
-
-      const startMs = new Date(displayedRange.startDate).getTime();
-      const endMs = new Date(displayedRange.endDate).getTime();
-
-      const filteredTxns = transactions.filter((item) => {
-        const inTimeRange = item.Epoch >= startMs && item.Epoch <= endMs;
-        const meetsTypeCheck = selectedType === "All" || item?.type === selectedType;
-        const matchesInput =
-          !inputValue || item?.SenderDID?.includes(inputValue) || item?.ReceiverDID?.includes(inputValue);
-        return inTimeRange && meetsTypeCheck && matchesInput;
+      const seen = new Set();
+      const deduped = merged.filter(t => {
+        const key = t?.TransactionID;
+        if (!key) return true;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
       });
 
-
-      const sortedTxns = filteredTxns.sort((a, b) => b.Epoch - a.Epoch);
-
-
-      setTransactionsFilter(sortedTxns);
+      filterData(deduped.sort((a, b) => b.Epoch - a.Epoch));
     } catch (error) {
-
-      setTransactionsFilter([]);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const fetchRBTTransactions = async () => {
-    try {
-      setIsLoading(true);
-      setTransactionsFilter([]);
-
-      const apiPromises = [
-        END_POINTS.get_rbt_transactions({ DID: userDetails?.did })
-      ];
-
-      if (userDetails?.legacyDid && userDetails?.network === 1) {
-        apiPromises.push(
-          END_POINTS.get_rbt_transactions({ DID: userDetails?.legacyDid })
-        );
-      }
-
-      const apiResults = await Promise.all(apiPromises);
-      const transactionsApiData = apiResults[0];
-      const legacyTransactionsApiData = apiResults[1];
-
-      let allTransactions = [];
-
-      if (transactionsApiData?.status) {
-        const newTransactions =
-          transactionsApiData?.TxnDetails
-            ?.filter((res) => res?.Mode === 0 || res?.Mode === 1)
-            ?.filter(txn => txn?.SenderDID !== txn?.ReceiverDID)
-            ?.map((txn) => ({
-              ...txn,
-              type: txn?.SenderDID === userDetails?.did ? "Sent" : "Received",
-              Epoch: normalizeEpoch(txn?.Epoch, txn?.DateTime),
-              isLegacy: false
-            })
-          ) || [];
-        allTransactions = [...allTransactions, ...newTransactions];
-      }
-
-      if (legacyTransactionsApiData?.status) {
-        const legacyTransactions =
-          legacyTransactionsApiData?.TxnDetails
-            ?.filter((res) => res?.Mode === 0 || res?.Mode === 1)
-            ?.filter(txn => txn?.SenderDID !== txn?.ReceiverDID)
-            ?.map((txn) => ({
-              ...txn,
-              type: txn?.SenderDID === userDetails?.legacyDid ? "Sent" : "Received",
-              Epoch: normalizeEpoch(txn?.Epoch, txn?.DateTime),
-              isLegacy: true
-            })
-          ) || [];
-        allTransactions = [...allTransactions, ...legacyTransactions];
-      }
-
-      if (allTransactions.length > 0) {
-        const filteredTxns = allTransactions.filter((item) => {
-          const meetsTypeCheck = selectedType === "All" || item?.type === selectedType;
-          const matchesInput =
-            !inputValue || item?.SenderDID?.includes(inputValue) || item?.ReceiverDID?.includes(inputValue);
-          return meetsTypeCheck && matchesInput;
-        });
-
-        const sortedTransactions = filteredTxns.sort((a, b) => b.Epoch - a.Epoch);
-
-        setTransactionsFilter(sortedTransactions);
-      } else {
-
-        setTransactionsFilter([]);
-      }
-    } catch (error) {
-
       setTransactionsFilter([]);
     } finally {
       setIsLoading(false);
@@ -171,18 +106,28 @@ export default function History({ isModal = false }) {
   };
 
   useEffect(() => {
-
-
-    if (!userDetails?.did || userDetails?.network === 1 || userDetails?.network === 2) return;
-    triggerFtAPI();
+    if (!userDetails?.did) return;
+    fetchAllTransactions();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [displayedRange, selectedType, inputValue, userDetails?.did, userDetails?.network]);
 
-  useEffect(() => {
-
-
-    if (!userDetails?.did || (userDetails?.network !== 1 && userDetails?.network !== 2)) return;
-    fetchRBTTransactions();
-  }, [displayedRange, selectedType, inputValue, userDetails?.did, userDetails?.network]);
+  const downloadHistory = () => {
+    if (!tarnsactionsFilter?.length) return;
+    const headers = ['Date/Time', 'Type', 'Amount', 'Asset', 'Status', 'Sender DID', 'Receiver DID', 'Transaction ID'];
+    const escape = (value) => `"${String(value ?? '').replace(/"/g, '""')}"`;
+    const rows = tarnsactionsFilter.map((tx) => [
+      tx?.DateTime || (tx?.Epoch ? new Date(tx.Epoch * 1000).toISOString() : ''),
+      tx?.type || '',
+      tx?.Amount ?? '',
+      tx?.Symbol || '',
+      tx?.Status ? 'Success' : 'Failed',
+      tx?.SenderDID || '',
+      tx?.ReceiverDID || '',
+      tx?.TransactionID || ''
+    ].map(escape).join(','));
+    const csv = [headers.map(escape).join(','), ...rows].join('\n');
+    download(csv, `xell-transaction-history-${new Date().toISOString().split('T')[0]}.csv`);
+  };
 
   return (
     <div className={`${isModal ? "" : "min-h-screen bg-gray-50 dark:bg-gray-900"}`}>
@@ -201,19 +146,20 @@ export default function History({ isModal = false }) {
               </button>
             )}
 
-            <div className="flex  sm:flex-row sm:items-center sm:justify-between gap-2">
-              <HistoryHeader
-                displayedRange={displayedRange}
-                setDisplayedRange={setDisplayedRange}
-              />
+            <HistoryHeader
+              displayedRange={displayedRange}
+              setDisplayedRange={setDisplayedRange}
+              onDownload={downloadHistory}
+              hasTransactions={tarnsactionsFilter?.length > 0}
+            />
 
-              <HistoryFilters
-                selectedType={selectedType}
-                setSelectedType={setSelectedType}
-                inputValue={inputValue}
-                setInputValue={setInputValue}
-              />
-            </div>
+            <HistoryFilters
+              selectedType={selectedType}
+              setSelectedType={setSelectedType}
+              inputValue={inputValue}
+              setInputValue={setInputValue}
+            />
+
             {isLoading ? (
               <div className="flex items-center justify-center py-12">
                 <div className="flex flex-col items-center space-y-4">
