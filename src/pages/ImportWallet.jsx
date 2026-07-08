@@ -5,6 +5,7 @@ import toast from 'react-hot-toast';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { routes } from '../routes/routes';
 import BackButton from '../components/BackButton';
+import useRestoreAccountBack from '../hooks/useRestoreAccountBack';
 import Card from '../components/Card';
 import indexDBUtil from '../indexDB';
 import { deriveKeysFromMnemonic } from '../utils/migration';
@@ -37,6 +38,7 @@ const ImportWallet = () => {
   const navigate = useNavigate()
   const location = useLocation()
   const fromDashboard = location.state?.fromDashboard || false;
+  const handleBack = useRestoreAccountBack(fromDashboard);
 
   const handleDrop = useCallback((e) => {
     e.preventDefault();
@@ -256,7 +258,7 @@ const ImportWallet = () => {
   return (
     <Card>
       <div className="space-y-6 py-10 pb-6 flex flex-col w-full  justify-center">
-        <BackButton />
+        <BackButton onClick={handleBack} />
 
         <div className="">
           <div className="flex items-center gap-3 mb-6">

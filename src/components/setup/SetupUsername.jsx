@@ -42,7 +42,7 @@ export default function SetupUsername({ onSubmit }) {
             Choose Username
           </h1>
           <p className="text-quinary text-base dark:text-gray-300">
-            This will be your unique identifier
+            This will be your username for the new account
           </p>
         </div>
       </div>

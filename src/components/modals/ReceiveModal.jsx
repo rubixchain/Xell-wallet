@@ -71,16 +71,8 @@ export default function ReceiveModal({ isOpen, onClose, accountInfo }) {
           <h3 className="text-base font-semibold text-senary dark:text-white">
             Your DID
           </h3>
-          <div className="flex items-center space-x-2">
-            <div className="flex-1 bg-gray-50 dark:bg-gray-900 p-4 rounded-lg font-mono text-sm break-all">
-              {userDetails?.did}
-            </div>
-            <button
-              onClick={handleCopy}
-              className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
-            >
-              <FiCopy className="w-5 h-5" />
-            </button>
+          <div className="bg-gray-50 dark:bg-gray-900 p-4 rounded-lg font-mono text-sm break-all">
+            {userDetails?.did}
           </div>
         </div>
 

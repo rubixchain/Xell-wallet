@@ -113,7 +113,7 @@ export default function Header() {
                   className="px-2 w-full flex items-center gap-2 text-sm font-medium rounded-sm cursor-pointer hover:bg-gray-200 py-2"
                 >
                   <FiLock className="w-4 h-4" />
-                  Lock Wallet
+                  Lock Xell
                 </button>
               </div>
             )}
@@ -135,10 +135,10 @@ export default function Header() {
               className="bg-white dark:bg-gray-800 p-6 w-full rounded-lg shadow-lg  mx-4"
             >
               <h3 className="text-lg font-bold mb-4 text-gray-900 dark:text-white">
-                Confirm Lock
+                Lock Xell
               </h3>
               <p className="mb-6 text-base text-gray-700 dark:text-gray-300">
-                Are you sure you want to lock?
+                Are you sure you want to lock Xell?
               </p>
               <div className="flex justify-end space-x-4">
                 <button

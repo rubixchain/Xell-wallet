@@ -46,15 +46,15 @@ export default function SettingsContent() {
           key={section.id}
           onClick={() => handleSectionClick(section.id)}
           className={`
-            w-full flex items-center space-x-3 text-xs px-4 py-3 mb-2  rounded-lg text-left transition-colors
+            flex justify-start items-center w-full text-xs p-3 mb-2 rounded-lg text-left transition-colors
             ${activeSection === section.id
               ? 'bg-primary text-white'
               : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'
             }
           `}
         >
-          <section.icon className="w-8 h-5" />
-          <span className="font-medium">{section.label}</span>
+          <section.icon className="w-5 h-5 flex-shrink-0" />
+          <span className="font-medium ms-2 whitespace-nowrap">{section.label}</span>
         </button>
       ))}
     </nav>
