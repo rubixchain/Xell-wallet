@@ -115,6 +115,12 @@ export const END_POINTS = {
     signature_response: (params) => {
         return api.post('rubix/v1/signature', params)
     },
+    // Wallet token recovery (sync). Returns { status, message, result } where a
+    // "signature needed" response carries result.id + result.hash to be signed
+    // and sent back through signature_response - same handshake as register_did.
+    sync_recovery: (did) => {
+        return api.post('rubix/v1/sync', { did })
+    },
     create_wallet: (params) => {
         return api.post('rubix/v1/dids/create', params)
     },
