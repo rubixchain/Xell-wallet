@@ -135,7 +135,7 @@ export default function History({ isModal = false }) {
 
       <div className={`space-y-6 ${isModal ? "" : "p-4 sm:p-10"} w-full`}>
         <main className={`w-full ${isModal ? "" : "flex justify-center"}`}>
-          <div className="w-full space-y-6 bg-white dark:bg-gray-800 shadow-xl p-4 transition-colors">
+          <div className={`w-full space-y-6 bg-white dark:bg-gray-800 transition-colors ${isModal ? '' : 'shadow-xl p-4'}`}>
 
             {!isModal && (
               <button
