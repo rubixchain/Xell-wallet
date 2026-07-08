@@ -3,14 +3,16 @@ import { FiArrowUpRight, FiArrowDownLeft, FiCopy } from 'react-icons/fi';
 import { useNavigate } from 'react-router-dom';
 import { routes } from '../../routes/routes';
 import { getTimeAgo, sliceString } from '../../utils/utils';
-import { formatBalance } from '../../utils';
 import { buildTxnExplorerUrl } from '../../utils/network';
-import { useContext } from 'react';
+import { TransactionAmount, TransactionAssets } from '../TransactionAmount';
+import { useContext, useState } from 'react';
 import { UserContext } from '../../context/userContext';
 import toast from 'react-hot-toast';
 
 export default function RecentTransactions({ transactionsData }) {
   const { userDetails } = useContext(UserContext)
+  const [expandedTxns, setExpandedTxns] = useState({})
+  const toggleExpanded = (id) => setExpandedTxns((prev) => ({ ...prev, [id]: !prev[id] }))
   const navigate = useNavigate()
 
   const containerVariants = {
@@ -62,7 +64,10 @@ export default function RecentTransactions({ transactionsData }) {
       </motion.div>
 
       {!transactionsData?.length ? <div className="text-center text-sm text-gray-500">No transactions available</div> : <div className="space-y-4 overflow-auto ">
-        {transactionsData?.slice(0, 3)?.map((tx, index) => (
+        {transactionsData?.slice(0, 3)?.map((tx, index) => {
+          const txId = tx.TransactionID || index
+          const isExpanded = !!expandedTxns[txId]
+          return (
           <motion.div
             key={index}
             variants={itemVariants}
@@ -105,11 +110,17 @@ export default function RecentTransactions({ transactionsData }) {
                 </div>
               </div>
 
-              {/* RIGHT: Amount + DID vertically stacked */}
+              {/* RIGHT: Amount (single, or "first + more" expandable) + DID */}
               <div className="flex flex-col items-end leading-tight">
-                <div className="font-semibold text-gray-900 dark:text-white text-xl text-senary">
-                  {formatBalance(tx.Amount)} {tx.Symbol || userDetails?.tokenSymbol}
-                </div>
+                <TransactionAmount
+                  assets={tx.Assets}
+                  amount={tx.Amount}
+                  symbol={tx.Symbol}
+                  fallbackSymbol={userDetails?.tokenSymbol}
+                  type={tx.type}
+                  expanded={isExpanded}
+                  onToggle={() => toggleExpanded(txId)}
+                />
                 <div className="flex items-center gap-1 text-[14px] text-quinary font-medium">
                   <span>{sliceString(tx.type === 'Sent' ? tx?.ReceiverDID : tx.SenderDID, 4)}</span>
                   <motion.button
@@ -123,6 +134,17 @@ export default function RecentTransactions({ transactionsData }) {
                 </div>
               </div>
             </div>
+
+            {/* Expanded per-asset breakdown for multi-asset transfers */}
+            {isExpanded && (
+              <TransactionAssets
+                assets={tx.Assets}
+                amount={tx.Amount}
+                symbol={tx.Symbol}
+                fallbackSymbol={userDetails?.tokenSymbol}
+                type={tx.type}
+              />
+            )}
 
             {/* TXN ID: full width at bottom */}
             <div className="flex items-center flex-wrap text-[14px] font-medium text-gray-500">
@@ -143,7 +165,8 @@ export default function RecentTransactions({ transactionsData }) {
               </motion.button>
             </div>
           </motion.div>
-        ))}
+          )
+        })}
       </div>}
     </motion.div>
   );
