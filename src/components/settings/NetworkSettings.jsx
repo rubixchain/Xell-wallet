@@ -59,7 +59,6 @@ export default function NetworkSettings() {
         toast.error(registerDid?.message || 'Failed to register DID');
         return;
       }
-      toast.success(registerDid?.message || 'Signature needed');
       let getPrivateKey = await indexDBUtil.getData("UserDetails", userDetails?.username, userDetails?.pin)
       let signature = await generateSignature(getPrivateKey?.privatekey, registerDid?.result?.hash);
       let signatureResponse = await END_POINTS.signature_response({
