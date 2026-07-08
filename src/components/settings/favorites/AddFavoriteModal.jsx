@@ -1,10 +1,8 @@
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { FiX, FiStar } from 'react-icons/fi';
-import { useFavorites } from '../../../hooks/useFavorites';
 
-export default function AddFavoriteModal({ isOpen, onClose, favorite }) {
-  const { addFavorite, updateFavorite } = useFavorites();
+export default function AddFavoriteModal({ isOpen, onClose, favorite, addFavorite, updateFavorite }) {
   const [name, setName] = useState('');
   const [address, setAddress] = useState('');
   const [error, setError] = useState('');
@@ -23,22 +21,24 @@ export default function AddFavoriteModal({ isOpen, onClose, favorite }) {
   const handleSubmit = (e) => {
     e.preventDefault();
     
-    if (!name.trim() || !address.trim()) {
+    const trimmedName = name.trim();
+    const trimmedAddress = address.trim();
+
+    if (!trimmedName || !trimmedAddress) {
       setError('Please fill in all fields');
       return;
     }
 
-    // Basic address validation - in a real app, use proper validation
-    if (!/^0x[a-fA-F0-9]{40}$/.test(address)) {
-      setError('Invalid address format');
+    if (trimmedAddress.length < 10) {
+      setError('Please enter a valid address');
       return;
     }
 
     try {
       if (favorite) {
-        updateFavorite({ ...favorite, name, address });
+        updateFavorite({ ...favorite, name: trimmedName, address: trimmedAddress });
       } else {
-        addFavorite({ name, address });
+        addFavorite({ name: trimmedName, address: trimmedAddress });
       }
       onClose();
     } catch (error) {
@@ -97,7 +97,7 @@ export default function AddFavoriteModal({ isOpen, onClose, favorite }) {
                 value={address}
                 onChange={(e) => setAddress(e.target.value)}
                 className="w-full px-4 py-2 rounded-lg border border-gray-200 dark:border-gray-700 focus:ring-2 focus:ring-primary dark:bg-gray-800 font-mono"
-                placeholder="0x..."
+                placeholder="Enter recipient DID / address"
               />
             </div>
 

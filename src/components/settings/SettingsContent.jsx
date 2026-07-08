@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { FiShield, FiLock, FiGlobe, FiMoon, FiUsers, FiKey, FiBell, FiDollarSign, FiMenu, FiX } from 'react-icons/fi';
+import { FiShield, FiLock, FiGlobe, FiMoon, FiUsers, FiKey, FiBell, FiDollarSign, FiMenu, FiX, FiStar } from 'react-icons/fi';
 import AppearanceSettings from './AppearanceSettings';
 import NetworkSettings from './NetworkSettings';
 import QuorumSettings from './QuorumSettings';
@@ -8,6 +8,7 @@ import SecuritySettings from './SecuritySettings';
 import BackupSettings from './BackupSettings';
 import NotificationSettings from './NotificationSettings';
 import CurrencySettings from './CurrencySettings';
+import FavoritesSettings from './favorites/FavoritesSettings';
 
 export default function SettingsContent() {
   const [activeSection, setActiveSection] = useState('security');
@@ -18,6 +19,7 @@ export default function SettingsContent() {
     { id: 'network', icon: FiGlobe, label: 'Chain Connect', component: NetworkSettings },
     // { id: 'quorum', icon: FiUsers, label: 'Quorum', component: QuorumSettings },
     { id: 'backup', icon: FiKey, label: 'Backup & Recovery', component: BackupSettings },
+    { id: 'favorites', icon: FiStar, label: 'Favorites', component: FavoritesSettings },
     // { id: 'notifications', icon: FiBell, label: 'Notifications', component: NotificationSettings },
     // { id: 'appearance', icon: FiMoon, label: 'Appearance', component: AppearanceSettings },
     { id: 'currency', icon: FiDollarSign, label: 'Currency', component: CurrencySettings },
