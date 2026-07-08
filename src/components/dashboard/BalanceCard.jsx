@@ -1,168 +1,86 @@
 import { motion } from 'framer-motion';
 import { FiRefreshCw } from 'react-icons/fi';
-import { useContext, useEffect, useState } from 'react';
+import { useContext, useState } from 'react';
 import { UserContext } from '../../context/userContext';
-import { formatBalance } from '../../utils';
 
 const ShimmerCard = () => (
-  <motion.div
-    className="flex justify-between items-center [background:linear-gradient(0deg,#033500,#033500),radial-gradient(117.1%_345.76%_at_49.91%_104.8%,rgba(255,227,20,0)_0%,rgba(255,227,20,0.2)_100%),radial-gradient(124.84%_309.96%_at_4.03%_100%,rgba(255,227,20,0.15)_0%,rgba(255,227,20,0)_100%)] [box-shadow:0px_0px_1px_0px_#0000000D,0px_2px_2px_0px_#0000000A,0px_4px_2px_0px_#00000008,0px_7px_3px_0px_#00000003,0px_11px_3px_0px_#00000000] rounded-lg p-4 shadow-md"
-    initial="initial"
-    animate="animate"
-    transition={{ duration: 0.3 }}
-  >
-    <motion.div className="space-y-1">
-      <motion.div
-        className="w-20 h-6 bg-gray-700 rounded animate-pulse"
-        initial={{ scale: 0.8 }}
-        animate={{ scale: 1 }}
-        transition={{ duration: 0.5, type: "spring" }}
-      ></motion.div>
-      <div className="w-10 h-4 bg-gray-700 rounded animate-pulse"></div>
-    </motion.div>
-
-    <motion.div
-
-      className="flex space-x-1 items-center"
-    >
-      <div className="bg-gray-700 p-2 h-9 w-9 rounded-xl animate-pulse"></div>
-      <div>
-        <motion.div
-          className="w-16 h-6 bg-gray-700 rounded-full animate-pulse"
-          whileHover={{ scale: 1.1 }}
-        ></motion.div>
-        <span className="w-20 h-3 bg-gray-700 rounded animate-pulse block mt-1"></span>
-      </div>
-    </motion.div>
-  </motion.div>
+  <div className="py-6 flex justify-center">
+    <div className="w-44 h-10 bg-gray-200 dark:bg-gray-700 rounded-lg animate-pulse"></div>
+  </div>
 );
 
-
 export default function BalanceCard({ accountInfo, setIsTransactionCompleted }) {
-  const { isUserLoggedIn, userDetails } = useContext(UserContext)
-  const [tickerData, setTickerData] = useState({});
+  const { userDetails } = useContext(UserContext)
   const [isRotating, setIsRotating] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
 
-  useEffect(() => {
-    if (accountInfo && Object.keys(accountInfo).length > 0) {
-      setIsLoading(true);
-      setTimeout(() => setIsLoading(false), 100);
-    }
-  }, [accountInfo?.balance, accountInfo?.ft_count, userDetails?.network]);
+  const balanceLoaded = accountInfo?.balance !== undefined && accountInfo?.balance !== null;
 
-  const fetchCurrentTickerData = async () => {
-    setIsLoading(true);
-    try {
-      const response = await fetch('https://www.mexc.com/api/v3/ticker/24hr?symbol=RBTUSDT');
-      const data = await response.json();
-
-      if (data && data.priceChangePercent) {
-        setTickerData({
-          s: 'RBTUSDT',
-          price: parseFloat(data.lastPrice || 0),
-          r: parseFloat(data.priceChangePercent || 0) / 100
-        });
-      } else {
-        setTickerData({
-          s: 'RBTUSDT',
-          price: 0,
-          r: 0
-        });
-      }
-    } catch (error) {
-      setTickerData({
-        s: 'RBTUSDT',
-        price: 0,
-        r: 0
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    const networkValue = userDetails?.network ?? (isUserLoggedIn ? 1 : null);
-    const shouldFetch = isUserLoggedIn && (Number(networkValue) === 1 || Number(networkValue) === 2);
-
-    if (shouldFetch) {
-      fetchCurrentTickerData();
-    }
-  }, [isUserLoggedIn, userDetails?.network]);
   const containerVariants = {
     initial: { opacity: 0, y: 20 },
     animate: {
       opacity: 1,
       y: 0,
-      transition: {
-        duration: 0.5,
-        staggerChildren: 0.1
-      }
+      transition: { duration: 0.5 }
     }
   };
 
-  const itemVariants = {
-    initial: { opacity: 0, x: -10 },
-    animate: { opacity: 1, x: 0 }
-  };
-
-  const hasValidBalanceData = accountInfo && Object.keys(accountInfo).length > 0;
-
-
-
-  if (!hasValidBalanceData) {
-
-    return <ShimmerCard />
-  }
+  // if (!tickerData?.price) {
+  //   return <ShimmerCard />
+  // }
   return (
     <motion.div
-      className="relative flex justify-between items-center [background:linear-gradient(0deg,#033500,#033500),radial-gradient(117.1%_345.76%_at_49.91%_104.8%,rgba(255,227,20,0)_0%,rgba(255,227,20,0.2)_100%),radial-gradient(124.84%_309.96%_at_4.03%_100%,rgba(255,227,20,0.15)_0%,rgba(255,227,20,0)_100%)] [box-shadow:0px_0px_1px_0px_#0000000D,0px_2px_2px_0px_#0000000A,0px_4px_2px_0px_#00000008,0px_7px_3px_0px_#00000003,0px_11px_3px_0px_#00000000] rounded-lg p-4 shadow-md"
+      className="px-6 py-1.5 mx-4 my-1 flex flex-col items-center justify-center text-center"
       variants={containerVariants}
       initial="initial"
       animate="animate"
       transition={{ duration: 0.3 }}
     >
-      <button
-        onClick={() => {
-          setIsRotating(true);
-          setIsTransactionCompleted(prev => !prev)
-          setTimeout(() => setIsRotating(false), 1000);
-        }}
-        style={{
-          zIndex: 1
-        }}
-        className="text-white/80 hover:text-white absolute top-3 right-3 "
-
+      <div className="flex items-center gap-1.5 mb-2">
+        <span className="text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+          Total Balance
+        </span>
+        <motion.button
+          onClick={() => {
+            setIsRotating(true);
+            setIsTransactionCompleted(prev => !prev)
+            setTimeout(() => setIsRotating(false), 1000);
+          }}
+          className="text-gray-400 hover:text-gray-700 dark:text-gray-400 dark:hover:text-white p-1 hover:bg-gray-100 dark:hover:bg-white/10 rounded-full transition-colors"
+          animate={{ rotate: isRotating ? 180 : 0 }}
+          transition={{ duration: 0.6 }}
+          aria-label="Refresh balance"
+        >
+          <FiRefreshCw className="w-3.5 h-3.5" />
+        </motion.button>
+      </div>
+      <motion.div
+        className="flex items-baseline"
+        initial={{ scale: 0.85 }}
+        animate={{ scale: 1 }}
+        transition={{ duration: 0.5, type: "spring" }}
       >
-        <FiRefreshCw className="w-4 h-4" />
-      </button>
-
-      <motion.div variants={itemVariants} className="space-y-1">
-        {Number(userDetails?.network) >= 5 ? (
-          <>
-            <div className="text-[16px] font-bold text-white">Balance</div>
-            <div className="text-[18px] font-bold text-yellow-300">
-              {formatBalance(accountInfo?.ft_count || 0)} {userDetails?.tokenSymbol}
-            </div>
-          </>
-        ) : (
-          <>
-            <motion.div
-              className="text-[18px] font-bold text-yellow-300"
-              initial={{ scale: 0.8 }}
-              animate={{ scale: 1 }}
-              transition={{ duration: 0.5, type: "spring" }}
-            >
-              {(() => {
-                const networkValue = userDetails?.network ?? (isUserLoggedIn ? 1 : null);
-                const isRubixNetwork = Number(networkValue) === 1 || Number(networkValue) === 2;
-                const amount = isRubixNetwork ? accountInfo?.balance : accountInfo?.ft_count;
-                return `${formatBalance(amount || 0)} ${userDetails?.tokenSymbol || 'RBT'}`;
-              })()}
-            </motion.div>
-          </>
-        )}
+        {(() => {
+          // Post-merge every network is Rubix, so the balance card always shows
+          // the native RBT balance. FTs are listed in the FTs tab instead.
+          // While switching accounts accountInfo is reset to {}, so the balance
+          // is undefined until the new value loads — show a placeholder instead
+          // of flashing 0 (0 is also a valid loaded balance).
+          if (!balanceLoaded) {
+            return (
+              <div className="relative h-12 w-44 overflow-hidden rounded-lg bg-gray-200 dark:bg-gray-700">
+                <div className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/70 dark:via-white/10 to-transparent animate-[shimmer_1.5s_infinite]" />
+              </div>
+            );
+          }
+          const amount = parseFloat(parseFloat(accountInfo?.balance || 0).toFixed(3));
+          return (
+            <>
+              <span className="text-5xl font-bold tracking-tight text-primary dark:text-white">{amount}</span>
+              <span className="text-2xl font-semibold text-gray-400 dark:text-white/60 ml-2">{userDetails?.tokenSymbol}</span>
+            </>
+          );
+        })()}
       </motion.div>
-    </motion.div >
+    </motion.div>
   );
 }
