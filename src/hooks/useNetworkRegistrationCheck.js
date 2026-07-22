@@ -51,7 +51,7 @@ const useNetworkRegistrationCheck = (userDetails) => {
                         headers: { 'Content-Type': 'application/json' }
                     });
 
-                    const accountInfo = await networkApi.get(`/rubix/v1/dids/did:${did}/balances/rbt`);
+                    const accountInfo = await networkApi.get(`/rubix/v1/dids/${did}/balances/rbt`);
                     const isRegistered = accountInfo?.data?.status === true;
 
                     if (isRegistered) {
