@@ -91,8 +91,9 @@ export default function BackupSettings() {
           </div>
         </SettingCard>
 
-        {/* Token Recovery */}
-        <SettingCard>
+        {/* Token Recovery — hidden until the wallet recovery (sync) API is live.
+            Re-enable by uncommenting this card; the handler and endpoint are ready. */}
+        {/* <SettingCard>
           <div className="flex items-center justify-between">
             <div className="flex items-center ">
               <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">
@@ -113,7 +114,7 @@ export default function BackupSettings() {
               {isRecovering ? 'Recovering…' : 'Token Recovery'}
             </motion.button>
           </div>
-        </SettingCard>
+        </SettingCard> */}
 
         {/* Export Wallet */}
         {/* <SettingCard>
