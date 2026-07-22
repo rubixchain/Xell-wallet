@@ -10,9 +10,6 @@ import Card from '../components/Card';
 import indexDBUtil from '../indexDB';
 import { deriveKeysFromMnemonic } from '../utils/migration';
 import { END_POINTS } from '../api/endpoints';
-import { getConfigPromise } from '../../config';
-import { getLegacyDIDCheckNetworks } from '../utils/networkConfig';
-import axios from 'axios';
 
 
 const Header = () => {
@@ -107,37 +104,6 @@ const ImportWallet = () => {
         return
       }
 
-      let legacyDid = null;
-      try {
-        await getConfigPromise();
-
-        const rubixNetworks = getLegacyDIDCheckNetworks();
-
-        for (const network of rubixNetworks) {
-          if (!network.baseUrl) continue;
-
-          try {
-            const networkApi = axios.create({
-              baseURL: network.baseUrl,
-              headers: { 'Content-Type': 'application/json' }
-            });
-
-            const legacyDIDResponse = await networkApi.post('/rubix/v1/dids/create', {
-              public_key: keys.legacyCompressedPublicKey,
-              password: ''
-            });
-            const did = legacyDIDResponse?.data?.result?.did;
-
-            if (did) {
-              legacyDid = did;
-              break;
-            }
-          } catch (e) {
-          }
-        }
-      } catch (e) {
-      }
-
       toast.success('Phrase verified successfully')
 
       navigate(routes.SETUP_WALLET, {
@@ -146,10 +112,7 @@ const ImportWallet = () => {
           publickey: keys.uncompressedPublicKey,
           privatekey: keys.privateKey,
           mnemonics: trimed,
-          fromDashboard,
-          legacyDid: legacyDid,
-          legacyPrivateKey: legacyDid ? keys.legacyPrivateKey : null,
-          needsLegacyMigration: !!legacyDid
+          fromDashboard
         }
       })
     } catch (error) {
