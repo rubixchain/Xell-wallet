@@ -54,7 +54,7 @@ export default function NetworkSettings() {
     setIsLoading(true);
     try {
       
-      let registerDid = await END_POINTS.register_did({ did: userDetails?.did });
+      let registerDid = await END_POINTS.register_did(userDetails?.did);
       if (!registerDid || !registerDid?.status) {
         toast.error(registerDid?.message || 'Failed to register DID');
         return;
@@ -64,8 +64,7 @@ export default function NetworkSettings() {
       let signature = await generateSignature(getPrivateKey?.privatekey, registerDid?.result?.hash);
       let signatureResponse = await END_POINTS.signature_response({
         id: registerDid?.result?.id,
-        Signature: { Signature: signature },
-        mode: 4
+        signature: signature
       });
      
       if (!signatureResponse?.status) {

@@ -2,12 +2,15 @@ import React, { useState, useCallback, useRef } from 'react';
 import { FiArrowLeft, FiUpload, FiFile, FiDownload } from 'react-icons/fi';
 import * as bip39 from "bip39"
 import toast from 'react-hot-toast';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { routes } from '../routes/routes';
 import BackButton from '../components/BackButton';
+import useRestoreAccountBack from '../hooks/useRestoreAccountBack';
 import Card from '../components/Card';
 import indexDBUtil from '../indexDB';
-import secp256k1 from 'secp256k1';
+import { deriveKeysFromMnemonic } from '../utils/migration';
+import { END_POINTS } from '../api/endpoints';
+
 
 const Header = () => {
   return (
@@ -27,8 +30,12 @@ const ImportWallet = () => {
   const [importedFile, setImportedFile] = useState(null);
   const [fileContent, setFileContent] = useState('');
   const [recoveryPhrase, setRecoveryPhrase] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
   const inputRef = useRef(null);
   const navigate = useNavigate()
+  const location = useLocation()
+  const fromDashboard = location.state?.fromDashboard || false;
+  const handleBack = useRestoreAccountBack(fromDashboard);
 
   const handleDrop = useCallback((e) => {
     e.preventDefault();
@@ -83,26 +90,35 @@ const ImportWallet = () => {
     if (!verifyMnemonic) {
       return toast.error('Invalid mnemonics')
     }
-    const result = bip39.mnemonicToSeedSync(trimed);
-    let privatekey = result.slice(0, 32);
-    if (!secp256k1.privateKeyVerify(privatekey)) {
-      toast.error('invalid private key')
-      return
+
+    setIsLoading(true);
+    try {
+      const keys = deriveKeysFromMnemonic(trimed);
+
+      const isNewKeyExists = await indexDBUtil.checkPrivateKeyExists(keys.privateKey);
+      const isLegacyKeyExists = await indexDBUtil.checkPrivateKeyExists(keys.legacyPrivateKey);
+
+      if (isNewKeyExists?.status || isLegacyKeyExists?.status) {
+        toast.error('This wallet already exists in your accounts')
+        setIsLoading(false);
+        return
+      }
+
+      toast.success('Phrase verified successfully')
+
+      navigate(routes.SETUP_WALLET, {
+        state: {
+          type: 'import',
+          publickey: keys.uncompressedPublicKey,
+          privatekey: keys.privateKey,
+          mnemonics: trimed,
+          fromDashboard
+        }
+      })
+    } catch (error) {
+      toast.error('Failed to derive keys from mnemonic')
+      setIsLoading(false);
     }
-    const publicKeyBuffer = secp256k1.publicKeyCreate(privatekey, true)
-    let publickey = Buffer.from(publicKeyBuffer).toString('hex');
-    privatekey = privatekey?.toString('hex')
-    if (publickey.length !== 66) {
-      toast.error('invalid public key')
-      return
-    }
-    const isPrivateKeyExists = await indexDBUtil.checkPrivateKeyExists(privatekey);
-    if (isPrivateKeyExists?.status) {
-      toast.error(isPrivateKeyExists?.message)
-      return
-    }
-    toast.success('Phrase verified successfully')
-    navigate(routes.SETUP_WALLET, { state: { type: 'import', publickey, privatekey, mnemonics: trimed } })
   };
 
   const handleRecoveryContinue = async () => {
@@ -112,7 +128,7 @@ const ImportWallet = () => {
       return
     }
     toast.success(res.message)
-    navigate(routes.SETUP_WALLET, { state: { type: 'import', publickey: fileContent?.publickey, privatekey: fileContent?.privatekey, } })
+    navigate(routes.SETUP_WALLET, { state: { type: 'import', publickey: fileContent?.publickey, privatekey: fileContent?.privatekey, fromDashboard } })
   }
 
   const renderStepOne = () => (
@@ -147,13 +163,20 @@ const ImportWallet = () => {
       </div> */}
       <button
         onClick={handleContinue}
-        className={`w-full py-3 mt-5 rounded-lg font-medium bg-primary text-white ${importedFile
+        className={`w-full py-3 mt-5 rounded-lg font-medium bg-primary text-white ${importedFile && !isLoading
           ? 'opacity-1'
           : 'opacity-20'
           }`}
-        disabled={!importedFile}
+        disabled={!importedFile || isLoading}
       >
-        Continue
+        {isLoading ? (
+          <span className="flex items-center justify-center gap-2">
+            <span className="animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full"></span>
+            Processing...
+          </span>
+        ) : (
+          'Continue'
+        )}
       </button>
     </div>
   );
@@ -176,13 +199,20 @@ const ImportWallet = () => {
 
         <button
           onClick={handleContinue}
-          className={`w-full py-3 rounded-lg font-medium bg-primary text-white ${recoveryPhrase.trim()
+          className={`w-full py-3 rounded-lg font-medium bg-primary text-white ${recoveryPhrase.trim() && !isLoading
             ? 'opacity-1'
             : 'opacity-20'
             }`}
-          disabled={!recoveryPhrase.trim()}
+          disabled={!recoveryPhrase.trim() || isLoading}
         >
-          Continue
+          {isLoading ? (
+            <span className="flex items-center justify-center gap-2">
+              <span className="animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full"></span>
+              Processing...
+            </span>
+          ) : (
+            'Continue'
+          )}
         </button>
       </div>
     </div>
@@ -191,7 +221,7 @@ const ImportWallet = () => {
   return (
     <Card>
       <div className="space-y-6 py-10 pb-6 flex flex-col w-full  justify-center">
-        <BackButton />
+        <BackButton onClick={handleBack} />
 
         <div className="">
           <div className="flex items-center gap-3 mb-6">

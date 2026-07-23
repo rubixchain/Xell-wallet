@@ -1,12 +1,11 @@
-import { FiCopy, FiShield, FiGlobe, FiKey, FiDollarSign, FiLogOut, FiClock } from 'react-icons/fi';
-import RubixLogo from '../RubixLogo';
+import { FiShield, FiGlobe, FiKey, FiDollarSign, FiClock, FiRefreshCw } from 'react-icons/fi';
 import NetworkSwitcher from '../network/NetworkSwitcher';
+import AccountSwitcher from '../account/AccountSwitcher';
 import ContentContainer from '../layout/ContentContainer';
 import { useContext, useState, useEffect, useRef } from 'react';
 import { UserContext } from '../../context/userContext';
 import { BsThreeDotsVertical } from "react-icons/bs";
-import toast from 'react-hot-toast';
-import { FiBell, FiUser, FiExternalLink, FiSettings, FiLock } from 'react-icons/fi';
+import { FiLock } from 'react-icons/fi';
 import { useNavigate } from 'react-router-dom';
 import Modal from '../common/Modal';
 import SecuritySettings from '../settings/SecuritySettings';
@@ -16,20 +15,22 @@ import CurrencySettings from '../settings/CurrencySettings';
 import { AnimatePresence, motion } from 'framer-motion';
 import indexDBUtil from '../../indexDB';
 import { WALLET_TYPES } from '../../enums';
-import History from "../../pages/History"
+import History from "../../pages/History";
+import useNetworkRegistrationCheck from '../../hooks/useNetworkRegistrationCheck';
 
 export default function Header() {
-  const { userDetails, setUserDetails } = useContext(UserContext);
+  const { setUserDetails, userDetails } = useContext(UserContext);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [modalContent, setModalContent] = useState(null);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const dropdownRef = useRef(null);
   const navigate = useNavigate();
+  const { isChecking, refreshDID } = useNetworkRegistrationCheck(userDetails);
 
-  const handleClickCopy = () => {
-    navigator.clipboard.writeText(userDetails?.did);
-    toast.success("Copied to clipboard");
+  const handleRefresh = async () => {
+    setDropdownOpen(false);
+    await refreshDID();
   };
 
   const toggleDropdown = () => {
@@ -83,15 +84,7 @@ export default function Header() {
             <NetworkSwitcher />
           </div>
 
-          <div className="flex flex-col items-center ">
-            <span className="text-sm font-bold text-gray-600 dark:text-gray-300">{userDetails?.username}</span>
-            <div className="flex items-center space-x-2">
-              <span className="text-sm  text-gray-600 dark:text-gray-300">{userDetails?.did?.slice(0, 5) + '....' + userDetails?.did?.slice(-5)}</span>
-              <button onClick={() => handleClickCopy()} className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">
-                <FiCopy className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
+          <AccountSwitcher />
           <div className="relative" ref={dropdownRef}>
             <BsThreeDotsVertical className="w-4 h-4 cursor-pointer" onClick={toggleDropdown} />
             {dropdownOpen && (
@@ -104,19 +97,24 @@ export default function Header() {
                     </div>
                   ))}
                 </div>
-                <div className="flex items-center justify-between">
-
-                  <button
-                    onClick={() => {
-                      setDropdownOpen(false);
-                      setShowLogoutConfirm(true)
-                    }}
-                    className="px-2 w-full flex items-center  gap-2 text-sm font-medium rounded-sm cursor-pointer hover:bg-gray-200 py-2"
-                  >
-                    <FiLock className="w-4 h-4" />
-                    Lock Wallet
-                  </button>
-                </div>
+                <button
+                  onClick={handleRefresh}
+                  disabled={isChecking}
+                  className="px-2 w-full flex items-center gap-2 text-sm font-medium rounded-sm cursor-pointer hover:bg-gray-200 py-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <FiRefreshCw className={`w-4 h-4 ${isChecking ? 'animate-spin' : ''}`} />
+                  {isChecking ? 'Refreshing...' : 'Refresh'}
+                </button>
+                <button
+                  onClick={() => {
+                    setDropdownOpen(false);
+                    setShowLogoutConfirm(true)
+                  }}
+                  className="px-2 w-full flex items-center gap-2 text-sm font-medium rounded-sm cursor-pointer hover:bg-gray-200 py-2"
+                >
+                  <FiLock className="w-4 h-4" />
+                  Lock Xell
+                </button>
               </div>
             )}
           </div>
@@ -137,10 +135,10 @@ export default function Header() {
               className="bg-white dark:bg-gray-800 p-6 w-full rounded-lg shadow-lg  mx-4"
             >
               <h3 className="text-lg font-bold mb-4 text-gray-900 dark:text-white">
-                Confirm Lock
+                Lock Xell
               </h3>
               <p className="mb-6 text-base text-gray-700 dark:text-gray-300">
-                Are you sure you want to lock?
+                Are you sure you want to lock Xell?
               </p>
               <div className="flex justify-end space-x-4">
                 <button

@@ -5,29 +5,45 @@ import Card from '../components/Card';
 import SetupUsername from '../components/setup/SetupUsername';
 import SetupPin from '../components/setup/SetupPin';
 import ConfirmPin from '../components/setup/ConfirmPin';
+import VerifyWalletPassword from '../components/setup/VerifyWalletPassword';
 import SetupProgress from '../components/setup/SetupProgress';
 import BackButton from '../components/BackButton';
 import { validatePin } from '../utils/validation';
 import indexDBUtil from '../indexDB';
-import * as bip39 from 'bip39'
 import { routes } from '../routes/routes';
 import { UserContext } from '../context/userContext';
 import { toast } from 'react-hot-toast'
 import Network from '../components/setup/Network';
-import NetworkSelector from '../components/network/NetworkSelector';
 import { EXECUTE_API } from '../utils';
 import { WALLET_TYPES } from '../enums';
 import { config, NETWORK_TYPES } from '../../config';
+import { SingleAccountDIDMigration } from '../components/migration';
 
 export default function SetupWallet() {
   const { setUserDetails, userDetails, setIsUserLoggedIn, websiteInitiated, setWebsiteInitiated } = useContext(UserContext)
   const [step, setStep] = useState(1);
   const [loader, setLoader] = useState(false)
   const [error, setError] = useState('');
+  const [hasUnifiedPassword, setHasUnifiedPassword] = useState(false);
+  const [isCheckingUnified, setIsCheckingUnified] = useState(true);
+  const [migrationData, setMigrationData] = useState(null);
   const navigate = useNavigate()
   const location = useLocation()
   const state = location?.state
 
+  useEffect(() => {
+    const checkUnifiedPassword = async () => {
+      try {
+        const hasUnified = await indexDBUtil.hasUnifiedPassword();
+        setHasUnifiedPassword(hasUnified);
+      } catch (e) {
+        setHasUnifiedPassword(false);
+      } finally {
+        setIsCheckingUnified(false);
+      }
+    };
+    checkUnifiedPassword();
+  }, []);
 
   useEffect(() => {
     if (!state?.allChecked && state.type !== "import") {
@@ -51,7 +67,93 @@ export default function SetupWallet() {
       return
     }
     setUserDetails(prev => ({ ...prev, username }));
+
+    if (state?.fromDashboard && userDetails?.pin) {
+      if (state?.type === 'import') {
+        await handleImportFromDashboard(username);
+        return;
+      }
+      setUserDetails(prev => ({ ...prev, username, network: 1 }));
+      navigate(routes.RECOVERY_PHARSE);
+      return;
+    }
+
     setStep(2);
+  };
+
+  const handleImportFromDashboard = async (username) => {
+    try {
+      setLoader(true);
+      await indexDBUtil.setCurrentVersion(5);
+      await indexDBUtil.storeNetworkSetting({
+        network: 1,
+        RPCUrl: config?.RUBIX_MAINNET_BASE_URL,
+        name: "Rubix Mainnet",
+        tokenSymbol: NETWORK_TYPES.RBT
+      });
+      const updatedUserDetails = { ...userDetails, username, network: 1, tokenSymbol: NETWORK_TYPES.RBT };
+      setUserDetails(updatedUserDetails);
+
+      const storeData = {
+        ...updatedUserDetails,
+        publickey: state.publickey,
+        privatekey: state?.privatekey,
+        mnemonics: state?.mnemonics,
+        needsLegacyMigration: state?.needsLegacyMigration || false,
+        legacyDid: state?.legacyDid
+      };
+
+      let res = await indexDBUtil.storeToDB(storeData);
+      setLoader(false);
+
+      if (!res?.status) {
+        toast.error(res?.message || 'Failed to import wallet');
+        return;
+      }
+
+      toast.success('Account imported successfully');
+      setIsUserLoggedIn(true);
+
+      const payload = {
+        publickey: res?.data?.publickey,
+        did: res?.data?.did,
+        pin: res?.data?.pin,
+        username: res?.data?.username,
+        network: res?.data?.network || 1,
+        tokenSymbol: NETWORK_TYPES.RBT,
+        legacyDid: res?.data?.legacyDid || null
+      };
+
+      localStorage.setItem('currency', JSON.stringify({ label: '$ USD - US Dollar', value: 'USD' }));
+      localStorage.setItem("currentUser", JSON.stringify({
+        username: res?.data?.username,
+        network: res?.data?.network || 1
+      }));
+
+      sessionStorage.removeItem('previousUserDetails');
+
+      await EXECUTE_API({
+        data: { ...res?.data, tokenSymbol: NETWORK_TYPES.RBT },
+        type: WALLET_TYPES.STORE_USER_DETAILS
+      });
+
+      setUserDetails(payload);
+
+      if (state?.needsLegacyMigration) {
+        setMigrationData({
+          username: res?.data?.username,
+          unifiedPassword: userDetails?.pin,
+          legacyDid: state?.legacyDid,
+          legacyPrivateKey: state?.legacyPrivateKey
+        });
+        setStep('migration');
+      } else {
+        navigate(routes.SUCCESS);
+      }
+    } catch (e) {
+      setLoader(false);
+      toast.error('Failed to import wallet');
+    }
   };
 
   const handlePinSubmit = (pin) => {
@@ -62,6 +164,104 @@ export default function SetupWallet() {
     setUserDetails(prev => ({ ...prev, pin }));
     setStep(3);
     setError('');
+  };
+
+  const handleVerifyExistingPassword = async (pin) => {
+    setError('');
+    const isValid = await indexDBUtil.validateUnifiedPassword(pin);
+    if (!isValid) {
+      setError('Invalid wallet password');
+      return;
+    }
+    setUserDetails(prev => ({ ...prev, pin }));
+
+    if (!state?.type) {
+      setUserDetails(prev => ({ ...prev, pin, network: 1 }));
+      navigate(routes.RECOVERY_PHARSE);
+      return;
+    }
+
+    try {
+      await indexDBUtil.setCurrentVersion(5);
+      await indexDBUtil.storeNetworkSetting({
+        network: 1,
+        RPCUrl: config?.RUBIX_MAINNET_BASE_URL,
+        name: "Rubix Mainnet",
+        tokenSymbol: NETWORK_TYPES.RBT
+      });
+      const updatedUserDetails = { ...userDetails, pin, network: 1, tokenSymbol: NETWORK_TYPES.RBT };
+      setUserDetails(updatedUserDetails);
+      setLoader(true);
+
+      const storeData = {
+        ...updatedUserDetails,
+        publickey: state.publickey,
+        privatekey: state?.privatekey,
+        mnemonics: state?.mnemonics,
+        needsLegacyMigration: state?.needsLegacyMigration || false,
+        legacyDid: state?.legacyDid
+      };
+
+      let res = await indexDBUtil.storeToDB(storeData);
+      setLoader(false);
+      if (!res?.status) {
+        toast.error(res?.message || 'Failed to create account');
+        return;
+      }
+
+      toast.success('Account created successfully');
+      setIsUserLoggedIn(true);
+      let payload = {
+        publickey: res?.data?.publickey,
+        did: res?.data?.did,
+        pin: res?.data?.pin,
+        username: res?.data?.username,
+        network: res?.data?.network || 1,
+        tokenSymbol: NETWORK_TYPES.RBT,
+        legacyDid: res?.data?.legacyDid || null
+      };
+
+      localStorage.setItem('currency', JSON.stringify({ label: '$ USD - US Dollar', value: 'USD' }));
+      localStorage.setItem("currentUser", JSON.stringify({
+        username: res?.data?.username,
+        network: res?.data?.network || 1
+      }));
+
+      if (websiteInitiated?.type == WALLET_TYPES.WALLET_SIGN_REQUEST) {
+        try {
+          window.close();
+          let result = await EXECUTE_API({
+            data: { ...res?.data, tokenSymbol: NETWORK_TYPES.RBT },
+            type: WALLET_TYPES.WALLET_SIGN_RESPONSE
+          });
+          if (result) {
+            setWebsiteInitiated(null);
+          }
+          return;
+        } catch (e) {}
+      }
+
+      await EXECUTE_API({
+        data: { ...res?.data, tokenSymbol: NETWORK_TYPES.RBT },
+        type: WALLET_TYPES.WALLET_SIGN_RESPONSE
+      });
+      setUserDetails(payload);
+
+      if (state?.needsLegacyMigration) {
+        setMigrationData({
+          username: res?.data?.username,
+          unifiedPassword: pin,
+          legacyDid: state?.legacyDid,
+          legacyPrivateKey: state?.legacyPrivateKey
+        });
+        setStep('migration');
+      } else {
+        navigate(routes.SUCCESS);
+      }
+    } catch (e) {
+      setLoader(false);
+      toast.error(e?.message || 'Failed to create account');
+    }
   };
   const handleConfirmPin = async (confirmPin) => {
     if (confirmPin !== userDetails.pin) {
@@ -74,41 +274,51 @@ export default function SetupWallet() {
       return
     }
     try {
-      indexDBUtil.setCurrentVersion()
-      indexDBUtil.storeNetworkSetting({
+      await indexDBUtil.setCurrentVersion(5)
+      await indexDBUtil.storeNetworkSetting({
         network: 1,
         RPCUrl: config?.RUBIX_MAINNET_BASE_URL,
         name: "Rubix Mainnet",
         tokenSymbol: NETWORK_TYPES.RBT
       })
-      // Set network in userDetails for import case as well
       const updatedUserDetails = { ...userDetails, network: 1, tokenSymbol: NETWORK_TYPES.RBT };
       setUserDetails(updatedUserDetails);
       setLoader(true)
-      let res = await indexDBUtil.storeToDB({ ...updatedUserDetails, publickey: state.publickey, privatekey: state?.privatekey, mnemonics: state?.mnemonics })
+
+      const storeData = {
+        ...updatedUserDetails,
+        publickey: state.publickey,
+        privatekey: state?.privatekey,
+        mnemonics: state?.mnemonics,
+        needsLegacyMigration: state?.needsLegacyMigration || false,
+        legacyDid: state?.legacyDid
+      };
+
+      let res = await indexDBUtil.storeToDB(storeData)
       setLoader(false)
       if (!res?.status) {
-        toast.error(res?.message)
+        toast.error(res?.message || 'Failed to import wallet')
         return
       }
 
-      toast.success('login success')
+      toast.success('Account imported successfully')
       setIsUserLoggedIn(true)
       let payload = {
         publickey: res?.data?.publickey,
         did: res?.data?.did,
         pin: res?.data?.pin,
         username: res?.data?.username,
-        network: res?.data?.network || 1,  // Default to mainnet if not set
-        tokenSymbol: NETWORK_TYPES.RBT
+        network: res?.data?.network || 1,
+        tokenSymbol: NETWORK_TYPES.RBT,
+        legacyDid: res?.data?.legacyDid || null
       }
-      // localStorage.setItem('network', res?.data?.network)
 
       localStorage.setItem('currency', JSON.stringify({ label: '$ USD - US Dollar', value: 'USD' }))
       localStorage.setItem("currentUser", JSON.stringify({
         username: res?.data?.username,
         network: res?.data?.network || 1
       }))
+
       if (websiteInitiated?.type == WALLET_TYPES.WALLET_SIGN_REQUEST) {
         try {
           window.close()
@@ -116,21 +326,16 @@ export default function SetupWallet() {
             data: {
               ...res?.data,
               tokenSymbol: NETWORK_TYPES.RBT
-
             },
             type: WALLET_TYPES.WALLET_SIGN_RESPONSE
           })
           if (result) {
             setWebsiteInitiated(null)
-
           }
           return
-        }
-        catch (e) {
-
-        }
-
+        } catch (e) {}
       }
+
       await EXECUTE_API({
         data: {
           ...res?.data,
@@ -140,16 +345,32 @@ export default function SetupWallet() {
       })
       setUserDetails(payload);
 
-      navigate(routes.SUCCESS)
+      if (state?.needsLegacyMigration) {
+        setMigrationData({
+          username: res?.data?.username,
+          unifiedPassword: userDetails?.pin,
+          legacyDid: state?.legacyDid,
+          legacyPrivateKey: state?.legacyPrivateKey
+        });
+        setStep('migration');
+      } else {
+        navigate(routes.SUCCESS);
+      }
     } catch (e) {
       setLoader(false)
+      toast.error(e?.message || 'Failed to import wallet')
     }
-
   };
 
   const onChangeNetwork = (network) => {
     setUserDetails(prev => ({ ...prev, network }));
   }
+
+  const handleMigrationComplete = () => {
+    toast.success('Migration completed successfully');
+    navigate(routes.DASHBOARD);
+  };
+
   const Continue = async () => {
 
     setUserDetails(prev => {
@@ -160,12 +381,25 @@ export default function SetupWallet() {
     return
   }
 
+  const totalSteps = (state?.fromDashboard && userDetails?.pin) ? 1 : (hasUnifiedPassword ? 2 : 3);
+
+  if (isCheckingUnified) {
+    return (
+      <Card>
+        <div className="flex w-full h-full flex-col justify-center items-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+          <p className="mt-4 text-quinary">Loading...</p>
+        </div>
+      </Card>
+    );
+  }
+
   return (
     <Card>
       <div className="space-y-6 flex flex-col w-full h-full justify-center">
-        <BackButton onClick={handleBack} />
+        {step !== 'migration' && <BackButton onClick={handleBack} />}
 
-        <SetupProgress currentStep={step} totalSteps={3} />
+        {step !== 'migration' && <SetupProgress currentStep={step} totalSteps={totalSteps} />}
 
         <AnimatePresence mode="wait">
           {step === 1 && (
@@ -179,7 +413,18 @@ export default function SetupWallet() {
             </motion.div>
           )}
 
-          {step === 2 && (
+          {step === 2 && hasUnifiedPassword && (
+            <motion.div
+              key="verify-password"
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+            >
+              <VerifyWalletPassword onSubmit={handleVerifyExistingPassword} error={error} loader={loader} />
+            </motion.div>
+          )}
+
+          {step === 2 && !hasUnifiedPassword && (
             <motion.div
               key="pin"
               initial={{ opacity: 0, x: 20 }}
@@ -190,7 +435,7 @@ export default function SetupWallet() {
             </motion.div>
           )}
 
-          {step === 3 && (
+          {step === 3 && !hasUnifiedPassword && (
             <motion.div
               key="confirm"
               initial={{ opacity: 0, x: 20 }}
@@ -200,15 +445,32 @@ export default function SetupWallet() {
               <ConfirmPin loader={loader} onSubmit={handleConfirmPin} error={error} />
             </motion.div>
           )}
+
           {step === 4 && (
             <motion.div
-              key="confirm"
+              key="network"
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -20 }}
             >
               <Network loader={loader} Continue={Continue} onChange={onChangeNetwork} />
+            </motion.div>
+          )}
 
+          {step === 'migration' && migrationData && (
+            <motion.div
+              key="migration"
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+            >
+              <SingleAccountDIDMigration
+                username={migrationData.username}
+                unifiedPassword={migrationData.unifiedPassword}
+                legacyDid={migrationData.legacyDid}
+                legacyPrivateKey={migrationData.legacyPrivateKey}
+                onComplete={handleMigrationComplete}
+              />
             </motion.div>
           )}
         </AnimatePresence>

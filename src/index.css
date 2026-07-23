@@ -2,6 +2,21 @@
 @tailwind components;
 @tailwind utilities;
 
+@layer utilities {
+    /* Light tile of the brand primary — works for any theme since it mixes the
+       actual --color-primary var with white (mirrors how bg-green-100 backs the green icon). */
+    .bg-primary-soft {
+        background-color: color-mix(in srgb, var(--color-primary) 14%, white);
+    }
+}
+
+/* Shimmer sweep for skeleton loaders. */
+@keyframes shimmer {
+    100% {
+        transform: translateX(100%);
+    }
+}
+
 /* .blue {
     --primary-bg: #1e40af;
     --secondary-bg: #1d4ed8;
@@ -26,9 +41,9 @@ body {
 
 :root {
 
-    --color-primary: #033500;
-    --color-secondary: #006600;
-    --color-tertiary: #ECFFE4;
+    --color-primary: #21204c;
+    --color-secondary: #21204c;
+    --color-tertiary: #E4F6FF;
     --color-quaternary: #FFFFFF;
     --color-quinary: #4B5563;
     --color-blue-600: #4040D9;

@@ -167,7 +167,7 @@ export default function EditNetworkModal({ networks, network, onClickNetworkModa
             const findDid = allDids?.account_info?.find(item => item?.did === userDetails.did);
 
             const handleDidRegistration = async (did) => {
-                const registerDid = await END_POINTS.register_did({ did });
+                const registerDid = await END_POINTS.register_did(did);
                 if (!registerDid?.status) {
                     toast.dismiss();
                     let msg = registerDid?.message || 'Failed to register DID';
@@ -186,8 +186,7 @@ export default function EditNetworkModal({ networks, network, onClickNetworkModa
                 const signature = await generateSignature(userData.privatekey, registerDid.result.hash);
                 const signatureResponse = await END_POINTS.signature_response({
                     id: registerDid.result.id,
-                    Signature: { Signature: signature },
-                    mode: 4
+                    signature: signature
                 });
 
                 if (!signatureResponse?.status) {
@@ -203,10 +202,10 @@ export default function EditNetworkModal({ networks, network, onClickNetworkModa
             if (!findDid) {
                 const res = await END_POINTS.create_wallet({
                     public_key: userDetails?.publickey,
-                    network: network?.id
+                    password: userDetails?.pin
                 });
 
-                if (!res) {
+                if (!res || !res.result?.did) {
                     toast.dismiss();
                     let msg = res?.message || 'failed to create wallet';
                     msg = msg.replace(/(code\s*\d{3})/gi, '').replace(/\d{3}/g, '').replace(/\s+/g, ' ').trim();
@@ -214,7 +213,7 @@ export default function EditNetworkModal({ networks, network, onClickNetworkModa
                     return;
                 }
 
-                const didRegistrationResult = await handleDidRegistration(res.did);
+                const didRegistrationResult = await handleDidRegistration(res.result.did);
                 if (!didRegistrationResult) {
                     throw new Error('DID registration failed');
                 }

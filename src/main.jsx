@@ -16,8 +16,7 @@ getConfigPromise().then(() => {
       <App />
     </StrictMode>,
   )
-}).catch((error) => {
- 
+}).catch(() => {
   createRoot(document.getElementById('root')).render(
     <StrictMode>
       <App />

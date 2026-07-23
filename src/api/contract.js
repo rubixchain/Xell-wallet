@@ -17,8 +17,7 @@ async function generateSignatureApi(id, hash, pk) {
     let signature = await generateSignature(pk, hash)
     let signatureResponse = await END_POINTS.signature_response({
       id: id,
-      Signature: { Signature: signature },
-      mode: 4
+      signature: signature
     })
 
     if (!signatureResponse || !signatureResponse?.status) {
@@ -71,8 +70,26 @@ export async function handleApiCall(type, data, pendingTabId, injectResultIntoWe
       throw new Error(`Unsupported API type: ${type}`);
     }
 
+    let payload = { ...data.payload };
+
+    // Transform old format to new v1 format for external DApp compatibility
+    if (type === WALLET_TYPES.INITIATE_TRANSFER_FT && data.payload.sender) {
+      payload = {
+        initiator: data.payload.sender,
+        owner: data.payload.receiver,
+        tokens: {
+          ft: [{
+            ftName: data.payload.ft_name,
+            creatorDID: data.payload.creatorDID,
+            numberOfFts: Number(data.payload.ft_count) || 0
+          }]
+        },
+        memo: data.payload.comment || ''
+      };
+    }
+
     // Execute API call
-    const apiResponse = await apiEndpoint({ ...data.payload });
+    const apiResponse = await apiEndpoint(payload);
 
     // Handle API response
     const apiSuccess = await handleApiResponse(apiResponse, pendingTabId, injectResultIntoWebpage);

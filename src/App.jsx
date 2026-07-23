@@ -25,22 +25,40 @@ import AddNetwork from './pages/AddNetwork';
 import { updateVersion } from './utils';
 
 function App() {
+  const [isInitializing, setIsInitializing] = useState(true);
 
   useEffect(() => {
     (async () => {
-      let ls = localStorage.getItem("currentUser")
-      ls = ls ? JSON.parse(ls) : null
-      if (ls) {
-        localStorage.setItem("currentUser", JSON.stringify({
-          username: ls?.username,
-          network: ls?.network
-        }))
+      try {
+        let ls = localStorage.getItem("currentUser")
+        ls = ls ? JSON.parse(ls) : null
+        if (ls) {
+          localStorage.setItem("currentUser", JSON.stringify({
+            username: ls?.username,
+            network: ls?.network
+          }))
+        }
+        await indexDBUtil.encryptData()
+        await indexDBUtil.cleanupDuplicateNetworks()
+        await updateVersion()
+      } catch (error) {
+        // Still allow app to render even if initialization fails
+      } finally {
+        setIsInitializing(false);
       }
-      await indexDBUtil.encryptData()
-      await updateVersion()
     })()
   }, []);
 
+  if (isInitializing) {
+    return (
+      <div className="flex items-center justify-center h-screen w-screen bg-gray-900">
+        <div className="flex flex-col items-center gap-4">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-500"></div>
+          <p className="text-white">Initializing...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div >
@@ -55,7 +73,7 @@ function App() {
               <Routes>
                 <Route path={routes.HOME} element={<Layout />}>
                   {/* Public routes */}
-                  {/* <Route index element={hasWallet ? <Navigate to={routes.DASHBOARD} /> : <Welcome />} /> */}
+                  <Route index element={<Navigate to={routes.LOGIN} replace />} />
                   <Route path={routes.WELCOME} element={<Welcome />} />
                   <Route path={routes.CREATE_WALLET} element={<CreateWallet />} />
                   <Route path={routes.IMPORT_WALLET} element={<ImportWallet />} />

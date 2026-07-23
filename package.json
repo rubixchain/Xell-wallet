@@ -1,12 +1,18 @@
 {
   "name": "xell-wallet",
   "private": false,
-  "version": "2.0.3",
+  "version": "2.1.4",
   "type": "module",
   "description": "A self-custodial cryptocurrency wallet built as a browser extension for Rubix and Trie networks",
-  "keywords": ["wallet", "cryptocurrency", "browser-extension", "rubix", "trie", "self-custodial"],
+  "keywords": [
+    "wallet",
+    "cryptocurrency",
+    "browser-extension",
+    "rubix",
+    "trie",
+    "self-custodial"
+  ],
   "author": "Xell Wallet Team",
-
   "homepage": "https://github.com/your-username/xell-wallet#readme",
   "repository": {
     "type": "git",
@@ -47,7 +53,9 @@
     "react-icons": "^4.12.0",
     "react-router-dom": "^6.20.0",
     "secp256k1": "^5.0.1",
-    "vite-plugin-wasm": "^3.4.1",
+    "tiny-secp256k1": "^2.2.4",
+    "vite-plugin-top-level-await": "^1.6.0",
+    "vite-plugin-wasm": "^3.5.0",
     "webextension-polyfill": "^0.12.0"
   },
   "devDependencies": {
@@ -63,6 +71,7 @@
     "globals": "^15.13.0",
     "postcss": "^8.4.49",
     "tailwindcss": "^3.4.17",
-    "vite": "^6.0.3"
+    "vite": "^6.0.3",
+    "vite-plugin-top-level-await": "^1.6.0"
   }
 }
