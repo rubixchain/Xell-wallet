@@ -1,16 +1,15 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { FiEdit2, FiTrash2, FiCopy } from 'react-icons/fi';
+import toast from 'react-hot-toast';
 import DeleteFavoriteModal from './DeleteFavoriteModal';
-import { useFavorites } from '../../../hooks/useFavorites';
 
-export default function FavoritesList({ onEdit }) {
-  const { favorites, removeFavorite } = useFavorites();
+export default function FavoritesList({ favorites, removeFavorite, onEdit }) {
   const [deleteModal, setDeleteModal] = useState({ isOpen: false, favorite: null });
 
   const handleCopy = async (address) => {
     await navigator.clipboard.writeText(address);
-    // Show toast notification
+    toast.success('Copied to clipboard');
   };
 
   const handleDelete = (favorite) => {
@@ -34,24 +33,24 @@ export default function FavoritesList({ onEdit }) {
             exit={{ opacity: 0, y: -20 }}
             className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4"
           >
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div>
-                <h4 className="font-medium text-gray-900 dark:text-white">
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0 flex-1">
+                <h4 className="font-medium text-gray-900 dark:text-white truncate">
                   {favorite.name}
                 </h4>
-                <div className="flex items-center space-x-2 mt-1">
-                  <code className="text-sm text-gray-600 dark:text-gray-400">
+                <div className="flex items-center gap-2 mt-1 min-w-0">
+                  <code className="text-sm text-gray-600 dark:text-gray-400 font-mono truncate">
                     {favorite.address}
                   </code>
                   <button
                     onClick={() => handleCopy(favorite.address)}
-                    className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded"
+                    className="p-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded flex-shrink-0"
                   >
                     <FiCopy className="w-4 h-4" />
                   </button>
                 </div>
               </div>
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center space-x-1 flex-shrink-0">
                 <motion.button
                   onClick={() => onEdit(favorite)}
                   className="p-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700"

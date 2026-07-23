@@ -11,6 +11,10 @@ build/
 # Configuration files (if you create local config variants)
 config.local.js
 
+# Documentation files (ignore all except README.md)
+*.md
+!README.md
+
 # IDE and editor files
 .vscode/
 .idea/

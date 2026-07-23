@@ -1,6 +1,4 @@
-import React, { useEffect, useState, useContext, useRef } from 'react';
-import { FiChevronDown } from 'react-icons/fi';
-import RubixLogo from '../components/RubixLogo';
+import { useEffect, useState, useContext } from 'react';
 import Card from '../components/Card';
 import PinInput from '../components/setup/PinInput';
 import indexDBUtil from '../indexDB';
@@ -12,69 +10,67 @@ import { ROUTES } from '../utils/constants';
 import { EXECUTE_API } from '../utils';
 import { WALLET_TYPES } from '../enums';
 import { ENUMS } from '../enums';
+// import { MigrationModal, DIDMigrationProgress, SingleAccountDIDMigration } from '../components/migration';
+// import { config, NETWORK_TYPES } from '../../config';
 
-
-// Logo Component
-const Logo = () => (
-    <div className="flex items-center gap-2">
-        <div className="grid grid-cols-2 gap-0.5">
-            {[...Array(4)].map((_, i) => (
-                <div key={i} className="w-2 h-2 bg-yellow-300" />
-            ))}
-        </div>
-        <span className="text-2xl font-bold text-primary">Xell</span>
-    </div>
-);
-
-// Main App Component
 function Login() {
-    const { setUserDetails, userDetails, setIsUserLoggedIn, websiteInitiated, setWebsiteInitiated } = useContext(UserContext)
+    const { setUserDetails, userDetails, setIsUserLoggedIn } = useContext(UserContext)
     const [attempts, setAttempts] = useState(5);
-    const [isOpen, setIsOpen] = useState(false);
     const [pin, setPin] = useState('');
-    const [error, setError] = useState('');
-    const [users, setUsers] = useState([])
-    const [selectedUser, setSelectedUser] = useState(users[0]);
+    const [selectedUser, setSelectedUser] = useState(null);
     const navigate = useNavigate()
-    const popupRef = useRef(null)
 
-    useEffect(() => {
-        function handleClickOutside(event) {
-            if (popupRef.current && !popupRef.current.contains(event.target)) {
-                setIsOpen(false)
-            }
-        }
-        document.addEventListener('mousedown', handleClickOutside);
-        return () => {
-            document.removeEventListener('mousedown', handleClickOutside);
-        };
-    }, [])
+    // const [showMigrationModal, setShowMigrationModal] = useState(false);
+    // const [showDIDMigration, setShowDIDMigration] = useState(false);
+    // const [showSingleAccountMigration, setShowSingleAccountMigration] = useState(false);
+    // const [unifiedPassword, setUnifiedPassword] = useState('');
+    // const [isCheckingMigration, setIsCheckingMigration] = useState(true);
+    // const [accountToMigrate, setAccountToMigrate] = useState(null);
 
     useEffect(() => {
         (async () => {
+            // await checkMigrationStatus();
+
             let res = await indexDBUtil.getData()
-            if (res?.status) {
-                setUsers(res?.data)
+
+            if (!res?.status || !res?.data?.length) {
+                navigate(ROUTES.WELCOME, { replace: true })
+                return
             }
+
             let currentUser = localStorage.getItem("currentUser")
             if (currentUser) {
                 setSelectedUser(JSON.parse(currentUser))
                 return
             }
-            // if (userDetails?.username) {
-            //     setSelectedUser(userDetails)
-            //     return
-            // }
-            setSelectedUser(res?.data[0])
+            if (res?.status && res?.data?.length > 0) {
+                setSelectedUser(res?.data[0])
+            }
         })()
 
     }, [userDetails])
 
+    // const checkMigrationStatus = async () => {
+    //     try {
+    //         setIsCheckingMigration(true);
+
+    //         const needsPasswordMigration = await indexDBUtil.needsMigration();
+
+    //         if (needsPasswordMigration) {
+    //             setShowMigrationModal(true);
+    //             setIsCheckingMigration(false);
+    //             return;
+    //         }
+
+    //         setIsCheckingMigration(false);
+    //     } catch (error) {
+    //         setIsCheckingMigration(false);
+    //     }
+    // };
 
     const handlePinComplete = (enteredPin) => {
         setPin(enteredPin);
     };
-
 
     const handleUnlock = async () => {
         if (pin.length === 6) {
@@ -87,55 +83,212 @@ function Login() {
                 }
                 return
             }
-            let getActivenetwork = await indexDBUtil.getNetworksByDID(res?.data?.did) || []
-            getActivenetwork = getActivenetwork?.find(item => item?.selected)
-            if (getActivenetwork) {
-                getActivenetwork = {
-                    network: getActivenetwork?.id,
-                    RPCUrl: getActivenetwork?.rpcUrls?.find(item => item?.selected)?.url,
-                    name: getActivenetwork?.name,
-                    tokenSymbol: getActivenetwork?.tokenSymbol
-                }
-            }
-            toast.success('login success')
-            indexDBUtil.setCurrentVersion()
-            indexDBUtil.storeNetworkSetting({
-                network: getActivenetwork?.network,
-                RPCUrl: getActivenetwork?.RPCUrl,
-                name: getActivenetwork?.name,
-                tokenSymbol: getActivenetwork?.tokenSymbol
-            })
-            localStorage.setItem('currency', JSON.stringify({ label: '$ USD - US Dollar', value: 'USD' }))
-            localStorage.setItem("currentUser", JSON.stringify({
-                username: res?.data?.username,
-                network: res?.data?.network
-            }))
-            await EXECUTE_API({
-                data: {
-                    ...res?.data,
-                    tokenSymbol: getActivenetwork?.tokenSymbol
 
-                },
-                type: WALLET_TYPES.STORE_USER_DETAILS
-            });
-            setIsUserLoggedIn(true)
-            setUserDetails({
-                ...res?.data,
-                did: res?.data?.did,
-                username: res?.data?.username,
-                network: res?.data?.network,
-                pin: res?.data?.pin,
-                tokenSymbol: getActivenetwork?.tokenSymbol
-            })
-            
-            localStorage.setItem("currentUser", JSON.stringify({
-                username: res?.data?.username,
-                network: res?.data?.network
-            }))
-            localStorage.setItem(ENUMS.INITIAL_ACTIVE_TIME, JSON.stringify(Date.now()))
-            navigate(routes.DASHBOARD, { replace: true })
+            await completeLogin(res.data, pin);
         }
     };
+
+    const completeLogin = async (userData, pinValue) => {
+        await indexDBUtil.ensureUnifiedPassword(pinValue);
+
+        let getActivenetwork = await indexDBUtil.getNetworksByDID(userData?.did) || []
+        getActivenetwork = getActivenetwork?.find(item => item?.selected)
+        if (getActivenetwork) {
+            getActivenetwork = {
+                network: getActivenetwork?.id,
+                RPCUrl: getActivenetwork?.rpcUrls?.find(item => item?.selected)?.url,
+                name: getActivenetwork?.name,
+                tokenSymbol: getActivenetwork?.tokenSymbol
+            }
+        }
+        toast.success('Login successful')
+        indexDBUtil.storeNetworkSetting({
+            network: getActivenetwork?.network,
+            RPCUrl: getActivenetwork?.RPCUrl,
+            name: getActivenetwork?.name,
+            tokenSymbol: getActivenetwork?.tokenSymbol
+        })
+        localStorage.setItem('currency', JSON.stringify({ label: '$ USD - US Dollar', value: 'USD' }))
+        localStorage.setItem("currentUser", JSON.stringify({
+            username: userData?.username,
+            network: userData?.network
+        }))
+        await EXECUTE_API({
+            data: {
+                ...userData,
+                pin: pinValue,
+                tokenSymbol: getActivenetwork?.tokenSymbol
+
+            },
+            type: WALLET_TYPES.STORE_USER_DETAILS
+        });
+        setIsUserLoggedIn(true)
+        setUserDetails({
+            ...userData,
+            did: userData?.did,
+            username: userData?.username,
+            network: userData?.network,
+            pin: pinValue,
+            tokenSymbol: getActivenetwork?.tokenSymbol,
+            legacyDid: userData?.legacyDid || null
+        })
+
+        localStorage.setItem("currentUser", JSON.stringify({
+            username: userData?.username,
+            network: userData?.network
+        }))
+        localStorage.setItem(ENUMS.INITIAL_ACTIVE_TIME, JSON.stringify(Date.now()))
+        navigate(routes.DASHBOARD, { replace: true })
+    };
+
+    // const handleMigrationLock = async () => {
+    //     setShowMigrationModal(false);
+    //     setPin('');
+
+    //     const res = await indexDBUtil.getData();
+    //     if (res?.status) {
+    //         const currentUser = localStorage.getItem("currentUser");
+    //         if (currentUser) {
+    //             const parsedUser = JSON.parse(currentUser);
+    //             const userStillExists = res?.data.find(u => u.username === parsedUser.username);
+    //             if (userStillExists) {
+    //                 setSelectedUser(parsedUser);
+    //             } else {
+    //                 setSelectedUser(res?.data[0]);
+    //             }
+    //         } else {
+    //             setSelectedUser(res?.data[0]);
+    //         }
+    //     }
+    // };
+
+    // const handleDIDMigrationComplete = async () => {
+    //     setShowDIDMigration(false);
+
+    //     if (unifiedPassword && selectedUser?.username) {
+    //         const res = await indexDBUtil.getDecryptedAccountData(selectedUser.username, unifiedPassword);
+    //         if (res.status) {
+    //             await completeLoginAfterMigration(res.data, unifiedPassword);
+    //         }
+    //     }
+    // };
+
+    // const handleDIDMigrationError = (error) => {
+    //     toast.error(error);
+    //     setShowDIDMigration(false);
+    //     setUnifiedPassword('');
+    // };
+
+    // const handleSingleAccountMigrationComplete = async () => {
+    //     setShowSingleAccountMigration(false);
+
+    //     if (unifiedPassword && accountToMigrate) {
+    //         const res = await indexDBUtil.getDecryptedAccountData(accountToMigrate, unifiedPassword);
+    //         if (res.status) {
+    //             await completeLoginAfterMigration(res.data, unifiedPassword);
+    //         } else {
+    //             toast.error(res.message || 'Failed to get account data after migration');
+    //         }
+    //     }
+
+    //     setAccountToMigrate(null);
+    //     setUnifiedPassword('');
+    // };
+
+    // const completeLoginAfterMigration = async (userData, pinValue) => {
+    //     await indexDBUtil.ensureUnifiedPassword(pinValue);
+
+    //     const rubixMainnetNetwork = {
+    //         network: 1,
+    //         RPCUrl: config?.RUBIX_MAINNET_BASE_URL,
+    //         name: "Rubix Mainnet",
+    //         tokenSymbol: NETWORK_TYPES.RBT
+    //     };
+
+    //     toast.success('Login successful');
+    //     await indexDBUtil.storeNetworkSetting(rubixMainnetNetwork);
+
+    //     localStorage.setItem('currency', JSON.stringify({ label: '$ USD - US Dollar', value: 'USD' }));
+    //     localStorage.setItem("currentUser", JSON.stringify({
+    //         username: userData?.username,
+    //         network: 1
+    //     }));
+
+    //     await EXECUTE_API({
+    //         data: {
+    //             ...userData,
+    //             pin: pinValue,
+    //             network: 1,
+    //             tokenSymbol: NETWORK_TYPES.RBT
+    //         },
+    //         type: WALLET_TYPES.STORE_USER_DETAILS
+    //     });
+
+    //     setIsUserLoggedIn(true);
+    //     setUserDetails({
+    //         ...userData,
+    //         did: userData?.did,
+    //         username: userData?.username,
+    //         network: 1,
+    //         pin: pinValue,
+    //         tokenSymbol: NETWORK_TYPES.RBT,
+    //         legacyDid: userData?.legacyDid || null
+    //     });
+
+    //     localStorage.setItem(ENUMS.INITIAL_ACTIVE_TIME, JSON.stringify(Date.now()));
+    //     navigate(routes.DASHBOARD, { replace: true });
+    // };
+
+    // const handleSingleAccountMigrationError = (error) => {
+    //     toast.error(error);
+    //     setShowSingleAccountMigration(false);
+    //     setAccountToMigrate(null);
+    //     setUnifiedPassword('');
+    // };
+
+    // if (isCheckingMigration) {
+    //     return (
+    //         <Card>
+    //             <div className="flex w-full h-full flex-col justify-center items-center">
+    //                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+    //                 <p className="mt-4 text-quinary">Loading...</p>
+    //             </div>
+    //         </Card>
+    //     );
+    // }
+
+    // if (showMigrationModal) {
+    //     return (
+    //         <MigrationModal
+    //             onLock={handleMigrationLock}
+    //         />
+    //     );
+    // }
+
+    // if (showDIDMigration) {
+    //     return (
+    //         <Card>
+    //             <DIDMigrationProgress
+    //                 unifiedPassword={unifiedPassword}
+    //                 onComplete={handleDIDMigrationComplete}
+    //                 onError={handleDIDMigrationError}
+    //             />
+    //         </Card>
+    //     );
+    // }
+
+    // if (showSingleAccountMigration && accountToMigrate) {
+    //     return (
+    //         <Card>
+    //             <SingleAccountDIDMigration
+    //                 username={accountToMigrate}
+    //                 unifiedPassword={unifiedPassword}
+    //                 onComplete={handleSingleAccountMigrationComplete}
+    //                 onError={handleSingleAccountMigrationError}
+    //             />
+    //         </Card>
+    //     );
+    // }
 
     return (
         <Card>
@@ -156,47 +309,13 @@ function Login() {
                     Enter your PIN to unlock your wallet
                 </p>
 
-                <div className="mb-8 relative w-full" ref={popupRef}>
-                    <button
-                        onClick={() => setIsOpen(!isOpen)}
-                        className="w-full flex items-center justify-center px-4 py-3 bg-surface-low rounded-lg text-senary hover:bg-gray-100 transition-colors"
-                    >
+                <div className="mb-8 w-full">
+                    <div className="w-full flex items-center justify-center px-4 py-3 bg-surface-low rounded-lg">
                         <div className="flex items-center gap-2">
                             <span className="text-quinary">@</span>
-                            <span className='text-senary font-medium text-sm'>{selectedUser?.username}</span>
+                            <span className="text-senary font-medium text-sm">{selectedUser?.username}</span>
                         </div>
-                        <FiChevronDown className={`w-5 h-5 text-quinary transition-transform ${isOpen ? 'rotate-180' : ''}`} />
-                    </button>
-
-                    {isOpen && (
-                        <div
-                            style={{
-                                minHeight: '30px',
-                                maxHeight: '150px',
-                                overflowY: 'auto'
-                            }}
-                            className="absolute w-full mt-1 bg-quaternary rounded-lg shadow-lg border border-gray-100 py-1 z-10">
-                            {users?.map((user) => (
-                                <button
-                                    key={user.username}
-                                    onClick={() => {
-                                        setSelectedUser(user);
-                                        setIsOpen(false);
-                                    }}
-                                    className={`w-full px-4 py-3 text-left hover:bg-surface-low transition-colors ${selectedUser.username === user.username ? 'bg-surface-low' : ''
-                                        }`}
-                                >
-                                    <div className="flex justify-between gap-2">
-                                        <div style={{ width: 200 }} className="gap-2 overflow-hidden text-ellipsis whitespace-nowrap">
-                                            <span className="text-quinary me-1">@</span>
-                                            <span>{user?.username}</span>
-                                        </div>
-                                        {/* <span className='bg-green-600 p-1 px-2 text-white text-xs rounded-lg'>{user?.network?.toUpperCase()}</span> */}
-                                    </div>
-                                </button>
-                            ))}
-                        </div>
-                    )}
+                    </div>
                 </div>
 
                 <div className="mb-8">
@@ -204,7 +323,6 @@ function Login() {
                         onChange={handlePinComplete}
                         value={pin}
                         length={6}
-                        error={error}
                         onComplete={handleUnlock}
                     />
                     {/* <SetupPin onSubmit={handlePinComplete} error={error} /> */}
@@ -220,17 +338,6 @@ function Login() {
                 >
                     Unlock
                 </button>
-                <p className="my-4 font-medium ">--- Or ---</p>
-                <button
-                    onClick={() => {
-                        setUserDetails({});
-                        navigate(ROUTES.WELCOME, { replace: true });
-                    }}
-                    className="font-semibold text-sm underline underline-offset-2 decoration-[1.5px] decoration-black"
-                >
-                    Create or Import Wallet
-                </button>
-
             </div>
         </Card>
     );

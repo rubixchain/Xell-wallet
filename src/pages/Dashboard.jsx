@@ -2,127 +2,134 @@ import Header from '../components/dashboard/Header';
 import BalanceCard from '../components/dashboard/BalanceCard';
 import ActionButtons from '../components/dashboard/ActionButtons';
 import RecentTransactions from '../components/dashboard/RecentTransactions';
-import Navigation from '../components/dashboard/Navigation';
-import ContentContainer from '../components/layout/ContentContainer';
-import Card from '../components/Card';
+import DashboardTabs from '../components/dashboard/DashboardTabs';
+import TokenList from '../components/dashboard/TokenList';
 import { END_POINTS } from '../api/endpoints';
-import { useEffect, useState } from 'react';
-import { useContext } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, useContext } from 'react';
 import { TransactionsContext } from '../context/transactionContext';
 import { UserContext } from '../context/userContext';
 import toast from 'react-hot-toast';
-import { FiList, FiClock } from 'react-icons/fi';
-import History from './History';
-import indexDBUtil from '../indexDB';
-import { NETWORK_TYPES } from "../../config.js"
 
-const Tabs = ({ activeTab, setActiveTab }) => (
-  <div className="flex justify-between my-4 border-b border-gray-300">
-    <button
-      className={`flex w-[50%] justify-center text-base font-medium items-center px-4 py-3 ${activeTab === 'Tokens' ? 'text-secondary border-b-2 border-secondary' : 'text-gray-500'} focus:outline-none`}
-      onClick={() => setActiveTab('Tokens')}
-    >
-      Tokens
-    </button>
-    <button
-      className={`flex w-[50%] text-base justify-center font-medium items-center px-4 py-3 ${activeTab === 'History' ? 'text-secondary border-b-2 border-secondary' : 'text-gray-500'} focus:outline-none`}
-      onClick={() => setActiveTab('History')}
-    >
-      History
-    </button>
-  </div>
-);
+const DASHBOARD_TABS = [
+  { id: 'fts', label: 'FTs' },
+  { id: 'history', label: 'Transaction History' },
+];
 
 export default function Dashboard() {
+  const { userDetails, setUserDetails, setSelectedTokens, selectedTokens } = useContext(UserContext);
+  const [accountInfo, setAccountInfo] = useState({});
+  const { transactionsData, setTransactionsData } = useContext(TransactionsContext);
+  const [isTransactionCompleted, setIsTransactionCompleted] = useState(false);
+  const [activeTab, setActiveTab] = useState('fts');
+  const [userPickedTab, setUserPickedTab] = useState(false);
 
-  const { userDetails, setSelectedTokens } = useContext(UserContext)
-  const [accountInfo, setAccountInfo] = useState({})
-  const { transactionsData, setTransactionsData } = useContext(TransactionsContext)
-  const [isTransactionCompleted, setIsTransactionCompleted] = useState(false)
-  const [activeTab, setActiveTab] = useState('Tokens');
+  // FTs tab is shown first when the account owns any FT; otherwise Transaction
+  // History leads. The data-driven default applies until the user picks a tab.
+  const hasFts = (selectedTokens?.length || 0) > 0;
+  const hasTxns = (transactionsData?.length || 0) > 0;
+  const historyFirst = !hasFts && hasTxns;
+  const orderedTabs = historyFirst ? [DASHBOARD_TABS[1], DASHBOARD_TABS[0]] : DASHBOARD_TABS;
 
+  const handleTabChange = (id) => {
+    setUserPickedTab(true);
+    setActiveTab(id);
+  };
 
   useEffect(() => {
-    try {
-      (async () => {
-        if (!userDetails?.username || !userDetails?.did) {
-          return
-        }
-        setAccountInfo({})
-        setSelectedTokens([])
-        setTransactionsData([])
-        // Default to network 1 if undefined (new wallet defaults to mainnet)
-        const networkValue = userDetails?.network ?? 1;
-        if (networkValue == 1 || networkValue == 2) {
-          const [accountinfoApiData,
-            transactionsApiData] = await Promise.all([
-              END_POINTS.get_account_info({ did: userDetails?.did }),
-              END_POINTS.get_transactions_info({ DID: userDetails?.did })
-            ])
-          let res = {}
+    if (userPickedTab) return;
+    setActiveTab(historyFirst ? 'history' : 'fts');
+  }, [historyFirst, userPickedTab]);
 
-
-          if (accountinfoApiData?.status) {
-            res = { ...res, ...accountinfoApiData?.account_info[0] }
-
-
-          }
-          setAccountInfo(res)
-          setSelectedTokens([])
-          if (transactionsApiData?.status) {
-            const transactions = transactionsApiData?.TxnDetails?.filter(res => res?.Mode == 0 || res?.Mode == 1)?.map((txn) => ({
-              ...txn,
-              type: txn?.SenderDID == userDetails?.did ? "Sent" : "Received",
-            })) || []
-            setTransactionsData(transactions?.sort((a, b) => b.Epoch - a.Epoch) || [])
-          }
-        }
-        else {
-          const [ftinfo, fttxn] = await Promise.all([
-            END_POINTS.get_ft_info({ did: userDetails?.did }),
-            END_POINTS.get_ft_txn_by_did({
-              DID: userDetails?.did,
-              startDate: new Date("2024-12-02"),
-              endDate: new Date()
-            })
-          ])
-          let ftinfoData = ftinfo?.ft_info
-          if (networkValue === 3) {
-            ftinfoData = ftinfoData?.filter(res => res?.creator_did == "bafybmifzar4metqgkm4ivtnvabmiouyi32y2x2ikpi5h4tflrfug2ghi5q")
-          }
-
-          // Handle case where API returns empty array for Trie networks
-          // If no tokens found, create a default object with 0 balance
-          if (!ftinfoData || ftinfoData.length === 0) {
-            setAccountInfo({ ft_count: 0 });
-          } else {
-            
-            setAccountInfo(ftinfoData[0]);
-          }
-          if (fttxn?.status) {
-            let transactions = fttxn?.TxnDetails?.map((txn) => ({
-              ...txn,
-              type: txn?.SenderDID == userDetails?.did ? "Sent" : "Received",
-            })) || []
-
-
-            setTransactionsData(transactions.sort((a, b) => b.Epoch - a.Epoch)?.slice(0, 3))
-          }
-
-
-        }
-
-
-
-      })()
+  useEffect(() => {
+    if (!userDetails?.username || !userDetails?.did) {
+      const previousUserDetails = sessionStorage.getItem('previousUserDetails');
+      if (previousUserDetails) {
+        setUserDetails(JSON.parse(previousUserDetails));
+        sessionStorage.removeItem('previousUserDetails');
+      }
     }
-    catch (e) {
-     
-      toast.error(e)
-    }
-  }, [userDetails, isTransactionCompleted])
+  }, []);
 
- 
+  // Every network is now Rubix and serves both the native RBT balance and FTs
+  // from the same node, so we always fetch both. RBT feeds the balance card,
+  // FTs feed the FTs tab, and RBT + FT transactions merge into one history list.
+  const loadAccountData = useCallback(async () => {
+    const did = userDetails?.did;
+    if (!did) return;
+
+    const [rbtBal, rbtTxn, ftInfo, ftTxn] = await Promise.all([
+      END_POINTS.get_rbt_balance(did),
+      END_POINTS.get_rbt_transactions({ DID: did }),
+      END_POINTS.get_ft_balance({ did }),
+      END_POINTS.get_ft_transactions({
+        DID: did,
+        startDate: new Date("2024-12-02"),
+        endDate: new Date()
+      })
+    ]);
+
+    if (rbtBal?.status) {
+      setAccountInfo({
+        balance: rbtBal?.result?.balance,
+        pledged: rbtBal?.result?.pledged,
+        locked: rbtBal?.result?.locked
+      });
+    }
+
+    setSelectedTokens(ftInfo?.ft_info || []);
+
+    const mapTxn = (txn) => ({
+      ...txn,
+      type: txn?.SenderDID == did ? "Sent" : "Received",
+      Epoch: txn?.Epoch > 0 ? txn?.Epoch : Math.floor(new Date(txn.DateTime).getTime() / 1000)
+    });
+
+    const merged = [];
+    if (rbtTxn?.status) {
+      merged.push(...(rbtTxn?.TxnDetails
+        ?.filter(t => t?.Mode == 0 || t?.Mode == 1)
+        ?.filter(t => t?.SenderDID !== t?.ReceiverDID)
+        ?.map(mapTxn) || []));
+    }
+    if (ftTxn?.status) {
+      merged.push(...(ftTxn?.TxnDetails
+        ?.filter(t => t?.SenderDID !== t?.ReceiverDID)
+        ?.map(mapTxn) || []));
+    }
+
+    const seen = new Set();
+    const deduped = merged.filter(t => {
+      const key = t?.TransactionID;
+      if (!key) return true;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+
+    setTransactionsData(deduped.sort((a, b) => b.Epoch - a.Epoch));
+  }, [userDetails?.did, setSelectedTokens, setTransactionsData]);
+
+  useLayoutEffect(() => {
+    setAccountInfo({});
+    setSelectedTokens([]);
+    setTransactionsData([]);
+  }, [userDetails?.did, setSelectedTokens, setTransactionsData]);
+
+  useEffect(() => {
+    if (!userDetails?.username || !userDetails?.did) return;
+    loadAccountData().catch((e) => toast.error(typeof e === 'string' ? e : 'Failed to load account data'));
+  }, [userDetails, isTransactionCompleted, loadAccountData]);
+
+  const settleMountRef = useRef(false);
+  useEffect(() => {
+    if (!settleMountRef.current) { settleMountRef.current = true; return; }
+    if (!userDetails?.did) return;
+    const t3 = setTimeout(() => { loadAccountData().catch(() => { }); }, 3000);
+    const t6 = setTimeout(() => { loadAccountData().catch(() => { }); }, 6000);
+    return () => { clearTimeout(t3); clearTimeout(t6); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isTransactionCompleted]);
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col items-center"
       style={{
@@ -134,29 +141,28 @@ export default function Dashboard() {
     >
       <Header />
 
-      <main className="w-full h-full flex flex-col items-center">
-        <div className='w-full h-full p-6 bg-white dark:bg-gray-800 transition-colors '>
-
+      <main className="w-full h-full flex flex-col items-center overflow-y-auto">
+        <div className='w-full h-full p-6 bg-white dark:bg-gray-800 transition-colors'>
           <BalanceCard setIsTransactionCompleted={setIsTransactionCompleted} accountInfo={accountInfo} />
           <div className="flex justify-around mt-4">
             <ActionButtons setIsTransactionCompleted={setIsTransactionCompleted} accountInfo={accountInfo} />
           </div>
 
-          {/* <Tabs activeTab={activeTab} setActiveTab={setActiveTab} />
-          {activeTab === 'Tokens' && (
-            <>
-              <TokenList className="grid grid-cols-1 gap-4 mt-6" />
-            </>
-          )}
-          {activeTab === 'History' && (
-            <History />
-          )} */}
+          <DashboardTabs tabs={orderedTabs} activeTab={activeTab} onChange={handleTabChange} />
 
-          <RecentTransactions transactionsData={transactionsData} />
+          <div className="mt-6">
+            {activeTab === 'fts' ? (
+              <div role="tabpanel" id="dashboard-panel-fts" aria-labelledby="dashboard-tab-fts">
+                <TokenList />
+              </div>
+            ) : (
+              <div role="tabpanel" id="dashboard-panel-history" aria-labelledby="dashboard-tab-history">
+                <RecentTransactions transactionsData={transactionsData} />
+              </div>
+            )}
+          </div>
         </div>
       </main>
-      {/* </ContentContainer> */}
-      {/* <Navigation /> */}
     </div>
   );
 }

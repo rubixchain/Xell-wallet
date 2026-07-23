@@ -47,8 +47,8 @@ export default function RecoveryPhrase() {
   const onSkip = async () => {
     try {
       setLoader(true)
-      indexDBUtil.setCurrentVersion()
-      indexDBUtil.storeNetworkSetting({
+      await indexDBUtil.setCurrentVersion(5)
+      await indexDBUtil.storeNetworkSetting({
         network: userDetails?.network || 1,
         RPCUrl: config?.RUBIX_MAINNET_BASE_URL,
         name: "Rubix Mainnet",
@@ -159,7 +159,7 @@ export default function RecoveryPhrase() {
           <button className='w-[46%] text-white rounded px-4 py-3 bg-primary' onClick={handleContinue}>
             Next
           </button>
-          <button className='w-[46%] text-white rounded px-4 py-3 bg-gray-500' onClick={onSkip}>
+          <button className='w-[46%] text-white rounded px-4 py-3 bg-gray-500 disabled:opacity-50 disabled:cursor-not-allowed' onClick={onSkip} disabled={loader}>
             {loader ?
               <div className="flex justify-center items-center ">
                 <div className="loader border-t-transparent border-solid border-2 border-white-500 rounded-full animate-spin w-6 h-6"></div>

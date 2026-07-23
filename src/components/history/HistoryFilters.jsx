@@ -27,29 +27,28 @@ export default function HistoryFilters({ selectedType, setSelectedType, inputVal
   ];
 
   return (
-
-    <div className="flex flex-grow items-center border border-gray-200 rounded-lg relative">
-      {/* 🔍 Search icon */}
-      <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-
-      {/* Input */}
-      <input
-        type="text"
-        value={inputValue}
-        onChange={(e) => setInputValue(e.target.value)}
-        placeholder="Search by address..."
-        className="w-full pl-10 pr-4 py-2 focus:outline-none"
-      />
+    <div className="flex flex-wrap sm:space-x-4 relative">
+      {/* Search Input */}
+      <div className="sm:flex-1 font-semibold w-[100%] sm:w-[80%] relative">
+        <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+        <input
+          type="text"
+          value={inputValue}
+          onChange={(e) => setInputValue(e?.target.value)}
+          placeholder="Search by address or transaction ID..."
+          className="w-full pl-10 pr-4 py-3  bg-[#E5E5E540]  dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+        />
+      </div>
 
       {/* Type Dropdown */}
-      <div className="relative border-l border-gray-200 h-full" ref={dropdownRef}>
+      <div className="relative  font-semibold   mt-4 sm:mt-0 w-[40%] sm:w-[20%]" ref={dropdownRef}>
         <button
           onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-          className="h-full px-4 flex items-center text-xs bg-white dark:bg-gray-800"
+          className="px-4 py-3 text-right bg-white w-full dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg flex justify-center items-center space-x-2"
         >
           <span className="dark:text-white">{selectedType}</span>
           <FiChevronDown
-            className={`w-4 h-4 ml-2 dark:text-white transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`}
+            className={`w-4 h-4 dark:text-white  transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`}
           />
         </button>
 
@@ -59,9 +58,9 @@ export default function HistoryFilters({ selectedType, setSelectedType, inputVal
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -10 }}
-              className="absolute right-0 top-full mt-2 w-40 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-10"
+              className="absolute left-0 sm:right-0 top-full mt-2 w-40 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg z-10"
             >
-              {typeOptions.map(option => (
+              {typeOptions.map((option) => (
                 <button
                   key={option.value}
                   onClick={() => {
@@ -81,6 +80,5 @@ export default function HistoryFilters({ selectedType, setSelectedType, inputVal
         </AnimatePresence>
       </div>
     </div>
-
   );
 }
