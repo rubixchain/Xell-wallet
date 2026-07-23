@@ -16,17 +16,72 @@ const sumTokenValues = (tokens) => {
     return tokens.reduce((sum, t) => sum + (Number(t?.tokenValue) || 0), 0)
 }
 
+// FT tokens in a transaction carry a `tokenId` shaped like
+// "<ftName>_<creatorDID>_<n>" (e.g. "xell-ft_bafy...kaqq_1"). The creatorDID
+// and trailing index are the last two underscore segments, so the FT name is
+// everything before them — which also tolerates names containing underscores.
+const ftNameFromToken = (t) => {
+    const id = t?.tokenId
+    if (typeof id === 'string' && id.includes('_')) {
+        const parts = id.split('_')
+        return parts.length >= 3 ? parts.slice(0, -2).join('_') : parts[0]
+    }
+    return t?.ftName || t?.FTName || t?.name || null
+}
+
+// Break a transaction down into the individual assets it moved, each with its
+// own amount: RBT uses its summed value; every distinct FT uses the COUNT of
+// its tokens. Drives the expandable multi-asset row in the history.
+const buildAssets = (tokens, rbtAmount) => {
+    const assets = []
+    if (rbtAmount) assets.push({ symbol: 'RBT', amount: rbtAmount })
+    const ftTokens = Array.isArray(tokens?.ft) ? tokens.ft : []
+    const counts = {}
+    for (const t of ftTokens) {
+        const name = ftNameFromToken(t) || 'FT'
+        counts[name] = (counts[name] || 0) + 1
+    }
+    for (const [symbol, amount] of Object.entries(counts)) {
+        assets.push({ symbol, amount })
+    }
+    return assets
+}
+
+// Derive a human-readable asset symbol for a transaction from its tokens.
+// RBT-only -> "RBT"; a single FT -> that FT's name; a combined transfer ->
+// the parts joined (e.g. "RBT + TRIE"). Returns null when nothing is found.
+const deriveSymbol = (tokens, rbtAmount, ftCount) => {
+    const ftTokens = Array.isArray(tokens?.ft) ? tokens.ft : []
+    const ftNames = [...new Set(
+        ftTokens.map(ftNameFromToken).filter(Boolean)
+    )]
+    const parts = []
+    if (rbtAmount) parts.push('RBT')
+    if (ftNames.length) parts.push(...ftNames)
+    if (parts.length) return parts.join(' + ')
+    if (rbtAmount) return 'RBT'
+    if (ftCount) return ftNames[0] || 'FT'
+    return null
+}
+
 const mapTxToLegacyShape = (tx) => {
     const info = tx?.Info || {}
     const tokens = info?.tokens || {}
     const rbtAmount = sumTokenValues(tokens.rbt)
-    const ftAmount = sumTokenValues(tokens.ft)
+    // For FTs we show the NUMBER of tokens transferred (each entry in tokens.ft
+    // is one FT), not the summed token value.
+    const ftCount = Array.isArray(tokens.ft) ? tokens.ft.length : 0
     const epoch = Number(info?.epoch) || toEpoch(tx?.CreatedAt)
     return {
         TransactionID: tx?.ID || '',
         SenderDID: info?.initiator || '',
         ReceiverDID: info?.owner || '',
-        Amount: rbtAmount || ftAmount || 0,
+        Amount: rbtAmount || ftCount || 0,
+        // Per-transaction asset label so the history can show which token moved
+        // (RBT / TRIE / E-Coin) instead of a single global symbol.
+        Symbol: deriveSymbol(tokens, rbtAmount, ftCount),
+        // Full per-asset breakdown for multi-asset transactions (expandable row).
+        Assets: buildAssets(tokens, rbtAmount),
         Epoch: epoch,
         DateTime: tx?.CreatedAt || '',
         Comment: info?.memo || '',
@@ -59,6 +114,12 @@ export const END_POINTS = {
     },
     signature_response: (params) => {
         return api.post('rubix/v1/signature', params)
+    },
+    // Wallet token recovery (sync). Returns { status, message, result } where a
+    // "signature needed" response carries result.id + result.hash to be signed
+    // and sent back through signature_response - same handshake as register_did.
+    sync_recovery: (did) => {
+        return api.post('rubix/v1/sync', { did })
     },
     create_wallet: (params) => {
         return api.post('rubix/v1/dids/create', params)
@@ -111,6 +172,12 @@ export const END_POINTS = {
         return api.post('execute-nft', data)
     },
     initiate_ft_transfer: (body) => {
+        return api.post('rubix/v1/tx', body)
+    },
+    // Combined RBT + multi-FT transfer. Same endpoint as the single-asset calls
+    // above; the node's tx handler processes the `rbt` and `ft` keys in `tokens`
+    // independently, so one call can move RBT and several FTs at once.
+    initiate_transfer: (body) => {
         return api.post('rubix/v1/tx', body)
     },
     create_ft: (data) => {

@@ -1,124 +1,116 @@
-import { useContext, useEffect, useState, useRef } from 'react';
+import { useContext, useEffect, useState } from 'react';
 import { FiArrowLeft, FiSend, FiStar, FiPlus, FiX, FiChevronDown } from 'react-icons/fi';
 import { motion, AnimatePresence } from 'framer-motion';
 import Button from '../Button';
 import toast from 'react-hot-toast';
 import { END_POINTS } from '../../api/endpoints';
 import { UserContext } from '../../context/userContext';
-import { generateSignature, isSignatureRoundRequired, formatBalance } from '../../utils';
+import { generateSignature } from '../../utils';
 import indexDBUtil from '../../indexDB';
-import { NETWORK_TYPES } from '../../../config';
+import { FAVORITES_KEY, favoritesKey } from '../../hooks/useFavorites';
+import { getSkipConfirm, setSkipConfirm as persistSkipConfirm } from '../../utils/sendPrefs';
 
-const typesArray = ["Type 1", "Type 2"]
-
+// A single empty asset row. `assetId` is the chosen asset's id ('RBT' or an
+// FT name); empty means "not yet selected".
+const makeRow = (assetId = '') => ({ assetId, amount: '' });
 
 export default function SendModal({ isOpen, onClose, accountInfo, setIsTransactionCompleted }) {
   const { userDetails, selectedTokens } = useContext(UserContext)
-  const [amount, setAmount] = useState('');
+  // Multi-asset: each row is one asset + amount. Default to a single RBT row.
+  const [rows, setRows] = useState([makeRow('RBT')]);
+  const [openRowIndex, setOpenRowIndex] = useState(null);
   const [recipientAddress, setRecipientAddress] = useState('');
   const [recipientName, setRecipientName] = useState('');
   const [favorites, setFavorites] = useState([]);
   const [showSaveToFavorites, setShowSaveToFavorites] = useState(false);
-  const availableBalance = '372.6619 RBT';
-  const [type, setType] = useState('Type 2')
   const [loader, setLoader] = useState(false)
   const [comments, setComments] = useState('')
-  const [selectedToken, setSelectedToken] = useState(null)
-  const [showTokenDropdown, setShowTokenDropdown] = useState(false)
-  const [tokenSearchQuery, setTokenSearchQuery] = useState('')
-  const dropdownRef = useRef(null)
+  const [showConfirm, setShowConfirm] = useState(false)
+  const [skipConfirm, setSkipConfirm] = useState(false)
+
+  // The full asset universe for this account: native RBT plus every owned FT.
+  // RBT has no creatorDID; FTs carry the creator_did needed in the tx payload.
+  const assets = [
+    {
+      id: 'RBT',
+      name: 'RBT',
+      balance: parseFloat(accountInfo?.balance) || 0,
+      creatorDID: null,
+      isRBT: true,
+    },
+    ...(selectedTokens || []).map((t) => ({
+      id: t.ft_name,
+      name: t.ft_name,
+      balance: parseFloat(t.ft_count) || 0,
+      creatorDID: t.creator_did,
+      isRBT: false,
+    })),
+  ];
+
+  const findAsset = (id) => assets.find((a) => a.id === id) || null;
 
   useEffect(() => {
-    let fav = localStorage.getItem(userDetails?.username)
-    fav = JSON.parse(fav)
-    if (!fav) {
-      return
-    }
-    setFavorites(fav)
-  }, [])
+    // Favourites are scoped per account (by DID). Seed this account's list from
+    // the legacy global list the first time so existing favourites aren't lost.
+    const did = userDetails?.did
+    if (!did) { setFavorites([]); return }
+    const storageKey = favoritesKey(did)
 
-  // Handle click outside dropdown
-  useEffect(() => {
-    function handleClickOutside(event) {
-      // Only handle if dropdown is open and click is outside the dropdown
-      if (showTokenDropdown && dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-        setShowTokenDropdown(false);
-        setTokenSearchQuery(''); // Clear search when closing
+    let stored = localStorage.getItem(storageKey)
+    if (stored == null) {
+      const legacy = localStorage.getItem(FAVORITES_KEY)
+      if (legacy != null) {
+        localStorage.setItem(storageKey, legacy)
+        stored = legacy
       }
     }
+    try { setFavorites(stored ? JSON.parse(stored) : []) } catch { setFavorites([]) }
+  }, [userDetails?.did])
 
-    // Use click event instead of mousedown to avoid conflicts
-    document.addEventListener('click', handleClickOutside);
-    return () => {
-      document.removeEventListener('click', handleClickOutside);
-    };
-  }, [showTokenDropdown]);
-
-  // Set available tokens from selectedTokens when tokenSymbol is empty
   useEffect(() => {
-    if (!userDetails?.tokenSymbol && selectedTokens && selectedTokens.length > 0) {
-      // Add RBT token to the list
-      const tokensWithRBT = [
-        {
-          symbol: 'RBT',
-          name: 'RBT',
-          balance: accountInfo?.balance || '0',
-          ft_name: 'RBT'
-        },
-        ...selectedTokens.map(token => ({
-          symbol: token.symbol,
-          name: token.name,
-          balance: token.balance,
-          ft_name: token.symbol
-        }))
-      ];
+    // Load the skip-confirmation preference for the active account (seeds from
+    // the legacy global value the first time). Re-reads when the modal opens so
+    // a change made in Settings takes effect immediately.
+    setSkipConfirm(getSkipConfirm(userDetails?.did))
+  }, [userDetails?.did, isOpen])
 
-      // Set RBT as default selected token
-      setSelectedToken(tokensWithRBT[0]);
+  // Close any open asset dropdown when clicking outside of it.
+  useEffect(() => {
+    function handleClickOutside(event) {
+      if (openRowIndex !== null && !event.target.closest('[data-asset-dropdown]')) {
+        setOpenRowIndex(null);
+      }
     }
-  }, [userDetails?.tokenSymbol, selectedTokens, accountInfo?.balance]);
-
-  // Get combined tokens list for dropdown
-  const getAvailableTokens = () => {
-    if (!userDetails?.tokenSymbol && selectedTokens && selectedTokens.length > 0) {
-      return [
-        {
-          ft_count: accountInfo?.balance || '0',
-          ft_name: 'RBT'
-        },
-        ...selectedTokens.map(token => ({
-
-          ft_count: token.ft_count,
-          ft_name: token.ft_name
-        }))
-      ];
-    }
-    return [];
-  };
-
-  const availableTokens = getAvailableTokens();
-
-
-  // Filter tokens based on search query
-  const filteredTokens = availableTokens.filter(token =>
-    token.ft_name?.toLowerCase().includes(tokenSearchQuery.toLowerCase())
-  );
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, [openRowIndex]);
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    onClose();
+  // Assets still available to a given row = those not chosen in any OTHER row
+  // (constraint #4: an asset can't be picked twice), plus this row's own pick.
+  const availableAssetsForRow = (rowIndex) => {
+    const takenElsewhere = new Set(
+      rows.filter((_, i) => i !== rowIndex).map((r) => r.assetId).filter(Boolean)
+    );
+    return assets.filter((a) => !takenElsewhere.has(a.id));
   };
+
+  const canAddRow = rows.length < assets.length;
+
+  const resetForm = () => {
+    setRows([makeRow('RBT')])
+    setComments('')
+    setRecipientAddress('')
+    setRecipientName('')
+    setShowSaveToFavorites(false)
+    setOpenRowIndex(null)
+  }
 
   const handleClickOutside = (e) => {
     if (e.target === e.currentTarget && !loader) {
       setLoader(false)
-      setAmount('')
-      setRecipientAddress('')
-      setRecipientName('')
-      setComments('')
-      setSelectedToken(null)
+      resetForm()
       onClose();
     }
   };
@@ -139,9 +131,10 @@ export default function SendModal({ isOpen, onClose, accountInfo, setIsTransacti
         id: Date.now().toString(),
         name: recipientName,
         address: recipientAddress,
+        createdAt: new Date().toISOString(),
       };
       let res = [...favorites, newFavorite]
-      localStorage.setItem(userDetails?.username, JSON.stringify(res))
+      localStorage.setItem(favoritesKey(userDetails?.did), JSON.stringify(res))
       setFavorites(res);
       setShowSaveToFavorites(false);
       setRecipientName('')
@@ -150,28 +143,58 @@ export default function SendModal({ isOpen, onClose, accountInfo, setIsTransacti
 
   const handleRemoveFavorite = (id) => {
     let res = favorites.filter(f => f.id !== id)
-    localStorage.setItem(userDetails?.username, JSON.stringify(res))
+    localStorage.setItem(favoritesKey(userDetails?.did), JSON.stringify(res))
     setFavorites(res);
   };
 
-  // Get current token symbol and balance
-  const getCurrentTokenInfo = () => {
-    // If tokenSymbol is provided, use it
-    if (userDetails?.network == 1 || userDetails?.network == 2) {
-      return {
-        symbol: 'RBT',
-        balance: accountInfo?.balance || '0'
-      };
-    } else {
-      // For other tokens (TRI, TRIE, etc.), use ft_count
-      return {
-        symbol: userDetails.tokenSymbol,
-        balance: formatBalance(accountInfo?.ft_count || 0)
-      };
+  // --- Asset row handlers ---------------------------------------------------
+  const handleSelectAsset = (rowIndex, assetId) => {
+    setRows((prev) => prev.map((r, i) => (i === rowIndex ? { ...r, assetId, amount: '' } : r)));
+    setOpenRowIndex(null);
+  };
+
+  const handleAmountChange = (rowIndex, value) => {
+    const asset = findAsset(rows[rowIndex].assetId);
+    const max = asset ? asset.balance : 0;
+    // Allow up to 3 decimal places and never exceed the asset's balance.
+    const regex = /^\d*\.?\d{0,3}$/;
+    if (value === '') {
+      setRows((prev) => prev.map((r, i) => (i === rowIndex ? { ...r, amount: '' } : r)));
+      return;
+    }
+    if (regex.test(value) && parseFloat(value) >= 0 && parseFloat(value) <= max) {
+      setRows((prev) => prev.map((r, i) => (i === rowIndex ? { ...r, amount: value } : r)));
     }
   };
 
-  const currentTokenInfo = getCurrentTokenInfo();
+  const handleAddRow = () => {
+    if (!canAddRow) return;
+    // Default the new row to the first asset not already used.
+    const used = new Set(rows.map((r) => r.assetId).filter(Boolean));
+    const next = assets.find((a) => !used.has(a.id));
+    setRows((prev) => [...prev, makeRow(next ? next.id : '')]);
+  };
+
+  const handleRemoveRow = (rowIndex) => {
+    setRows((prev) => prev.filter((_, i) => i !== rowIndex));
+    setOpenRowIndex(null);
+  };
+
+  // --- Validation -----------------------------------------------------------
+  const rowIsValid = (row) => {
+    const asset = findAsset(row.assetId);
+    if (!asset) return false;
+    const amt = parseFloat(row.amount);
+    return amt > 0 && amt <= asset.balance;
+  };
+
+  const hasDuplicateAssets = () => {
+    const ids = rows.map((r) => r.assetId).filter(Boolean);
+    return new Set(ids).size !== ids.length;
+  };
+
+  const allRowsValid = rows.length > 0 && rows.every(rowIsValid) && !hasDuplicateAssets();
+  const canSend = allRowsValid && !!recipientAddress;
 
   async function generateSignatureApi(id, hash, pk) {
     try {
@@ -186,97 +209,107 @@ export default function SendModal({ isOpen, onClose, accountInfo, setIsTransacti
         toast.error(signatureResponse?.message || 'failed to do response')
         return
       }
-      else if (isSignatureRoundRequired(signatureResponse?.result)) {
-        return await generateSignatureApi(signatureResponse.result.id, signatureResponse.result.hash, pk)
+      else if (signatureResponse?.result && signatureResponse?.result?.id && signatureResponse?.result?.hash) {
+        return await generateSignatureApi(signatureResponse?.result?.id, signatureResponse?.result?.hash, pk)
       }
       else {
-        toast.success(signatureResponse?.message || 'Token transferred successfully')
+        toast.success('Tokens transferred successfully')
         setLoader(false)
-        setAmount('')
-        setComments('')
-        setRecipientAddress('')
-        setRecipientName('')
-        setSelectedToken(null)
+        resetForm()
         setIsTransactionCompleted(prev => !prev)
         onClose();
       }
     }
     catch (e) {
-      // toast.error(e)
       setLoader(false)
     }
   }
 
-  const onClickSendToken = async (e) => {
+  // Validate then either show the confirmation step or send directly (when the
+  // user has opted to skip confirmation).
+  const handleSendClick = (e) => {
     e?.preventDefault()
-    if (!amount) {
-      return toast.error('Please enter amount')
+    if (hasDuplicateAssets()) {
+      return toast.error('Each asset can only be selected once')
+    }
+    if (!rows.every(rowIsValid)) {
+      return toast.error('Enter a valid amount for every asset (within its balance)')
     }
     if (!recipientAddress) {
       return toast.error('Please enter recipient address')
     }
+    if (skipConfirm) {
+      executeSend()
+    } else {
+      setShowConfirm(true)
+    }
+  }
 
+  const handleToggleSkipConfirm = () => {
+    const next = !skipConfirm
+    setSkipConfirm(next)
+    persistSkipConfirm(userDetails?.did, next)
+  }
+
+  const resetAndClose = () => {
+    if (loader) return
+    setShowConfirm(false)
+    resetForm()
+    onClose()
+  }
+
+  // Build the combined `tokens` payload from the asset rows. RBT goes under
+  // `rbt`; every FT row is collected into the `ft` array. Keys are only
+  // included when present, matching the single-asset payloads the node already
+  // accepts.
+  const buildTokens = () => {
+    const tokens = {};
+    const rbtRow = rows.find((r) => findAsset(r.assetId)?.isRBT);
+    if (rbtRow) {
+      tokens.rbt = parseFloat(rbtRow.amount);
+    }
+    const ftRows = rows.filter((r) => {
+      const a = findAsset(r.assetId);
+      return a && !a.isRBT;
+    });
+    if (ftRows.length > 0) {
+      tokens.ft = ftRows.map((r) => {
+        const a = findAsset(r.assetId);
+        return {
+          ftName: a.name,
+          creatorDID: a.creatorDID,
+          numberOfFts: parseFloat(r.amount),
+        };
+      });
+    }
+    return tokens;
+  };
+
+  const executeSend = async () => {
     setLoader(true)
-
     try {
-      const isRBT = (userDetails?.network == 1 || userDetails?.network == 2);
-
-      if (isRBT) {
-        // RBT Transfer
-        let data = {
-          initiator: userDetails?.did,
-          owner: recipientAddress,
-          tokens: {
-            rbt: parseFloat(amount)
-          },
-          memo: comments || ''
-        }
-        let transferRBT = await END_POINTS.transfer_rtbt(data)
-        if (!transferRBT || !transferRBT?.status) {
-          toast.error(transferRBT?.message || 'Failed to transfer RBT')
-          setLoader(false)
-          return
-        }
-        let getPrivateKey = await indexDBUtil.getData("UserDetails", userDetails?.username, userDetails?.pin)
-        if (getPrivateKey?.status) {
-          await generateSignatureApi(transferRBT?.result?.id, transferRBT?.result?.hash, getPrivateKey?.privatekey)
-        }
-        else {
-          toast.error(getPrivateKey?.message || 'transaction initiation failed')
-          setLoader(false)
-        }
-      } else {
-        // FT Transfer
-        let data = {
-          initiator: userDetails?.did,
-          owner: recipientAddress,
-          tokens: {
-            ft: [{
-              ftName: accountInfo.ft_name,
-              creatorDID: accountInfo?.creator_did,
-              numberOfFts: parseFloat(amount)
-            }]
-          },
-          memo: comments || ''
-        }
-        let transferFT = await END_POINTS.initiate_ft_transfer(data)
-        if (!transferFT || !transferFT?.status) {
-          toast.error(transferFT?.message || 'Failed to transfer tokens')
-          setLoader(false)
-          return
-        }
-        let getPrivateKey = await indexDBUtil.getData("UserDetails", userDetails?.username, userDetails?.pin)
-        if (getPrivateKey?.status) {
-          await generateSignatureApi(transferFT?.result?.id, transferFT?.result?.hash, getPrivateKey?.privatekey)
-        }
-        else {
-          toast.error(getPrivateKey?.message || 'transaction initiation failed')
-          setLoader(false)
-        }
+      const data = {
+        initiator: userDetails?.did,
+        owner: recipientAddress,
+        tokens: buildTokens(),
+        memo: comments || ''
+      }
+      let transfer = await END_POINTS.initiate_transfer(data)
+      if (!transfer || !transfer?.status) {
+        toast.error(transfer?.message || 'Failed to transfer tokens')
+        setLoader(false)
+        return
+      }
+      let getPrivateKey = await indexDBUtil.getData("UserDetails", userDetails?.username, userDetails?.pin)
+      if (getPrivateKey?.status) {
+        await generateSignatureApi(transfer?.result?.id, transfer?.result?.hash, getPrivateKey?.privatekey)
+      }
+      else {
+        toast.error(getPrivateKey?.message || 'transaction initiation failed')
+        setLoader(false)
       }
     }
     catch (e) {
-      
       toast.error('Transfer failed')
       setLoader(false)
     }
@@ -293,6 +326,125 @@ export default function SendModal({ isOpen, onClose, accountInfo, setIsTransacti
         animate={{ opacity: 1, scale: 1 }}
         onMouseDown={(e) => e?.stopPropagation()}
       >
+        {showConfirm ? (
+          <div className="space-y-5">
+            {/* Confirmation Header */}
+            <div className="flex items-center space-x-3 border-b border-gray-100 dark:border-gray-700 pb-3">
+              <button
+                onClick={() => setShowConfirm(false)}
+                disabled={loader}
+                className="p-1 -ml-1 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white disabled:opacity-50 transition-colors"
+                aria-label="Back to edit"
+              >
+                <FiArrowLeft className="w-5 h-5" />
+              </button>
+              <h2 className="text-lg font-bold text-senary dark:text-white">
+                Confirm Transaction
+              </h2>
+            </div>
+
+            {/* Assets being sent */}
+            <div className="space-y-2 pt-1">
+              <p className="text-[11px] font-semibold uppercase tracking-widest text-gray-400 text-center">You&apos;re sending</p>
+              <div className="space-y-2">
+                {rows.map((row, i) => {
+                  const asset = findAsset(row.assetId);
+                  return (
+                    <div
+                      key={i}
+                      className="flex items-baseline justify-center gap-2 bg-[#E5E5E540] dark:bg-gray-700/40 rounded-xl py-3 px-4"
+                    >
+                      <span className="text-lg font-bold tracking-tight text-gray-900 dark:text-white shrink-0">
+                        {row.amount}
+                      </span>
+                      <span title={asset?.name} className="text-base font-semibold text-gray-400 truncate">{asset?.name}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* From and Recipient — both shown the same way: full DID in a
+                mono box so they read consistently. */}
+            <div className="space-y-1.5">
+              <p className="text-[11px] font-semibold uppercase tracking-widest text-gray-400">From</p>
+              <div className="bg-[#E5E5E540] dark:bg-gray-700/40 rounded-xl p-3.5 font-mono text-sm text-gray-900 dark:text-white break-all leading-relaxed">
+                {userDetails?.did}
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <p className="text-[11px] font-semibold uppercase tracking-widest text-gray-400">Recipient</p>
+              <div className="bg-[#E5E5E540] dark:bg-gray-700/40 rounded-xl p-3.5 font-mono text-sm text-gray-900 dark:text-white break-all leading-relaxed">
+                {recipientAddress}
+              </div>
+              {recipientName && (
+                <p className="text-xs text-gray-500">
+                  Saved as <span className="font-semibold text-gray-700 dark:text-gray-300">{recipientName}</span>
+                </p>
+              )}
+            </div>
+
+            {/* Secondary details */}
+            <div className="space-y-3 text-sm">
+              {comments && (
+                <div className="flex items-start justify-between gap-4">
+                  <span className="text-gray-500 flex-shrink-0">Memo</span>
+                  <span className="text-gray-700 dark:text-gray-200 break-all text-right">{comments}</span>
+                </div>
+              )}
+            </div>
+
+            {/* Don't show again */}
+            <label className="flex items-center gap-2.5 cursor-pointer select-none pt-1">
+              <input
+                type="checkbox"
+                checked={skipConfirm}
+                onChange={handleToggleSkipConfirm}
+                disabled={loader}
+                className="w-4 h-4 accent-secondary rounded cursor-pointer"
+              />
+              <span className="text-sm text-gray-600 dark:text-gray-300">Don&apos;t show this again</span>
+            </label>
+
+            {/* Actions */}
+            <div className="space-y-2.5 pt-1">
+              <button
+                onClick={executeSend}
+                disabled={loader}
+                className="w-full bg-secondary hover:opacity-90 text-white font-semibold py-3.5 px-6 rounded-xl flex items-center justify-center space-x-2 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {loader ? (
+                  <div className="flex justify-center items-center">
+                    <div className="loader border-t-transparent text-sm border-solid border-2 border-white-500 rounded-full animate-spin w-6 h-6"></div>
+                  </div>
+                ) : (
+                  <>
+                    <FiSend className="w-5 h-5" />
+                    <span>Confirm &amp; Send</span>
+                  </>
+                )}
+              </button>
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  onClick={() => setShowConfirm(false)}
+                  disabled={loader}
+                  className="py-3 rounded-xl font-semibold text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors disabled:opacity-50"
+                >
+                  Edit
+                </button>
+                <button
+                  onClick={resetAndClose}
+                  disabled={loader}
+                  className="py-3 rounded-xl font-semibold text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : (
+        <>
         {/* Header */}
         <div className="flex items-center space-x-4 z-100 border-b-2 pb-3">
           <button
@@ -300,11 +452,7 @@ export default function SendModal({ isOpen, onClose, accountInfo, setIsTransacti
               if (loader) {
                 return
               }
-              setAmount('')
-              setComments('')
-              setRecipientAddress('')
-              setRecipientName('')
-              setSelectedToken(null)
+              resetForm()
               onClose();
             }}
             className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
@@ -312,11 +460,11 @@ export default function SendModal({ isOpen, onClose, accountInfo, setIsTransacti
             <FiArrowLeft className="w-6 h-6" />
           </button>
           <h2 className="text-lg font-bold text-senary dark:text-white">
-            Send {userDetails?.tokenSymbol}
+            Send Assets
           </h2 >
         </div >
 
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={handleSendClick} className="space-y-6">
 
           {/* Favorites Section */}
           {favorites.length > 0 && (
@@ -358,55 +506,104 @@ export default function SendModal({ isOpen, onClose, accountInfo, setIsTransacti
             </div>
           )}
 
-          {/* Available Balance */}
-          <div className="space-y-2 bg-[#E5E5E540] p-3 rounded-lg">
-            <div className='flex justify-between dark:bg-gray-900'>
-              <label className="block text-sm font-semibold text-gray-900 dark:text-white">
-                Available Balance
-              </label>
-              <div className="rounded-lg">
+          {/* Asset rows — each is one asset + amount to send */}
+          <div className="space-y-4">
+            {rows.map((row, i) => {
+              const asset = findAsset(row.assetId);
+              const options = availableAssetsForRow(i);
+              return (
+                <div key={i} className="space-y-2">
+                  <div className="flex justify-between items-center gap-2">
+                    <label className="block text-sm font-semibold text-gray-900 dark:text-white shrink-0">
+                      Transaction Amount
+                    </label>
+                    {asset && (
+                      <span title={`${asset.balance} ${asset.name}`} className="text-sm font-medium text-gray-500 dark:text-gray-400 truncate">
+                        Avail Bal: {asset.balance} {asset.name}
+                      </span>
+                    )}
+                  </div>
 
+                  <div className="flex items-stretch gap-2">
+                    {/* Asset selector */}
+                    <div className="relative" data-asset-dropdown>
+                      <button
+                        type="button"
+                        disabled={loader}
+                        onClick={() => setOpenRowIndex(openRowIndex === i ? null : i)}
+                        className="h-full flex items-center gap-2 px-3 py-4 border rounded-lg text-sm font-semibold text-gray-900 dark:text-white bg-[#E5E5E540] dark:bg-gray-700 min-w-[110px] max-w-[140px] justify-between"
+                      >
+                        <span title={asset?.name} className="truncate">{asset?.name || 'Select'}</span>
+                        <FiChevronDown className="w-4 h-4 shrink-0 text-gray-400" />
+                      </button>
+                      {openRowIndex === i && (
+                        <div className="absolute z-20 mt-1 w-56 max-h-60 overflow-auto bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg">
+                          {options.map((a) => (
+                            <button
+                              key={a.id}
+                              type="button"
+                              onClick={() => handleSelectAsset(i, a.id)}
+                              className={`w-full flex items-center justify-between gap-2 px-3 py-2.5 text-sm hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors ${a.id === row.assetId ? 'bg-gray-50 dark:bg-gray-700/50' : ''}`}
+                            >
+                              <span title={a.name} className="font-semibold text-gray-900 dark:text-white truncate">{a.name}</span>
+                              <span className="text-xs text-gray-500 dark:text-gray-400 shrink-0">{a.balance}</span>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
 
-                <span className="text-lg font-semibold text-gray-900 dark:text-white">
-                  {formatBalance(currentTokenInfo.balance)} {currentTokenInfo.symbol}
-                </span >
+                    {/* Amount input with asset name on the right */}
+                    <div className="relative flex-1 bg-[#E5E5E540]">
+                      <input
+                        disabled={loader || !asset}
+                        onWheel={(e) => e.target.blur()}
+                        type="number"
+                        value={row.amount}
+                        onChange={(e) => handleAmountChange(i, e.target.value)}
+                        placeholder="0.00"
+                        className="text-sm [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none w-full p-4 pr-24 border rounded-lg outline-none focus:ring-2 focus:ring-primary"
+                      />
+                      {asset && (
+                        <span
+                          title={asset.name}
+                          className="absolute right-3 top-1/2 -translate-y-1/2 max-w-[80px] truncate text-sm font-semibold text-gray-400 pointer-events-none"
+                        >
+                          {asset.name}
+                        </span>
+                      )}
+                    </div>
 
-              </div >
-            </div >
-            <div className="relative bg-[#E5E5E540]">
-              <input
-                disabled={loader}
-                onWheel={(e) => e.target.blur()}
-                type="number"
-                value={amount}
-                onChange={(e) => {
-                  let value = e.target.value
+                    {/* Remove row */}
+                    {rows.length > 1 && (
+                      <button
+                        type="button"
+                        disabled={loader}
+                        onClick={() => handleRemoveRow(i)}
+                        aria-label="Remove asset"
+                        className="px-2 text-gray-400 hover:text-red-500 transition-colors"
+                      >
+                        <FiX className="w-5 h-5" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
 
-                  // Match number pattern with up to 3 decimal places
-                  const regex = /^\d*\.?\d{0,3}$/;
-
-                  // If value matches regex and is within limits, update amount
-                  if (value && regex.test(value) && (parseFloat(value) >= 0 && parseFloat(value) <= parseFloat(currentTokenInfo.balance))) {
-                    setAmount(value);
-                    return
-                  }
-                  if (!value) {
-                    setAmount(value);
-                  }
-                }}
-                placeholder="0.00"
-                className="text-sm [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none w-full p-4 border rounded-lg outline-none focus:ring-2 focus:ring-primary"
-              />
+            {/* Add another asset */}
+            {canAddRow && (
               <button
                 type="button"
                 disabled={loader}
-                onClick={() => setAmount(currentTokenInfo.balance)}
-                className="absolute font-semibold text-base right-4 top-1/2 -translate-y-1/2 text-[#135B0C] hover:text-primary-light"
+                onClick={handleAddRow}
+                className="flex items-center space-x-2 text-primary hover:text-primary-light text-sm font-semibold"
               >
-                MAX
+                <FiPlus className="w-4 h-4" />
+                <span>Add asset</span>
               </button>
-            </div>
-          </div >
+            )}
+          </div>
 
           {/* Recipient Address */}
           < div className="space-y-2" >
@@ -414,20 +611,22 @@ export default function SendModal({ isOpen, onClose, accountInfo, setIsTransacti
               Recipient Address
             </label>
             <div className="space-y-2">
-              <input
-                disabled={loader}
-                type="text"
-                value={recipientAddress}
-                onChange={(e) => {
-                  setRecipientAddress(e.target.value)
-                  setRecipientName('')
-                  if (!e.target.value) {
-                    setShowSaveToFavorites(false)
-                  }
-                }}
-                placeholder="Enter recipient's address"
-                className="w-full p-4 bg-gray-50 text-sm dark:bg-gray-900 rounded-lg outline-none focus:ring-2 focus:ring-primary"
-              />
+              <div className="relative bg-[#E5E5E540]">
+                <input
+                  disabled={loader}
+                  type="text"
+                  value={recipientAddress}
+                  onChange={(e) => {
+                    setRecipientAddress(e.target.value)
+                    setRecipientName('')
+                    if (!e.target.value) {
+                      setShowSaveToFavorites(false)
+                    }
+                  }}
+                  placeholder="Enter recipient's address"
+                  className="text-sm w-full p-4 border rounded-lg outline-none focus:ring-2 focus:ring-primary"
+                />
+              </div>
               {recipientAddress && !recipientName && !showSaveToFavorites && (
                 <motion.button
                   disabled={loader}
@@ -437,7 +636,7 @@ export default function SendModal({ isOpen, onClose, accountInfo, setIsTransacti
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                 >
-                  <div className='flex items-center text-lg text-[#118902]'>
+                  <div className='flex items-center text-lg text-primary'>
                     <FiStar className="w-5 h-5 mr-1" />
                     <span className='font-semibold text-sm'>Save to Favorites</span>
                   </div>
@@ -484,7 +683,7 @@ export default function SendModal({ isOpen, onClose, accountInfo, setIsTransacti
           </AnimatePresence >
 
           <label className="block text-sm font-semibold text-gray-900 dark:text-white">
-            Comments (optional)
+            Comment / Memo
           </label>
           <div className="relative bg-[#E5E5E540]">
             <input
@@ -494,15 +693,14 @@ export default function SendModal({ isOpen, onClose, accountInfo, setIsTransacti
               onChange={(e) => {
                 setComments(e?.target.value);
               }}
-              placeholder="Add your comments"
+              placeholder="Add a comment or memo"
               className="text-sm w-full p-4 border rounded-lg outline-none focus:ring-2 focus:ring-primary"
             />
           </div>
 
           {/* Submit Button */}
           <button
-            disabled={loader || !recipientAddress || !amount || (!userDetails?.tokenSymbol && !selectedToken)}
-            onClick={(e) => onClickSendToken(e)}
+            disabled={loader || !canSend}
             type="submit"
             className="w-full bg-secondary hover:bg-secondary text-white font-semibold py-4 px-6 rounded-lg flex items-center justify-center space-x-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
@@ -514,12 +712,14 @@ export default function SendModal({ isOpen, onClose, accountInfo, setIsTransacti
               ) : (
                 <>
                   <FiSend className="w-5 h-5" />
-                  <span>Send {currentTokenInfo.symbol}</span>
+                  <span>Send</span>
                 </>
               )
             }
           </button >
         </form >
+        </>
+        )}
       </motion.div >
     </div >
   );

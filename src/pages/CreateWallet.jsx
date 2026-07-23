@@ -5,11 +5,13 @@ import BackButton from '../components/BackButton';
 import Button from '../components/Button';
 import Card from '../components/Card';
 import { routes } from '../routes/routes';
+import useRestoreAccountBack from '../hooks/useRestoreAccountBack';
 
 export default function CreateWallet() {
   const navigate = useNavigate();
   const location = useLocation();
   const fromDashboard = location.state?.fromDashboard || false;
+  const handleBack = useRestoreAccountBack(fromDashboard);
 
   const [checkboxes, setCheckboxes] = useState({
     responsible: false,
@@ -36,7 +38,7 @@ export default function CreateWallet() {
     <Card>
 
       <div className="space-y-6 flex flex-col w-full h-full  justify-center ">
-        <BackButton />
+        <BackButton onClick={handleBack} />
         <div className="flex items-center space-x-4">
           <div className="w-12 h-12 bg-tertiary rounded-xl flex items-center justify-center">
             <FiShield className="w-6 h-6 text-primary" />

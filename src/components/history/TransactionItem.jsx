@@ -1,14 +1,15 @@
 import { motion } from 'framer-motion';
 import { FiArrowUpRight, FiArrowDownLeft, FiCopy } from 'react-icons/fi';
 import { getTimeAgo, sliceString } from '../../utils/utils';
-import { formatBalance } from '../../utils';
-import { config } from '../../../config';
-import { useContext } from 'react';
+import { buildTxnExplorerUrl } from '../../utils/network';
+import { TransactionAmount, TransactionAssets } from '../TransactionAmount';
+import { useContext, useState } from 'react';
 import { UserContext } from '../../context/userContext';
 import toast from 'react-hot-toast';
 
-export default function TransactionItem({ type, Status, Amount, Epoch, SenderDID, TransactionID, ReceiverDID }) {
+export default function TransactionItem({ type, Status, Amount, Symbol, Assets, Epoch, DateTime, SenderDID, TransactionID, ReceiverDID }) {
   const { userDetails } = useContext(UserContext);
+  const [expanded, setExpanded] = useState(false);
 
   const handleCopy = async (text) => {
     await navigator.clipboard.writeText(text);
@@ -16,22 +17,11 @@ export default function TransactionItem({ type, Status, Amount, Epoch, SenderDID
   };
 
   const onClickTxnId = (id) => {
-    let link = ''
-    if (userDetails?.network == 1) {
-      link = config.RUBIX_MAINNET_TXN_LINK
-    }
-    else if (userDetails?.network == 2) {
-      link = config.RUBIX_TESTNET_TXN_LINK
-    }
-    else if (userDetails?.network == 3) {
-      link = config.TRIE_TESTNET_TXN_LINK
-    }
-    if (!link) {
-      return
-    }
-    const finalUrl = link.endsWith('/') ? `${link}${id}` : `${link}?tx=${id}`;
+    const finalUrl = buildTxnExplorerUrl(userDetails?.network, id);
+    if (!finalUrl) return;
     window.open(finalUrl, '_blank')
   }
+
   return (
     <motion.div
       className="w-full p-4 border border-[#E5E7EB] rounded-lg bg-white dark:bg-gray-800 transition-colors flex flex-col gap-2 mb-3"
@@ -41,16 +31,14 @@ export default function TransactionItem({ type, Status, Amount, Epoch, SenderDID
       <div className="flex justify-between w-full">
         {/* LEFT: Icon + (Status + Time) */}
         <div className="flex items-start gap-2">
-          {/* Icon */}
           <motion.div
-            className={`p-2 rounded-lg flex items-center justify-center 
-              ${!Status ? 'bg-red-100/50' : type === 'Sent' ? 'bg-blue-100/50' : 'bg-green-100/50'}`}
+            className={`p-2 rounded-lg flex items-center justify-center ${!Status ? 'bg-red-100/50' : type === 'Sent' ? 'bg-primary-soft' : 'bg-emerald-100/50'}`}
           >
             {type === 'Sent' ? (
               <motion.div
                 whileHover={{ rotate: 360 }}
                 transition={{ duration: 0.6 }}
-                className={`rounded-lg ${Status === "Completed" ? 'bg-blue-600' : 'bg-[#8B5CF6]'} p-1`}
+                className="rounded-lg bg-primary p-1"
               >
                 <FiArrowUpRight className="w-5 h-5 text-white" />
               </motion.div>
@@ -58,7 +46,7 @@ export default function TransactionItem({ type, Status, Amount, Epoch, SenderDID
               <motion.div
                 whileHover={{ rotate: 360 }}
                 transition={{ duration: 0.6 }}
-                className="rounded-lg bg-[#16B500] p-1"
+                className="rounded-lg bg-emerald-600 p-1"
               >
                 <FiArrowDownLeft className="w-5 h-5 text-white" />
               </motion.div>
@@ -67,23 +55,26 @@ export default function TransactionItem({ type, Status, Amount, Epoch, SenderDID
 
           {/* Status + Time vertically stacked */}
           <div className="flex flex-col leading-tight">
-            <span className={`text-[14px] px-2 py-0.5 rounded 
-              ${!Status ? 'bg-red-100/50 text-red-600' : 'bg-green-100/50 text-green-600'}`}>
-              {Status ? "Completed" : "Failed"}
+            <span className={`text-[14px] px-2 py-0.5 rounded ${!Status ? 'bg-red-100/50 text-red-600' : 'bg-green-100/50 text-green-600'}`}>
+              {Status ? "Success" : "Failed"}
             </span>
             <span className="text-[12px] text-gray-500">
-              {getTimeAgo(Epoch)}
+              {getTimeAgo(Epoch, DateTime)}
             </span>
           </div>
         </div>
 
-        {/* RIGHT: Amount + DID vertically stacked */}
+        {/* RIGHT: Amount (single, or "first + more" expandable) + DID */}
         <div className="flex flex-col items-end leading-tight">
-        {((userDetails?.network == 4) && Amount === 0) ? null : (
-                <div className="font-semibold text-gray-900 dark:text-white text-xl text-senary">
-                  {formatBalance(Amount)} {userDetails?.tokenSymbol}
-                </div>
-              )}
+          <TransactionAmount
+            assets={Assets}
+            amount={Amount}
+            symbol={Symbol}
+            fallbackSymbol={userDetails?.tokenSymbol}
+            type={type}
+            expanded={expanded}
+            onToggle={() => setExpanded((prev) => !prev)}
+          />
           <div className="flex items-center gap-1 text-[14px] text-quinary font-medium">
             <span>{sliceString(type === 'Sent' ? ReceiverDID : SenderDID, 4)}</span>
             <motion.button
@@ -97,6 +88,17 @@ export default function TransactionItem({ type, Status, Amount, Epoch, SenderDID
           </div>
         </div>
       </div>
+
+      {/* Expanded per-asset breakdown for multi-asset transfers */}
+      {expanded && (
+        <TransactionAssets
+          assets={Assets}
+          amount={Amount}
+          symbol={Symbol}
+          fallbackSymbol={userDetails?.tokenSymbol}
+          type={type}
+        />
+      )}
 
       {/* TXN ID: full width at bottom */}
       <div className="flex items-center text-[14px] font-medium text-gray-500">

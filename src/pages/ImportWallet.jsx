@@ -5,13 +5,11 @@ import toast from 'react-hot-toast';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { routes } from '../routes/routes';
 import BackButton from '../components/BackButton';
+import useRestoreAccountBack from '../hooks/useRestoreAccountBack';
 import Card from '../components/Card';
 import indexDBUtil from '../indexDB';
 import { deriveKeysFromMnemonic } from '../utils/migration';
 import { END_POINTS } from '../api/endpoints';
-import { getConfigPromise } from '../../config';
-import { getLegacyDIDCheckNetworks } from '../utils/networkConfig';
-import axios from 'axios';
 
 
 const Header = () => {
@@ -37,6 +35,7 @@ const ImportWallet = () => {
   const navigate = useNavigate()
   const location = useLocation()
   const fromDashboard = location.state?.fromDashboard || false;
+  const handleBack = useRestoreAccountBack(fromDashboard);
 
   const handleDrop = useCallback((e) => {
     e.preventDefault();
@@ -105,37 +104,6 @@ const ImportWallet = () => {
         return
       }
 
-      let legacyDid = null;
-      try {
-        await getConfigPromise();
-
-        const rubixNetworks = getLegacyDIDCheckNetworks();
-
-        for (const network of rubixNetworks) {
-          if (!network.baseUrl) continue;
-
-          try {
-            const networkApi = axios.create({
-              baseURL: network.baseUrl,
-              headers: { 'Content-Type': 'application/json' }
-            });
-
-            const legacyDIDResponse = await networkApi.post('/rubix/v1/dids/create', {
-              public_key: keys.legacyCompressedPublicKey,
-              password: ''
-            });
-            const did = legacyDIDResponse?.data?.result?.did;
-
-            if (did) {
-              legacyDid = did;
-              break;
-            }
-          } catch (e) {
-          }
-        }
-      } catch (e) {
-      }
-
       toast.success('Phrase verified successfully')
 
       navigate(routes.SETUP_WALLET, {
@@ -144,10 +112,7 @@ const ImportWallet = () => {
           publickey: keys.uncompressedPublicKey,
           privatekey: keys.privateKey,
           mnemonics: trimed,
-          fromDashboard,
-          legacyDid: legacyDid,
-          legacyPrivateKey: legacyDid ? keys.legacyPrivateKey : null,
-          needsLegacyMigration: !!legacyDid
+          fromDashboard
         }
       })
     } catch (error) {
@@ -256,7 +221,7 @@ const ImportWallet = () => {
   return (
     <Card>
       <div className="space-y-6 py-10 pb-6 flex flex-col w-full  justify-center">
-        <BackButton />
+        <BackButton onClick={handleBack} />
 
         <div className="">
           <div className="flex items-center gap-3 mb-6">

@@ -1,18 +1,31 @@
 import { useContext, useEffect, useRef, useState } from 'react';
-import { FiCheck, FiChevronDown, FiEye } from 'react-icons/fi';
+import { FiCheck, FiChevronDown, FiEye, FiAlertCircle } from 'react-icons/fi';
 import SettingCard from './SettingCard';
 import PinSettings from './security/PinSettings';
 import { AnimatePresence, motion } from 'framer-motion';
 import { UserContext } from '../../context/userContext';
 import { useNavigate } from 'react-router-dom';
+import { getSkipConfirm, setSkipConfirm as persistSkipConfirm } from '../../utils/sendPrefs';
 
 
 export default function SecuritySettings() {
-  const { setAutoLockTime, autoLockTime, setUserDetails } = useContext(UserContext);
+  const { setAutoLockTime, autoLockTime, setUserDetails, userDetails } = useContext(UserContext);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  // "Ask before sending" is the inverse of the skip-confirmation preference.
+  const [askBeforeSend, setAskBeforeSend] = useState(true);
 
   const dropdownRef = useRef(null);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    setAskBeforeSend(!getSkipConfirm(userDetails?.did));
+  }, [userDetails?.did]);
+
+  const handleToggleAskBeforeSend = () => {
+    const nextAsk = !askBeforeSend;
+    setAskBeforeSend(nextAsk);
+    persistSkipConfirm(userDetails?.did, !nextAsk);
+  };
   const sortOptions = [
     { label: 0, value: 0 },
     { label: 1, value: 1 },
@@ -101,6 +114,33 @@ export default function SecuritySettings() {
                 )}
               </AnimatePresence>
             </div>
+          </div>
+        </SettingCard>
+
+        {/* Send Confirmation */}
+        <SettingCard>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center">
+              <FiAlertCircle className="w-5 h-5 text-primary" />
+              <div className="ms-2">
+                <h3 className="font-medium text-sm text-senary dark:text-white">
+                  Send Confirmation
+                </h3>
+                <p className="text-xs text-quinary">Ask for confirmation before sending tokens</p>
+              </div>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={askBeforeSend}
+              aria-label="Toggle send confirmation"
+              onClick={handleToggleAskBeforeSend}
+              className={`relative inline-flex h-6 w-11 flex-shrink-0 items-center rounded-full transition-colors ${askBeforeSend ? 'bg-primary' : 'bg-gray-300 dark:bg-gray-600'}`}
+            >
+              <span
+                className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${askBeforeSend ? 'translate-x-5' : 'translate-x-1'}`}
+              />
+            </button>
           </div>
         </SettingCard>
 
